@@ -1,0 +1,30 @@
+(env
+ (_
+  (flags
+   (:standard -w +A-39-4-42))))
+
+(include_subdirs unqualified)
+
+(ocamllex
+ (modules lexer))
+
+(menhir
+ (modules parser)
+ (flags
+  ("--explain" "-la" "2")))
+
+
+(library
+ (name synMPSTlib)
+ (public_name synMPST.lib)
+ ; (libraries base stdio ocamlgraph ppxlib unix process)
+ ; (library_flags (-linkall))
+ ; (preprocess
+ ;  (pps
+ ;   ppx_deriving.show
+ ;   ppx_deriving.eq
+ ;   ppx_deriving.ord
+ ;   ppx_sexp_conv
+ ;   ppxlib.metaquot
+ ;   ppx_here))
+)

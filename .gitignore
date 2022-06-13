@@ -1,0 +1,7 @@
+# dune generated files
+
+_build
+*.opam
+
+# Macos generated files
+.DS_Store
