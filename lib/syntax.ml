@@ -1,7 +1,4 @@
 
-
-
-
 type role = string
 
 type value_type = string
@@ -40,12 +37,12 @@ module Int = struct
 
   type global
     = End
-    | RecVar of { name : rec_var ; global : global option ref }
+    | RecVar of { name : rec_var ; global : global ref option ref } (* the two references are wonky, but we want to be sure we keep pointers to things *)
     | Rec of rec_var * global
     | Choice of global_branch list
 
   and global_branch
-    = Message of role * role * message_label * global
+    = Message of { sender: role ; receiver: role ; label: message_label ; continuation: global}
 
   let rec subst g x = function
     | RecVar y when x = y.name -> g
@@ -55,15 +52,41 @@ module Int = struct
     | End -> End
     | Choice branches ->
       Choice (List.map
-                (function Message (a, b, t, g') -> Message (a, b, t, subst g x g'))
+                (function Message {sender ; receiver ; label ; continuation} ->
+                   Message {sender ; receiver ; label ; continuation = subst g x continuation})
                 branches)
-
 
   (* Unfold a type that begins with Rec *)
   let unfold_top = function
     | Rec (_, _) -> End
     | g -> g
 
+
+  let well_scoped (g : global) : global option =
+    let ctx : (rec_var *  global ref) list ref = ref [] in
+    let rec lookup x =
+      List.find (fun y -> x = fst y) !ctx
+    in
+    let rec f = function
+    | RecVar {name ; global} ->
+      let (_, g') = lookup name in
+      global := Some g' ;
+      RecVar {name ; global}
+
+    | Rec (y, g') ->
+      ctx := (y, ref g) :: !ctx ;
+      Rec (y, f g')
+
+    | End -> End
+
+    | Choice _branches ->
+
+      assert false
+    in
+    try
+      Some (f g)
+    with
+      _ -> None
 end
 
 let translate (g : (Ext.global_interaction list) protocol) : Int.global protocol =
@@ -84,7 +107,7 @@ let translate (g : (Ext.global_interaction list) protocol) : Int.global protocol
     | [] -> I.End
   and tr_branch = function
     | MessageTransfer{label ; sender ; receiver}::gis ->
-      I.Message(sender, receiver, label, tr gis)
+      I.Message {sender; receiver; label; continuation =  tr gis}
     | _ -> assert false (* not a branch *)
   in
   let Protocol {name ; roles ; interactions} = g in
