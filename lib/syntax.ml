@@ -40,6 +40,8 @@ module Int = struct
   and global_branch
     = Message of { tr_label : transition_label ; continuation: global}
 
+  type compilation_unit = global protocol list
+
   let get_global_ref (g : global ref option ref) : global ref =
     match !g with
     | Some g' -> g'
@@ -153,6 +155,11 @@ module Int = struct
     | Some g' -> syntactic_checks g'
     | None -> false
 
+  let validate_compilation_unit cu =
+    List.for_all
+      (function Protocol { name = _ ; roles = _ ; interactions} -> validate_global_type interactions)
+      cu
+
 end
 
 let translate (g : (Ext.global_interaction list) protocol) : Int.global protocol =
@@ -178,3 +185,6 @@ let translate (g : (Ext.global_interaction list) protocol) : Int.global protocol
   in
   let Protocol {name ; roles ; interactions} = g in
   Protocol {name ; roles ; interactions = tr interactions}
+
+let translate_compilation_unit (cu : Ext.compilation_unit) : Int.compilation_unit =
+  List.map translate cu

@@ -30,6 +30,9 @@ module Int :
       | Choice of global_branch list
     and global_branch =
         Message of { tr_label : transition_label; continuation : global; }
+
+    type compilation_unit = global protocol list
+
     val get_global_ref : global ref option ref -> global ref
     val subst : global -> rec_var -> global -> global
     val unfold_top : global -> global
@@ -39,5 +42,7 @@ module Int :
     val get_enabled_transitions :
       role list -> role list -> global -> transition_label list
     val validate_global_type : global -> bool
+    val validate_compilation_unit : compilation_unit -> bool
   end
 val translate : Ext.global_interaction list protocol -> Int.global protocol
+val translate_compilation_unit : Ext.compilation_unit -> Int.compilation_unit

@@ -79,8 +79,9 @@ let analyse () =
   try
     let () = Interface.Error.reset () in
     let protocol = Interface.Code.get () in
-    let _  = SynMPSTlib.parse_string protocol in
-    Interface.Error.display_exn "Parsed successfully"
+    let cu  = SynMPSTlib.parse_string protocol in
+    let _cu' = SynMPSTlib.translate_and_validate cu in
+    Interface.Error.display_exn "Parsed and validated successfully."
   with
   | _ -> Interface.Error.display_exn "Parser error"
 
