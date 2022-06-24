@@ -16,16 +16,12 @@ type 'a protocol =
                 ; interactions : 'a
                 }
 
+type transition_label = {sender: role ; receiver: role ; label: message_label}
 
 module Ext = struct
 
   type global_interaction  (* consider renaming just global *)
-    = MessageTransfer of
-      { label : message_label
-      ; sender : role
-      ; receiver : role
-      }
-
+    = MessageTransfer of transition_label
     | Recursion of rec_var * global_interaction list
     | Continue of rec_var
     | Choice of global_interaction list list
@@ -34,8 +30,6 @@ module Ext = struct
 end
 
 module Int = struct
-
-  type transition_label = {sender: role ; receiver: role ; label: message_label}
 
   type global
     = End
@@ -178,8 +172,8 @@ let translate (g : (Ext.global_interaction list) protocol) : Int.global protocol
     | Continue _::_ -> assert false (* unexpected continuation after continue *)
     | [] -> I.End
   and tr_branch = function
-    | MessageTransfer{label ; sender ; receiver}::gis ->
-      I.Message { tr_label = {I.sender; I.receiver; I.label} ; continuation =  tr gis}
+    | MessageTransfer{sender ; receiver; label}::gis ->
+      I.Message { tr_label = {sender; receiver; label} ; continuation =  tr gis}
     | _ -> assert false (* not a branch *)
   in
   let Protocol {name ; roles ; interactions} = g in

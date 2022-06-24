@@ -4,12 +4,18 @@ type message_label = { name : string; payloads : value_type list; }
 type rec_var = string
 type 'a protocol =
     Protocol of { name : string; roles : string list; interactions : 'a; }
+
+
+type transition_label = {
+  sender : role;
+  receiver : role;
+  label : message_label;
+}
+
 module Ext :
   sig
     type global_interaction =
-        MessageTransfer of { label : message_label; sender : role;
-          receiver : role;
-        }
+        MessageTransfer of transition_label
       | Recursion of rec_var * global_interaction list
       | Continue of rec_var
       | Choice of global_interaction list list
@@ -17,11 +23,6 @@ module Ext :
   end
 module Int :
   sig
-    type transition_label = {
-      sender : role;
-      receiver : role;
-      label : message_label;
-    }
     type global =
         End
       | RecVar of { name : rec_var; global : global ref option ref; }
