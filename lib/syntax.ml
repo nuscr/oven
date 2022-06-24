@@ -61,7 +61,7 @@ module Int = struct
     | Rec (_, _) -> End
     | g -> g
 
-
+  (* tests the type is well scoped and connects all the recursion variables to form a graph *)
   let well_scoped (g : global) : global option =
     let ctx : (rec_var *  global ref) list ref = ref [] in
     let rec lookup x =
