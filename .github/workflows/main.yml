@@ -28,7 +28,7 @@ jobs:
           path: _opam
           key: ${{ runner.os }}-${{ matrix.ocaml-version }}-${{ hashFiles('dune-project') }}
 
-      - run: opam install . --deps-only
+      - run: opam install .
 
       - run: opam exec -- dune build
 
