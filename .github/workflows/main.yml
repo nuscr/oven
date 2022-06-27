@@ -34,7 +34,7 @@ jobs:
 
       # - run: cd SynMPST && opam install . --deps-only --with-doc --with-test
 
-      - run: cd SynMPST && opam install menhir dune
+      - run: cd SynMPST && opam install menhir dune js_of_ocaml js_of_ocaml-ppx js_of_ocaml-tyxml
 
       - run: cd SynMPST && opam exec -- dune build
 
