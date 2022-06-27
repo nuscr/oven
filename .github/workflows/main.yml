@@ -33,7 +33,9 @@ jobs:
           path: _opam
           key: ${{ runner.os }}-${{ matrix.ocaml-version }}-${{ hashFiles('dune-project') }}
 
-      - run: cd SynMPST && opam install . --deps-only --with-doc --with-test
+      # - run: cd SynMPST && opam install . --deps-only --with-doc --with-test
+
+      - run: cd SynMPST && opam install menhir dune
 
       - run: cd SynMPST && opam exec -- dune build
 
