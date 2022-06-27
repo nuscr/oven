@@ -39,11 +39,11 @@ jobs:
       - run: cd SynMPST && opam exec -- dune build
 
       - name: Deploy live version
-        run: cd SynMPST && mkdir -p /tmp/site && WHERE=/tmp/site opam exec -- make -C web deploy
+        run: cd SynMPST && mkdir -p site && WHERE=../site opam exec -- make -C web deploy
 
       - name: Actually deploy
         if: github.event_name == 'push'
         uses: JamesIves/github-pages-deploy-action@v4.3.3
         with:
           branch: gh-pages
-          folder: /tmp/site
+          folder: SynMPST/site
