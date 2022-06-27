@@ -73,6 +73,30 @@ let display_roles scr l =
 (* let display_roles scr l = *)
 (*   To_dom.of_element @@ T.(ul (List.map (display_role scr) l)) *)
 
+let display_label (protocol, label) =
+  (* let lk_p = *)
+  (*   Of_dom.of_anchor *)
+  (*     (W.make_link (fun () -> project scr (protocol, role)) "Project") *)
+  (* in *)
+  (* let lk_f = *)
+  (*   Of_dom.of_anchor (W.make_link (fun () -> fsm scr (protocol, role)) "FSM") *)
+  (* in *)
+  let l : string = SynMPSTlib.string_of_transition_label label in
+  T.(li [ txt protocol
+        ; txt " : "
+        ; txt l])
+  (* T.( *)
+  (*   li *)
+  (*     [ txt (show_protocol_role protocol role) *)
+  (*     ; txt " [ " *)
+  (*     ; lk_p *)
+  (*     ; txt " ] " *)
+  (*     ; txt " [ " *)
+  (*     ; lk_f *)
+  (*     ; txt " ] " ]) *)
+
+let display_labels (lbls : (string * SynMPSTlib__.Syntax.transition_label) list) =
+  To_dom.of_element @@ T.(ul (List.map display_label lbls))
 
 
 let analyse () =
@@ -80,8 +104,14 @@ let analyse () =
     let () = Interface.Error.reset () in
     let protocol = Interface.Code.get () in
     let cu  = SynMPSTlib.parse_string protocol in
-    let _cu' = SynMPSTlib.translate_and_validate cu in
-    Interface.Error.display_exn "Parsed and validated successfully."
+
+    match SynMPSTlib.translate_and_validate cu with
+    | Some cu' ->
+      let labels = SynMPSTlib.get_transitions cu' in
+      let labels_html = display_labels labels in
+      W.(set_children (get "result") [(labels_html :> Dom.node Js.t)])
+    | None ->
+      Interface.Error.display_exn "Something went wrong."
   with
   | _ -> Interface.Error.display_exn "Parser error"
 

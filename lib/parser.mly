@@ -67,10 +67,10 @@ let global_protocol_decl ==
   rs = role_decls ;
   body = global_protocol_body ;
   {
-    Protocol { name = nm
-             ; roles = rs
-             ; interactions = body
-             }
+    { protocol_name = nm
+    ; roles = rs
+    ; interactions = body
+    }
   }
 
 

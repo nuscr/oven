@@ -3,7 +3,7 @@ type value_type = string
 type message_label = { name : string; payloads : value_type list; }
 type rec_var = string
 type 'a protocol =
-    Protocol of { name : string; roles : string list; interactions : 'a; }
+  { protocol_name : string; roles : string list; interactions : 'a; }
 
 
 type transition_label = {
@@ -11,6 +11,8 @@ type transition_label = {
   receiver : role;
   label : message_label;
 }
+
+val string_of_transition_label : transition_label -> string
 
 module Ext :
   sig
@@ -39,8 +41,7 @@ module Int :
     val syntactic_checks : global -> bool
     val syntactic_checks_branches : global_branch list -> bool
     val well_scoped : global -> global option
-    val get_enabled_transitions :
-      role list -> role list -> global -> transition_label list
+    val get_transitions : compilation_unit -> (string * transition_label) list
     val validate_global_type : global -> bool
     val validate_compilation_unit : compilation_unit -> bool
   end

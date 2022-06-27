@@ -11,12 +11,15 @@ type message_label =
 type rec_var = string
 
 type 'a protocol =
-    Protocol of { name : string
-                ; roles : string list
-                ; interactions : 'a
-                }
+    { protocol_name : string
+    ; roles : string list
+    ; interactions : 'a
+    }
 
 type transition_label = {sender: role ; receiver: role ; label: message_label}
+
+let string_of_transition_label lbl =
+  lbl.sender ^ "->" ^ lbl.receiver ^ "<" ^ lbl.label.name ^ ">"
 
 module Ext = struct
 
@@ -139,7 +142,8 @@ module Int = struct
         List.filter is_not_blocked
       in
       let blocked' =
-        (blocked  @ List.concat_map (function {sender ; receiver ; _} -> [sender ; receiver]) labels) |> Utils.uniq
+        (blocked  @ List.concat_map (function {sender ; receiver ; _} -> [sender ; receiver]) labels)
+        |> Utils.uniq
       in
 
       (* labels in the continuations of this choice *)
@@ -149,6 +153,9 @@ module Int = struct
 
       labels @ List.concat_map f branches
 
+  let get_transitions (cu : compilation_unit) : (string * transition_label) list =
+    List.concat_map (fun p ->
+        get_enabled_transitions p.roles [] p.interactions |> List.map (fun lbls -> (p.protocol_name, lbls))) cu
 
   let validate_global_type g =
     match well_scoped g with
@@ -157,7 +164,7 @@ module Int = struct
 
   let validate_compilation_unit cu =
     List.for_all
-      (function Protocol { name = _ ; roles = _ ; interactions} -> validate_global_type interactions)
+      (function { protocol_name = _ ; roles = _ ; interactions} -> validate_global_type interactions)
       cu
 
 end
@@ -183,8 +190,8 @@ let translate (g : (Ext.global_interaction list) protocol) : Int.global protocol
       I.Message { tr_label = {sender; receiver; label} ; continuation =  tr gis}
     | _ -> assert false (* not a branch *)
   in
-  let Protocol {name ; roles ; interactions} = g in
-  Protocol {name ; roles ; interactions = tr interactions}
+  let {protocol_name ; roles ; interactions} = g in
+  {protocol_name ; roles ; interactions = tr interactions}
 
 let translate_compilation_unit (cu : Ext.compilation_unit) : Int.compilation_unit =
   List.map translate cu
