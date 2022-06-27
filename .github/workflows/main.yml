@@ -17,8 +17,6 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v2
-        with:
-          path: SynMPST
 
       - name: Use OCaml ${{ matrix.ocaml-version }}
         uses: ocaml/setup-ocaml@v2
@@ -34,16 +32,16 @@ jobs:
 
       # - run: cd SynMPST && opam install . --deps-only --with-doc --with-test
 
-      - run: cd SynMPST && opam install menhir dune js_of_ocaml js_of_ocaml-ppx js_of_ocaml-tyxml
+      - run: opam install menhir dune js_of_ocaml js_of_ocaml-ppx js_of_ocaml-tyxml
 
-      - run: cd SynMPST && opam exec -- dune build
+      - run: opam exec -- dune build
 
       - name: Deploy live version
-        run: cd SynMPST && mkdir -p site && WHERE=../site opam exec -- make -C web deploy
+        run: WHERE=../site opam exec -- make -C web deploy
 
       - name: Actually deploy
         if: github.event_name == 'push'
         uses: JamesIves/github-pages-deploy-action@v4.3.3
         with:
           branch: gh-pages
-          folder: SynMPST/SynMPST/site
+          folder: site
