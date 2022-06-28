@@ -83,7 +83,6 @@ type 'lbl trace
 
 
 let string_of_trace (trace : 'lbl trace) (label_printer : 'lbl -> string) : string =
-
   let rec print (n : int) =
     let pad = String.make (n * 2) ' ' in
     function
