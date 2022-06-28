@@ -73,3 +73,41 @@ let do_transition (roles : role list) (g : global) (lbl : transition_label) : gl
         find_in_continuation branches
     in
     f g
+
+
+
+type 'lbl trace
+   = Done
+   | OutOfFuel
+   | Split of ('lbl * 'lbl trace) list
+
+
+let string_of_trace (trace : 'lbl trace) (label_printer : 'lbl -> string) : string =
+
+  let rec print (n : int) =
+    let pad = String.make (n * 2) ' ' in
+    function
+    | Done -> pad ^ "Done.\n"
+    | OutOfFuel -> pad ^ "Out of fuel...\n"
+    | Split lac ->
+      List.map (fun (l, tr) -> pad ^ label_printer l ^ "-\n" ^ (print (n + 1) tr)) lac |> String.concat "\n"
+  in
+  print 0 trace
+
+let rec global_trace (fuel : int) (roles : role list) (g : global) : transition_label trace =
+  if fuel = 0 then OutOfFuel else
+  let labels = get_enabled_transitions roles [] g in
+
+  let rec get_continuations_for_labels = function
+    | [] -> []
+    | lbl::lbls ->
+      let g' = do_transition roles g lbl in
+      (* get g' should be safe because we are constructing from the labels *)
+      (lbl, Option.get g' |> global_trace (fuel - 1) roles)::get_continuations_for_labels lbls
+  in
+
+  let labels_and_conts = get_continuations_for_labels labels in
+
+  match labels_and_conts with
+  | [] -> Done
+  | _ -> Split labels_and_conts
