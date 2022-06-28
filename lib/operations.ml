@@ -84,12 +84,12 @@ type 'lbl trace
 
 let string_of_trace (trace : 'lbl trace) (label_printer : 'lbl -> string) : string =
   let rec print (n : int) =
-    let pad = String.make (n * 2) ' ' in
+    let pad = String.make n '.' in
     function
     | Done -> pad ^ "Done.\n"
     | OutOfFuel -> pad ^ "Out of fuel...\n"
     | Split lac ->
-      List.map (fun (l, tr) -> pad ^ label_printer l ^ "-\n" ^ (print (n + 1) tr)) lac |> String.concat "\n"
+      List.map (fun (l, tr) -> pad ^ label_printer l ^ " ~~>\n" ^ (print (n + 1) tr)) lac |> String.concat "\n"
   in
   print 0 trace
 
