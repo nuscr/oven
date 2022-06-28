@@ -37,3 +37,39 @@ let rec get_enabled_transitions (roles : role list ) (blocked : role list) : glo
 let get_transitions (cu : compilation_unit) : (string * transition_label) list =
   List.concat_map (fun p ->
       get_enabled_transitions p.roles [] p.interactions |> List.map (fun lbls -> (p.protocol_name, lbls))) cu
+
+let do_transition (roles : role list) (g : global) (lbl : transition_label) : global option =
+  let et = get_enabled_transitions roles [] g in
+  if not (List.mem lbl et) then
+    None
+  else
+    let rec f = function
+    | End -> None
+    | RecVar {name = _ ; global} -> f !(get_global_ref global) (* for the variables we just follow the reference *)
+    | Rec (_, global) -> f global (* since the variables are unfolded by reference we don't need to unfold *)
+    | Choice branches -> fb branches
+    and fb branches =
+      (* find lbl in the choice ->G-Com1 *)
+      let rec find_continuation = function
+        | [] -> None
+        | Message {tr_label ; continuation} :: _ when tr_label = lbl -> Some continuation
+        | Message {tr_label=_ ; continuation=_} :: brs -> find_continuation brs
+      in
+      (* find the lbl in the continuation ->G-Com2 *)
+      let rec find_in_continuation = function
+        | [] -> None
+        | Message {tr_label=_ ; continuation} :: brs ->
+          begin match f continuation with
+              | Some g -> Some g
+              | None -> find_in_continuation brs
+          end
+      in
+      let parts = get_branches_participants branches in
+      if (List.mem lbl.sender parts || List.mem lbl.receiver parts) then
+        (* has to be in the prefix *)
+        find_continuation branches
+      else
+        (* has to be in the continuations *)
+        find_in_continuation branches
+    in
+    f g

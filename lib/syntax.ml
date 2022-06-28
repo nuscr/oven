@@ -21,6 +21,17 @@ type transition_label = {sender: role ; receiver: role ; label: message_label}
 let string_of_transition_label lbl =
   lbl.sender ^ "->" ^ lbl.receiver ^ "<" ^ lbl.label.name ^ ">"
 
+module Local = struct
+
+  type direction = Sending | Receiving
+
+  type local_transition_label = {sender: role ; receiver: role ; direction : direction ; label: message_label}
+
+  let string_of_local_transition_label lbl =
+    let dir = match lbl.direction with Sending -> "!" | Receiving -> "?" in
+    lbl.sender ^ "/" ^ lbl.receiver ^ dir ^ lbl.label.name
+end
+
 module Ext = struct
 
   type global_interaction  (* consider renaming just global *)
@@ -36,7 +47,8 @@ module Int = struct
 
   type global
     = End
-    | RecVar of { name : rec_var ; global : global ref option ref } (* the two references are wonky, but we want to be sure we keep pointers to things *)
+    (* the two references are wonky, but we want to be sure we keep pointers to things *)
+    | RecVar of { name : rec_var ; global : global ref option ref }
     | Rec of rec_var * global
     | Choice of global_branch list
 
@@ -67,6 +79,13 @@ module Int = struct
     | Rec (_, _) -> End
     | g -> g
 
+  let get_branches_participants branches =
+    let rec f = function
+      | [] -> []
+      | Message {tr_label = {sender; receiver; label=_} ; continuation = _ } :: brs ->
+        sender::receiver::f brs
+    in
+    f branches |> Utils.uniq
 
   (* the representation is a bit more versatile than what
      our types support, we check here that it is ok.
