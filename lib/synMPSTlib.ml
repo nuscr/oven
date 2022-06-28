@@ -38,7 +38,7 @@ module Toplevel = struct
     with
       _ -> None
 
-  let get_transitions = Syntax.Int.get_transitions
+  let get_transitions = Operations.get_transitions
 
   let string_of_transition_label = Syntax.string_of_transition_label
 

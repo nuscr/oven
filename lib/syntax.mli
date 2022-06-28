@@ -41,7 +41,7 @@ module Int :
     val syntactic_checks : global -> bool
     val syntactic_checks_branches : global_branch list -> bool
     val well_scoped : global -> global option
-    val get_transitions : compilation_unit -> (string * transition_label) list
+    (* val get_transitions : compilation_unit -> (string * transition_label) list *)
     val validate_global_type : global -> bool
     val validate_compilation_unit : compilation_unit -> bool
   end
