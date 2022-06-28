@@ -107,6 +107,10 @@ let analyse () =
 
     match SynMPSTlib.translate_and_validate cu with
     | Some cu' ->
+      let tr : Dom_html.element Js.t = SynMPSTlib.get_traces_as_string cu' |> T.txt |> To_dom.of_element in
+      W.(set_children (get "projected") [(tr :> Dom.node Js.t)])
+      ;
+
       let labels = SynMPSTlib.get_transitions cu' in
       let labels_html = display_labels labels in
       W.(set_children (get "result") [(labels_html :> Dom.node Js.t)])
