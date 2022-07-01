@@ -38,15 +38,15 @@ module Toplevel = struct
     with
       _ -> None
 
-  let get_transitions = Operations.get_transitions
+  let get_transitions = Operations.Global.get_transitions
 
   let get_traces_as_string (cu : Syntax.Int.compilation_unit) : string =
     Syntax.(
     List.map (fun p ->
-          let tr = Operations.global_trace p.roles p.interactions in
+          let tr = Operations.Global.get_trace p.roles p.interactions in
         p.protocol_name
         ^ "\n"
-        ^ Operations.string_of_trace 20 tr string_of_transition_label) cu |> String.concat "\n"
+        ^ Operations.Trace.string_of_trace 20 tr string_of_transition_label) cu |> String.concat "\n"
 )
 
   let string_of_transition_label = Syntax.string_of_transition_label
