@@ -43,10 +43,10 @@ module Toplevel = struct
   let get_traces_as_string (cu : Syntax.Int.compilation_unit) : string =
     Syntax.(
     List.map (fun p ->
-          let tr = Operations.global_trace 20 p.roles p.interactions in
+          let tr = Operations.global_trace p.roles p.interactions in
         p.protocol_name
         ^ "\n"
-        ^ Operations.string_of_trace tr string_of_transition_label) cu |> String.concat "\n"
+        ^ Operations.string_of_trace 20 tr string_of_transition_label) cu |> String.concat "\n"
 )
 
   let string_of_transition_label = Syntax.string_of_transition_label

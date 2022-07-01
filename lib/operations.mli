@@ -12,9 +12,8 @@ val do_transition : role list -> global -> transition_label -> global option
 
 type 'lbl trace
    = Done
-   | OutOfFuel
    | Split of ('lbl * 'lbl trace Lazy.t) list
 
 
-val string_of_trace : 'lbl trace -> ('lbl -> string) -> string
-val global_trace : int -> role list -> global -> transition_label trace
+val string_of_trace : int -> 'lbl trace -> ('lbl -> string) -> string
+val global_trace : role list -> global -> transition_label trace
