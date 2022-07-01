@@ -83,10 +83,10 @@ type 'lbl trace
 let string_of_trace (fuel : int) (trace : 'lbl trace) (label_printer : 'lbl -> string) : string =
   let rec print fuel (n : int) trace =
     let pad = String.make n '.' in
-    if fuel = 0 then pad ^ "Out of fuel...\n"
+    if fuel = 0 then pad ^ "Out of fuel..."
     else
     match trace with
-    | Done -> pad ^ "Done.\n"
+    | Done -> pad ^ "Done."
     | Split lac ->
       List.map
         (fun (l, tr) -> pad ^ label_printer l ^ " ~~>\n" ^ (print (fuel - 1) (n + 1) (Lazy.force tr)))
