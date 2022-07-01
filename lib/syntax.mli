@@ -60,6 +60,10 @@ module Int :
     (* val get_transitions : compilation_unit -> (string * transition_label) list *)
     val validate_global_type : global -> bool
     val validate_compilation_unit : compilation_unit -> bool
+
+    (* local "types" *)
+
+    type local = global * role
   end
 val translate : Ext.global_interaction list protocol -> Int.global protocol
 val translate_compilation_unit : Ext.compilation_unit -> Int.compilation_unit

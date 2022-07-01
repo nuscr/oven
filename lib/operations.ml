@@ -113,3 +113,38 @@ module Global = struct
     | _ -> Trace.Split labels_and_conts
 
 end
+
+module Local = struct
+  module SL = Syntax.Local
+
+  let project (g : global) (r : role) : local =
+    (g, r)
+
+  let project_transition (r : role) ({sender ; receiver ; label} : transition_label) : SL.local_transition_label option =
+         if sender = r then
+           Some {sender ; receiver ; SL.direction = SL.Sending ; label}
+         else if receiver = r then
+           Some {sender ; receiver ; SL.direction = SL.Receiving ; label}
+         else
+           None
+
+  let rec get_enabled_transitions (roles : role list ) (g, r : local) : SL.local_transition_label list =
+    let global_tr = Global.get_enabled_transitions roles [] g in
+
+    List.filter_map (project_transition r)
+      global_tr
+
+  let do_transition (roles : role list) (g, r : local) (lbl : SL.local_transition_label) : local option =
+    let global_tr = Global.get_enabled_transitions roles [] g in
+
+    let local_global_tr =
+      List.filter_map
+        (fun l -> match project_transition r l with Some ll -> Some (ll, l) | None -> None)
+        global_tr
+    in
+
+    match List.assoc_opt lbl local_global_tr with
+    | Some gl ->
+      Some (Global.do_transition roles g gl |> Option.get, r)
+    | None -> None
+end

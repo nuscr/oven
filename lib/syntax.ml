@@ -154,6 +154,10 @@ module Int = struct
       (function { protocol_name = _ ; roles = _ ; interactions} -> validate_global_type interactions)
       cu
 
+  (* local "types" *)
+
+  type local = global * role
+
 end
 
 let translate (g : (Ext.global_interaction list) protocol) : Int.global protocol =
