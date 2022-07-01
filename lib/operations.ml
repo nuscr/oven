@@ -1,7 +1,6 @@
 open Syntax
 open Syntax.Int
 
-
 let rec get_enabled_transitions (roles : role list ) (blocked : role list) : global -> transition_label list =
   let is_done () =
     (* this assumes we have the right roles, maybe a stronger function can be implemented *)
@@ -79,7 +78,7 @@ let do_transition (roles : role list) (g : global) (lbl : transition_label) : gl
 type 'lbl trace
    = Done
    | OutOfFuel
-   | Split of ('lbl * 'lbl trace) list
+   | Split of ('lbl * 'lbl trace Lazy.t) list
 
 
 let string_of_trace (trace : 'lbl trace) (label_printer : 'lbl -> string) : string =
@@ -89,7 +88,7 @@ let string_of_trace (trace : 'lbl trace) (label_printer : 'lbl -> string) : stri
     | Done -> pad ^ "Done.\n"
     | OutOfFuel -> pad ^ "Out of fuel...\n"
     | Split lac ->
-      List.map (fun (l, tr) -> pad ^ label_printer l ^ " ~~>\n" ^ (print (n + 1) tr)) lac |> String.concat "\n"
+      List.map (fun (l, tr) -> pad ^ label_printer l ^ " ~~>\n" ^ (print (n + 1) (Lazy.force tr))) lac |> String.concat "\n"
   in
   print 0 trace
 
@@ -102,7 +101,7 @@ let rec global_trace (fuel : int) (roles : role list) (g : global) : transition_
     | lbl::lbls ->
       let g' = do_transition roles g lbl in
       (* get g' should be safe because we are constructing from the labels *)
-      (lbl, Option.get g' |> global_trace (fuel - 1) roles)::get_continuations_for_labels lbls
+      (lbl, lazy (Option.get g' |> global_trace (fuel - 1) roles))::get_continuations_for_labels lbls
   in
 
   let labels_and_conts = get_continuations_for_labels labels in
