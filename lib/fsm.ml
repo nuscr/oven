@@ -22,7 +22,12 @@ module GlobalLabel = struct
   let default : t = None
 
   let compare = Stdlib.compare (* consider a more specific one *)
+
+  let project r lbl =
+    Option.bind lbl
+      (fun l-> Operations.Local.project_transition r l)
 end
+
 
 module GlobalFSM = Persistent.Digraph.ConcreteLabeled (State) (GlobalLabel)
 
@@ -62,4 +67,30 @@ let generate_state_machine (g : global) : State.t * GlobalFSM.t =
   in
   (start, f start start_fsm [] g)
 
-let bar () = ()
+module Local = struct
+
+  module LocalLabel = struct
+    type t = Syntax.Local.local_transition_label option
+
+    let default : t = None
+
+    let compare = Stdlib.compare (* consider a more specific one *)
+  end
+
+  module LocalFSM = Persistent.Digraph.ConcreteLabeled (State) (LocalLabel)
+  let project (r : Syntax.role) (fsm : GlobalFSM.t) : LocalFSM.t =
+    let project_edge e =
+      LocalFSM.E.create
+        (GlobalFSM.E.src e)
+        (GlobalLabel.project r (GlobalFSM.E.label e))
+        (GlobalFSM.E.dst e)
+    in
+    let with_vertices = GlobalFSM.fold_vertex (fun s f -> LocalFSM.add_vertex f s) fsm LocalFSM.empty in
+    let with_edges =
+      GlobalFSM.fold_edges_e
+        (fun e f -> LocalFSM.add_edge_e f (project_edge e))
+        fsm
+        with_vertices
+    in
+    with_edges
+end

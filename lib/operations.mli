@@ -29,5 +29,3 @@ module Local : sig
   val do_transition : role list -> local -> Syntax.Local.local_transition_label -> local option
 
 end
-
-val foo : unit -> unit

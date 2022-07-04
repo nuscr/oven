@@ -19,4 +19,23 @@ type t
 
 val merge : t -> t -> t
 val generate_state_machine : Syntax.Int.global -> State.t * t
-val bar : unit -> unit
+
+
+module Local :
+  sig
+
+    module LocalLabel : sig
+      type t = Syntax.Local.local_transition_label option
+
+
+      val default : t
+
+      val compare : t -> t -> int
+    end
+
+  module LocalFSM : sig
+    type t
+  end
+
+  val project : Syntax.role -> t -> LocalFSM.t
+  end

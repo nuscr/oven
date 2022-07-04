@@ -148,5 +148,3 @@ module Local = struct
       Some (Global.do_transition roles g gl |> Option.get, r)
     | None -> None
 end
-
-let foo () = Fsm.bar ()
