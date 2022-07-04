@@ -45,8 +45,8 @@
   ;  (>= v0.12.0))
   ; (z3 :with-test)
   ; (odoc :with-doc)
-  ; (ocamlgraph
-  ;  (>= 1.8.8))
+  (ocamlgraph
+   (>= 1.8.8))
   ; (ppxlib
   ;  (>= 0.22.0))
   ; (cmdliner

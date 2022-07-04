@@ -50,6 +50,8 @@ module Toplevel = struct
 )
 
   let string_of_transition_label = Syntax.string_of_transition_label
+
+  let generate_state_machine = Fsm.generate_state_machine
 end
 
 include Toplevel

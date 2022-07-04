@@ -17,6 +17,7 @@
 (library
  (name synMPSTlib)
  (public_name synMPST.lib)
+ (libraries ocamlgraph)
  ; (libraries base stdio ocamlgraph ppxlib unix process)
  ; (library_flags (-linkall))
  ; (preprocess
