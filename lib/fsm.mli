@@ -5,6 +5,8 @@ module State :
     val hash : t -> int
     val compare : t -> t -> int
     val fresh : unit -> t
+    val fresh_start : unit -> t
+    val fresh_end : unit -> t
   end
 
 module GlobalLabel : sig

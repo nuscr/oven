@@ -2,18 +2,22 @@ open Syntax.Int
 open Graph
 
 module State = struct
-  type t = int
+  type t = { id : int
+           ; is_start : bool
+           ; is_end : bool
+           }
 
-  let equal = ( = )
+  let equal s1 s2 = (s1.id = s2.id)
 
   let hash = Hashtbl.hash
 
-  let compare = compare
+  let compare s1 s2 = compare s1.id s2.id
 
-  let fresh =
+  let fresh, fresh_start, fresh_end =
     let n = ref 0 in
-    fun () ->
-      incr n ; !n
+    ((fun () -> incr n ; {id = !n ; is_start = false ; is_end = false}),
+     (fun () -> incr n ; {id = !n ; is_start = true ; is_end = false}),
+     (fun () -> incr n ; {id = !n ; is_start = false ; is_end = true}))
 end
 
 module GlobalLabel = struct
@@ -41,11 +45,11 @@ let merge (fsm : GlobalFSM.t) (fsm' : GlobalFSM.t) : GlobalFSM.t =
   with_edges
 
 let generate_state_machine (g : global) : State.t * GlobalFSM.t =
-  let start = State.fresh () in
+  let start = State.fresh_start () in
   let start_fsm =  GlobalFSM.add_vertex GlobalFSM.empty start in
   let rec f st fsm gvs = function
     | End ->
-      let end_st = State.fresh () in
+      let end_st = State.fresh_end () in
       let fsm' = GlobalFSM.add_vertex fsm end_st in
       GlobalFSM.add_edge fsm' st end_st
 
