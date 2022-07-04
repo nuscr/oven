@@ -1,10 +1,10 @@
 module State :
   sig
-    type t = int
-    val equal : 'a -> 'a -> bool
-    val hash : 'a -> int
-    val compare : 'a -> 'a -> int
-    val fresh : unit -> int
+    type t
+    val equal : t -> t -> bool
+    val hash : t -> int
+    val compare : t -> t -> int
+    val fresh : unit -> t
   end
 
 module GlobalLabel : sig
