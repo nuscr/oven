@@ -32,7 +32,7 @@ jobs:
 
       # - run: cd SynMPST && opam install . --deps-only --with-doc --with-test
 
-      - run: opam install menhir dune js_of_ocaml js_of_ocaml-ppx js_of_ocaml-tyxml
+      - run: opam install menhir dune js_of_ocaml js_of_ocaml-ppx js_of_ocaml-tyxml ocamlgraph
 
       - run: opam exec -- dune build
 
