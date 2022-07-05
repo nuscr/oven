@@ -13,8 +13,9 @@ module Toplevel = struct
     try Parser.cu Lexer.token lexbuf with
     | Lexer.LexError msg -> raise (Error.UserError ("Lexing error: " ^ msg))
     | Parser.Error ->
-      let pos = Lexing.((lexeme_start_p lexbuf).pos_fname) in
-      raise (Error.UserError ("Parseing error: " ^ pos))
+      let pos = Lexing.lexeme_start_p lexbuf in
+      let pos_str = Lexing.(pos.pos_fname ^ " line: " ^  (Int.to_string pos.pos_lnum)) in
+      raise (Error.UserError ("Parsing error: " ^ pos_str))
     | e -> raise (Error.Violation ("Found a problem:" ^  Printexc.to_string e))
 
 

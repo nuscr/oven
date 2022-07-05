@@ -117,7 +117,7 @@ let analyse () =
     | None ->
       Interface.Error.display_exn "Something went wrong."
   with
-  | _ -> Interface.Error.display_exn "Parser error"
+  | e -> Interface.Error.display_exn ("Error:" ^ Printexc.to_string e)
 
 (* let analyse () = *)
 (*   let () = Interface.Error.reset () in *)
