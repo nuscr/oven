@@ -23,7 +23,7 @@ module Global : sig
   end
 
   val merge : FSM.t -> FSM.t -> FSM.t
-  val generate_state_machine : Syntax.Int.global -> State.t * FSM.t
+  val generate_state_machine : Syntax.global -> State.t * FSM.t
 end
 
 module Local :

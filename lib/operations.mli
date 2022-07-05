@@ -1,5 +1,5 @@
 open Syntax
-open Syntax.Int
+
 
 module Trace : sig
 

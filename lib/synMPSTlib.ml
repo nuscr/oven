@@ -1,15 +1,14 @@
-
 module Toplevel = struct
   let say_hello () = "hello!"
 
-  let _inactive = Syntax.Int.End
+  let _inactive = Syntax.Seq []
 
   let set_filename (fname : string) (lexbuf : Lexing.lexbuf) =
     lexbuf.Lexing.lex_curr_p <-
       {lexbuf.Lexing.lex_curr_p with Lexing.pos_fname= fname} ;
     lexbuf
 
-  let parse_from_lexbuf lexbuf  : Syntax.Ext.compilation_unit =
+  let parse_from_lexbuf lexbuf  : Syntax.compilation_unit =
     try Parser.cu Lexer.token lexbuf with
     | Lexer.LexError msg -> raise (Error.UserError ("Lexing error: " ^ msg))
     | Parser.Error ->
@@ -20,29 +19,28 @@ module Toplevel = struct
 
 
 
-  let _parse fname (ch : In_channel.t) : Syntax.Ext.compilation_unit  =
+  let _parse fname (ch : In_channel.t) : Syntax.compilation_unit  =
     let lexbuf = set_filename fname (Lexing.from_channel ch) in
     parse_from_lexbuf lexbuf
 
-  let parse_string string : Syntax.Ext.compilation_unit = parse_from_lexbuf @@ Lexing.from_string string
+  let parse_string string : Syntax.compilation_unit = parse_from_lexbuf @@ Lexing.from_string string
 
-  let translate_and_validate (cu : Syntax.Ext.compilation_unit) : Syntax.Int.compilation_unit =
-    let cu' = Syntax.translate_compilation_unit cu in
-    if Syntax.Int.validate_compilation_unit cu' then
-      cu'
+  let translate_and_validate (cu : Syntax.compilation_unit) : Syntax.compilation_unit =
+    if Syntax.validate_compilation_unit cu then
+      cu
     else
       Error.UserError "Validation failed!" |> raise
 
   let get_transitions = Operations.Global.get_transitions
 
-  let get_traces_as_string (cu : Syntax.Int.compilation_unit) : string =
+  let get_traces_as_string (cu : Syntax.compilation_unit) : string =
     Syntax.(
     List.map (fun p ->
           let tr = Operations.Global.get_trace p.roles p.interactions in
         p.protocol_name
         ^ "\n"
         ^ Operations.Trace.string_of_trace 20 tr string_of_transition_label) cu |> String.concat "\n"
-)
+  )
 
   let string_of_transition_label = Syntax.string_of_transition_label
 

@@ -1,4 +1,4 @@
-open Syntax.Int
+open Syntax
 open Graph
 
 module State = struct
@@ -22,7 +22,7 @@ end
 
 module Global = struct
   module Label = struct
-    type t = Syntax.transition_label option
+    type t = transition_label option
 
     let default : t = None
 
@@ -45,32 +45,34 @@ module Global = struct
     let with_edges = FSM.fold_edges_e (fun e g -> FSM.add_edge_e g e) with_vertices with_vertices in
     with_edges
 
-  let generate_state_machine (g : global) : State.t * FSM.t =
+  let generate_state_machine (_g : global) : State.t * FSM.t =
     let start = State.fresh_start () in
     let start_fsm =  FSM.add_vertex FSM.empty start in
-    let rec f st fsm gvs = function
-      | End ->
-        let end_st = State.fresh_end () in
-        let fsm' = FSM.add_vertex fsm end_st in
-        FSM.add_edge fsm' st end_st
+    let rec f _st _fsm _gvs _g =
+      (* function *)
+    (*   | End -> *)
+    (*     let end_st = State.fresh_end () in *)
+    (*     let fsm' = FSM.add_vertex fsm end_st in *)
+    (*     FSM.add_edge fsm' st end_st *)
 
-      | Rec (name, g) ->
-        f st fsm ((name, st)::gvs) g
+    (*   | Rec (name, g) -> *)
+    (*     f st fsm ((name, st)::gvs) g *)
 
-      | RecVar {name ; global = _} ->
-        let jump_to = List.assoc name gvs in
-        FSM.add_edge fsm st jump_to
+    (*   | RecVar {name ; global = _} -> *)
+    (*     let jump_to = List.assoc name gvs in *)
+    (*     FSM.add_edge fsm st jump_to *)
 
-      | Choice branches ->
-        let fsms = List.map (br st fsm gvs) branches in
-        List.fold_left (fun fsm fsm' -> merge fsm fsm') fsm fsms
-    and br st fsm gvs = function Message {tr_label ; continuation} ->
-      let new_st = State.fresh() in
-      let e = FSM.E.create st (Some tr_label) new_st in
-      let fsm' = f new_st (FSM.add_vertex fsm new_st) gvs continuation in
-      FSM.add_edge_e fsm' e
+    (*   | Choice branches -> *)
+    (*     let fsms = List.map (br st fsm gvs) branches in *)
+    (*     List.fold_left (fun fsm fsm' -> merge fsm fsm') fsm fsms *)
+    assert false
+    (* and br st fsm gvs = function Message {tr_label ; continuation} -> *)
+    (*   let new_st = State.fresh() in *)
+    (*   let e = FSM.E.create st (Some tr_label) new_st in *)
+    (*   let fsm' = f new_st (FSM.add_vertex fsm new_st) gvs continuation in *)
+    (*   FSM.add_edge_e fsm' e *)
     in
-    (start, f start start_fsm [] g)
+    (start, f start start_fsm [] _g)
 end
 
 
