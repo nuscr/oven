@@ -51,8 +51,8 @@ module Toplevel = struct
 
   let string_of_transition_label = Syntax.string_of_transition_label
 
-  let generate_global_state_machine = Fsm.Global.generate_state_machine
-  let project_state_machine = Fsm.Local.project
+  let generate_global_state_machine = Machine.Global.generate_state_machine
+  let project_state_machine = Machine.Local.project
 end
 
 include Toplevel
