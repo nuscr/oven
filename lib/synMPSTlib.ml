@@ -26,15 +26,12 @@ module Toplevel = struct
 
   let parse_string string : Syntax.Ext.compilation_unit = parse_from_lexbuf @@ Lexing.from_string string
 
-  let translate_and_validate (cu : Syntax.Ext.compilation_unit) : Syntax.Int.compilation_unit option =
-    try
-      let cu' = Syntax.translate_compilation_unit cu in
-      if Syntax.Int.validate_compilation_unit cu' then
-        Some cu'
-      else
-        None
-    with
-      _ -> None
+  let translate_and_validate (cu : Syntax.Ext.compilation_unit) : Syntax.Int.compilation_unit =
+    let cu' = Syntax.translate_compilation_unit cu in
+    if Syntax.Int.validate_compilation_unit cu' then
+      cu'
+    else
+      Error.UserError "Validation failed!" |> raise
 
   let get_transitions = Operations.Global.get_transitions
 
