@@ -9,24 +9,27 @@ module State :
     val fresh_end : unit -> t
   end
 
-module GlobalLabel : sig
-  type t = Syntax.transition_label option
+module Global : sig
+  module Label : sig
+    type t = Syntax.transition_label option
 
-  val default : t
+    val default : t
 
-  val compare : t -> t -> int
+    val compare : t -> t -> int
+  end
+
+  module FSM : sig
+    type t
+  end
+
+  val merge : FSM.t -> FSM.t -> FSM.t
+  val generate_state_machine : Syntax.Int.global -> State.t * FSM.t
 end
-
-type t
-
-val merge : t -> t -> t
-val generate_state_machine : Syntax.Int.global -> State.t * t
-
 
 module Local :
   sig
 
-    module LocalLabel : sig
+    module Label : sig
       type t = Syntax.Local.local_transition_label option
 
 
@@ -35,9 +38,9 @@ module Local :
       val compare : t -> t -> int
     end
 
-  module LocalFSM : sig
+  module FSM : sig
     type t
   end
 
-  val project : Syntax.role -> t -> LocalFSM.t
+  val project : Syntax.role -> Global.FSM.t -> FSM.t
   end
