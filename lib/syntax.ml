@@ -60,7 +60,7 @@ module Int = struct
   let get_global_ref (g : global ref option ref) : global ref =
     match !g with
     | Some g' -> g'
-    | None -> assert false (* this should never happen *)
+    | None -> Error.Violation "get_global_ref unexpected branch" |> raise
 
   let rec subst g x = function
     | RecVar y when x = y.name -> g
@@ -170,16 +170,16 @@ let translate (g : (Ext.global_interaction list) protocol) : Int.global protocol
     | [Choice giss] ->
       let branches = List.map tr_branch giss in
       I.Choice branches
-    | Choice _::_ ->  assert false (* unexpected continuation after choice *)
+    | Choice _::_ ->  Error.Violation "Unexpected continuation after choice." |> raise
     | [Recursion (x, gis)] -> I.Rec (x, tr gis)
-    | Recursion _::_ -> assert false (* unexpected continuation after recursion *)
+    | Recursion _::_ -> Error.Violation "Unexpected continuation after recursion." |> raise
     | [Continue n] -> I.RecVar {name = n ; global = ref None}
-    | Continue _::_ -> assert false (* unexpected continuation after continue *)
+    | Continue _::_ -> Error.Violation "Unexpected continuation after continue." |> raise
     | [] -> I.End
   and tr_branch = function
     | MessageTransfer{sender ; receiver; label}::gis ->
       I.Message { tr_label = {sender; receiver; label} ; continuation =  tr gis}
-    | _ -> assert false (* not a branch *)
+    | _ -> Error.Violation "Not a branch" |> raise
   in
   let {protocol_name ; roles ; interactions} = g in
   {protocol_name ; roles ; interactions = tr interactions}

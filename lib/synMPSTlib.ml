@@ -11,16 +11,13 @@ module Toplevel = struct
 
   let parse_from_lexbuf lexbuf  : Syntax.Ext.compilation_unit =
     try Parser.cu Lexer.token lexbuf with
-    | Lexer.LexError _msg -> assert false (* uerr (LexerError msg) *)
+    | Lexer.LexError msg -> raise (Error.UserError ("Lexing error: " ^ msg))
     | Parser.Error ->
-        (* let err_interval = *)
-        (*   (Lexing.lexeme_start_p lexbuf, Lexing.lexeme_end_p lexbuf) *)
-        (* in *)
-        (* uerr (ParserError (Loc.create err_interval)) *)
-      assert false
-    (* | Err.UserError e -> uerr e *)
-    (* | e -> Err.violation ~here:[%here] ("Found a problem:" ^ Exn.to_string e) *)
-    | _ -> assert false
+      let pos = Lexing.((lexeme_start_p lexbuf).pos_fname) in
+      raise (Error.UserError ("Parseing error: " ^ pos))
+    | e -> raise (Error.Violation ("Found a problem:" ^  Printexc.to_string e))
+
+
 
   let _parse fname (ch : In_channel.t) : Syntax.Ext.compilation_unit  =
     let lexbuf = set_filename fname (Lexing.from_channel ch) in
