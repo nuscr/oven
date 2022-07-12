@@ -46,6 +46,8 @@ module Toplevel = struct
 
   let generate_global_state_machine = Machine.Global.generate_state_machine
   let project_state_machine = Machine.Local.project
+
+  let dot_of_global_machine = Machine.Global.generate_dot
 end
 
 include Toplevel

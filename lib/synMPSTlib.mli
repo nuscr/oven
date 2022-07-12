@@ -14,3 +14,6 @@ val get_traces_as_string : Syntax.compilation_unit -> string
 
 val generate_global_state_machine : Syntax.global -> Machine.State.t * Machine.Global.FSM.t
 val project_state_machine : Syntax.role -> Machine.Global.FSM.t -> Machine.Local.FSM.t
+
+
+val dot_of_global_machine : Machine.Global.FSM.t -> string

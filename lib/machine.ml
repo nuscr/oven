@@ -101,6 +101,54 @@ module Global = struct
     let end_st, fsm_final = f start start_fsm _g in
     let _ = State.mark_as_end end_st in
     (start, fsm_final)
+
+
+  module Dot = struct
+    module Display = struct
+      include FSM
+
+      let vertex_name _ = "toto"
+
+      let graph_attributes _ = [`Rankdir `LeftToRight]
+
+      let default_vertex_attributes _ = []
+
+      let vertex_attributes _ = []
+      (* function *)
+      (* | Place (_, []) -> [`Shape `Circle; `Label ""] *)
+      (* | Place (_, tks) -> [`Shape `Circle; `Label (String.concat " " tks)] *)
+      (* (\* | Place (nm, []) -> [`Shape `Circle; `Label ("{" ^ nm ^ "}")] *)
+      (*  * | Place (nm, tks) -> *)
+      (*  *     [`Shape `Circle; `Label ("{" ^ nm ^ "}" ^ String.concat " " tks)] *\) *)
+      (* | Transition (_, Labelled) -> [`Shape `Box] *)
+      (* | Transition (_, Silent) -> [`Shape `Diamond; `Label ""] *)
+
+      let default_edge_attributes _ = []
+
+      (* let edge_attributes ((_, a, _) : PPN.edge) = [`Label (String.concat " " a)] *)
+
+      let edge_attributes _ = [`Label "tau"]
+
+      let get_subgraph _ = None
+
+    end
+
+
+    module Output = Graphviz.Dot(Display)
+
+    let generate_dot fsm =
+      let buffer_size = 65536 in
+      let buffer = Buffer.create buffer_size in
+      let formatter = Format.formatter_of_buffer buffer in
+      Output.fprint_graph formatter fsm ;
+      Format.pp_print_flush formatter () ;
+      Buffer.contents buffer
+
+
+  end
+
+  let generate_dot = Dot.generate_dot
+
 end
 
 
