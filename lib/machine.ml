@@ -107,13 +107,14 @@ module Global = struct
     module Display = struct
       include FSM
 
-      let vertex_name _ = "toto"
+      let vertex_name v =
+        string_of_int v.State.id
 
       let graph_attributes _ = [`Rankdir `LeftToRight]
 
       let default_vertex_attributes _ = []
 
-      let vertex_attributes _ = []
+      let vertex_attributes _ = [`Shape `Circle]
       (* function *)
       (* | Place (_, []) -> [`Shape `Circle; `Label ""] *)
       (* | Place (_, tks) -> [`Shape `Circle; `Label (String.concat " " tks)] *)
@@ -127,12 +128,14 @@ module Global = struct
 
       (* let edge_attributes ((_, a, _) : PPN.edge) = [`Label (String.concat " " a)] *)
 
-      let edge_attributes _ = [`Label "tau"]
+      let edge_attributes (e : edge) =
+        match FSM.E.label e with
+        | None -> [`Label "tau"]
+        | Some l -> [`Label (Syntax.string_of_transition_label l)]
 
       let get_subgraph _ = None
 
     end
-
 
     module Output = Graphviz.Dot(Display)
 
