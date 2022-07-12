@@ -84,14 +84,14 @@ module Global = struct
       | Fin g' ->
         let end_st, fsm' = f st fsm g' in
         let st' = State.mark_as_not_end end_st in
-        st, FSM.add_edge fsm' st st'
+        st, FSM.add_edge fsm' st' st
 
 
       | Inf g' ->
         let end_st, fsm' = f st fsm g' in
         let st' = State.mark_as_not_end end_st in
         (* Inf can never sequence, so we get a fresh start for the continuation *)
-        State.fresh (), FSM.add_edge fsm' st st'
+        State.fresh (), FSM.add_edge fsm' st' st
 
       | Par _ ->
         assert false
@@ -110,23 +110,17 @@ module Global = struct
       let vertex_name v =
         string_of_int v.State.id
 
+
       let graph_attributes _ = [`Rankdir `LeftToRight]
 
       let default_vertex_attributes _ = []
 
-      let vertex_attributes _ = [`Shape `Circle]
-      (* function *)
-      (* | Place (_, []) -> [`Shape `Circle; `Label ""] *)
-      (* | Place (_, tks) -> [`Shape `Circle; `Label (String.concat " " tks)] *)
-      (* (\* | Place (nm, []) -> [`Shape `Circle; `Label ("{" ^ nm ^ "}")] *)
-      (*  * | Place (nm, tks) -> *)
-      (*  *     [`Shape `Circle; `Label ("{" ^ nm ^ "}" ^ String.concat " " tks)] *\) *)
-      (* | Transition (_, Labelled) -> [`Shape `Box] *)
-      (* | Transition (_, Silent) -> [`Shape `Diamond; `Label ""] *)
+      let vertex_attributes = function
+        | v when State.is_end v -> [`Shape `Doublecircle ; `Label ""]
+        | v when State.is_start v -> [`Shape `Circle ; `Label "S"]
+        | _ -> [`Shape `Circle ; `Label "" ]
 
       let default_edge_attributes _ = []
-
-      (* let edge_attributes ((_, a, _) : PPN.edge) = [`Label (String.concat " " a)] *)
 
       let edge_attributes (e : edge) =
         match FSM.E.label e with
@@ -146,8 +140,6 @@ module Global = struct
       Output.fprint_graph formatter fsm ;
       Format.pp_print_flush formatter () ;
       Buffer.contents buffer
-
-
   end
 
   let generate_dot = Dot.generate_dot
