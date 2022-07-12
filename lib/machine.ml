@@ -19,6 +19,9 @@ module State = struct
   let mark_as_not_end s =
     s.is_end := false ; s
 
+  let is_start s = s.is_start
+  let is_end s = !(s.is_end)
+
   let fresh, fresh_start, fresh_end =
     let n = ref 0 in
     ((fun () -> incr n ; {id = !n ; is_start = false ; is_end = ref false}),
