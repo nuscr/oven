@@ -65,9 +65,11 @@ and token = parse
 | "from" { FROM_KW }
 | "to" { TO_KW }
 | "or" { OR_KW }
+| "or" { AND_KW }
 | "choice" { CHOICE_KW }
-| "rec" { REC_KW }
-| "continue" { CONTINUE_KW }
+| "fin" { FIN_KW }
+| "inf" { INF_KW }
+| "par" { PAR_KW }
 
 (* other *)
 | eof

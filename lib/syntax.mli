@@ -14,56 +14,34 @@ type transition_label = {
 val string_of_transition_label : transition_label -> string
 
 module Local :
-  sig
+sig
 
-    type direction = Sending | Receiving
+  type direction = Sending | Receiving
 
-    type local_transition_label =
-      { sender: role
-      ; receiver: role
-      ; direction : direction
-      ; label: message_label}
+  type local_transition_label =
+    { sender: role
+    ; receiver: role
+    ; direction : direction
+    ; label: message_label}
 
-    val string_of_local_transition_label : local_transition_label -> string
+  val string_of_local_transition_label : local_transition_label -> string
 end
 
-module Ext :
-  sig
-    type global_interaction =
-        MessageTransfer of transition_label
-      | Recursion of rec_var * global_interaction list
-      | Continue of rec_var
-      | Choice of global_interaction list list
-    type compilation_unit = global_interaction list protocol list
-  end
-module Int :
-  sig
-    type global =
-        End
-      | RecVar of { name : rec_var; global : global ref option ref; }
-      | Rec of rec_var * global
-      | Choice of global_branch list
-    and global_branch =
-        Message of { tr_label : transition_label; continuation : global; }
+type global  (* consider renaming just global *)
+  = MessageTransfer of transition_label
+  | Choice of global list
+  | Fin of global
+  | Inf of global
+  | Par of global list
+  | Seq of global list
 
-    type compilation_unit = global protocol list
+type compilation_unit = global protocol list
 
-    val get_global_ref : global ref option ref -> global ref
-    val subst : global -> rec_var -> global -> global
-    val unfold_top : global -> global
+val syntactic_checks : global -> bool
+(* val get_transitions : compilation_unit -> (string * transition_label) list *)
+val validate_global_type : global -> bool
+val validate_compilation_unit : compilation_unit -> bool
 
-    val get_branches_participants : global_branch list -> role list
+(* local "types" *)
 
-    val syntactic_checks : global -> bool
-    val syntactic_checks_branches : global_branch list -> bool
-    val well_scoped : global -> global option
-    (* val get_transitions : compilation_unit -> (string * transition_label) list *)
-    val validate_global_type : global -> bool
-    val validate_compilation_unit : compilation_unit -> bool
-
-    (* local "types" *)
-
-    type local = global * role
-  end
-val translate : Ext.global_interaction list protocol -> Int.global protocol
-val translate_compilation_unit : Ext.compilation_unit -> Int.compilation_unit
+type local = global * role

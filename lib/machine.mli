@@ -7,6 +7,10 @@ module State :
     val fresh : unit -> t
     val fresh_start : unit -> t
     val fresh_end : unit -> t
+
+    val is_start : t -> bool
+    val is_end : t -> bool
+
   end
 
 module Global : sig
@@ -23,7 +27,9 @@ module Global : sig
   end
 
   val merge : FSM.t -> FSM.t -> FSM.t
-  val generate_state_machine : Syntax.Int.global -> State.t * FSM.t
+  val generate_state_machine : Syntax.global -> State.t * FSM.t
+
+  val generate_dot : FSM.t -> string
 end
 
 module Local :

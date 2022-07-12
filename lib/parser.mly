@@ -1,7 +1,10 @@
 %{
 
 open Syntax
-open Syntax.Ext
+
+let block_to_global = function
+  | [g] -> g (* if it is one then no sequence *)
+  | gs -> Seq gs (* if it is zero or more than one then it is a sequence *)
 
 %}
 
@@ -27,9 +30,12 @@ open Syntax.Ext
 %token FROM_KW
 %token TO_KW
 %token OR_KW
+%token AND_KW
 %token CHOICE_KW
-%token REC_KW
-%token CONTINUE_KW
+
+%token FIN_KW
+%token INF_KW
+%token PAR_KW
 
 (* pragmas *)
 /* %token PRAGMA_START */
@@ -73,7 +79,6 @@ let global_protocol_decl ==
     }
   }
 
-
 let protocol_hdr ==
   GLOBAL_KW ; PROTOCOL_KW? ; { () }
   | PROTOCOL_KW ; { () }
@@ -85,29 +90,34 @@ let role_decl == ROLE_KW ; nm = name ; { nm }
 
 let global_protocol_body ==
   LCURLY ; ints = global_interaction* ;
-  RCURLY ; { ints }
-
-let global_protocol_block ==
-  LCURLY ; ints = global_interaction* ; RCURLY ; { ints }
+  RCURLY ; { block_to_global ints }
 
 let global_interaction ==
   global_message_transfer
-  | global_recursion
-  | global_continue
   | global_choice
+  | inf_composition
+  | fin_composition
+  | parallel_composition
+  | global_protocol_block
+
+let global_protocol_block ==
+  LCURLY ; ints = global_interaction* ; RCURLY ; { block_to_global ints }
+
+let inf_composition ==
+  INF_KW ; ~ = global_protocol_block ; < Inf >
+
+let fin_composition ==
+  FIN_KW ; ~ = global_protocol_block ; < Fin >
+
+let parallel_composition ==
+  PAR_KW ;
+  ~ = separated_nonempty_list(AND_KW, global_protocol_block) ;
+  < Par >
 
 let global_choice ==
   CHOICE_KW ;
   ~ = separated_nonempty_list(OR_KW, global_protocol_block) ;
   < Choice >
-
-let global_continue ==
-  | CONTINUE_KW ; n = name ; SEMICOLON ; { Continue n }
-
-let global_recursion ==
-  | REC_KW ; n = name ;
-    gis = global_protocol_block ;
-    { Recursion (n, gis) }
 
 let global_message_transfer ==
   msg = message ; FROM_KW ; frn = name ;
