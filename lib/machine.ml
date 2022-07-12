@@ -84,14 +84,14 @@ module Global = struct
       | Fin g' ->
         let end_st, fsm' = f st fsm g' in
         let st' = State.mark_as_not_end end_st in
-        st, FSM.add_edge fsm' st st'
+        st, FSM.add_edge fsm' st' st
 
 
       | Inf g' ->
         let end_st, fsm' = f st fsm g' in
         let st' = State.mark_as_not_end end_st in
         (* Inf can never sequence, so we get a fresh start for the continuation *)
-        State.fresh (), FSM.add_edge fsm' st st'
+        State.fresh (), FSM.add_edge fsm' st' st
 
       | Par _ ->
         assert false
