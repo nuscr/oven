@@ -7,8 +7,6 @@ module State :
     val fresh : unit -> t
     val fresh_start : unit -> t
     val fresh_end : unit -> t
-
-    val mark_as_end : t -> t
   end
 
 module Global : sig
