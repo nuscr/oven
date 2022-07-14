@@ -16,8 +16,8 @@ module State = struct
   let mark_as_end s =
     s.is_end := true ; s
 
-  let mark_as_not_end s =
-    s.is_end := false ; s
+  (* let mark_as_not_end s = *)
+  (*   s.is_end := false ; s *)
 
   let is_start s = s.is_start
   let is_end s = !(s.is_end)
@@ -48,59 +48,119 @@ module Global = struct
     (* extend with vertices *)
     let with_vertices = FSM.fold_vertex (fun v g -> FSM.add_vertex g v) fsm' fsm in
     (* extend with edges *)
-    let with_edges = FSM.fold_edges_e (fun e g -> FSM.add_edge_e g e) with_vertices with_vertices in
+    let with_edges = FSM.fold_edges_e (fun e g -> FSM.add_edge_e g e) fsm' with_vertices in
     with_edges
 
   let generate_state_machine (_g : global) : State.t * FSM.t =
     let start = State.fresh_start () in
     let start_fsm =  FSM.add_vertex FSM.empty start in
-    let rec f st fsm =
-      function
+    (* f takes (s_st, e_st) which are proposed start and end states for the translation
+       and returns the actual used ones.
+    *)
+    let rec f fsm g (s_st, e_st) =
+      match g with
       | MessageTransfer lbl ->
-        let st' = State.fresh() in
-        let fsm' = FSM.add_vertex fsm st' in
-        st', FSM.add_edge_e fsm' (FSM.E.create st (Some lbl) st')
-
-      | Seq [] ->
-        let _ = State.mark_as_end st in
-        st, fsm
+          let fsm' = FSM.add_vertex fsm e_st in
+          (s_st, e_st), FSM.add_edge_e fsm' (FSM.E.create s_st (Some lbl) e_st)
 
       | Seq gis ->
-        let end_st, end_fsm =
-          List.fold_left
-            (fun (st', fsm) g -> f st' fsm g)
-            (st, fsm)
-            gis
+        let rec connect fsm gis (s_st, e_st) =
+          match gis with
+          | [g'] ->
+            f fsm g' (s_st, e_st)
+
+          | g'::gs ->
+            let fresh_st = State.fresh() in
+            let (_, fresh_st'), fsm' = f fsm g' (s_st, fresh_st) in
+            connect fsm' gs (fresh_st', e_st)
+
+          | [] ->
+            let _ = State.mark_as_end s_st in
+            (s_st, s_st), fsm
+
         in
-        let _ = State.mark_as_end end_st in
-        end_st, end_fsm
+        connect fsm gis (s_st, e_st)
 
       | Choice branches ->
-        let end_sts, fsms = List.map (f st fsm) branches |> List.split in
-        let fsm' = List.fold_left (fun fsm fsm' -> merge fsm fsm') fsm fsms in
-        (* TODO the end state is boolshit (maybe this should split the thing) *)
-        List.hd end_sts, fsm'
+        let _end_sts, fsms = List.map (fun g -> f fsm g (s_st, e_st)) branches |> List.split in
+        let fsm' = List.fold_left merge fsm fsms in
+        (s_st, e_st), fsm'
 
       | Fin g' ->
-        let end_st, fsm' = f st fsm g' in
-        let st' = State.mark_as_not_end end_st in
-        st, FSM.add_edge fsm' st' st
+          let _, fsm' = f fsm g' (s_st, s_st) in
+          (s_st, s_st), fsm'
 
 
       | Inf g' ->
-        let end_st, fsm' = f st fsm g' in
-        let st' = State.mark_as_not_end end_st in
-        (* Inf can never sequence, so we get a fresh start for the continuation *)
-        State.fresh (), FSM.add_edge fsm' st' st
+          let _, fsm' = f fsm g' (s_st, s_st) in
+          (s_st, e_st), fsm'
 
       | Par _ ->
         assert false
 
     in
-
-    let end_st, fsm_final = f start start_fsm _g in
-    let _ = State.mark_as_end end_st in
+    let end_st = State.fresh_end() in
+    let _, fsm_final = f start_fsm _g (start, end_st) in
     (start, fsm_final)
+
+
+  (* let generate_state_machine' (_g : global) : State.t * FSM.t = *)
+  (*   let start = State.fresh_start () in *)
+  (*   let start_fsm =  FSM.add_vertex FSM.empty start in *)
+  (*   let rec f fsm g = *)
+  (*     match g with *)
+  (*     | MessageTransfer lbl -> *)
+  (*       fun st -> *)
+  (*       let st' = State.fresh() in *)
+  (*       let fsm' = FSM.add_vertex fsm st' in *)
+  (*       st', FSM.add_edge_e fsm' (FSM.E.create st (Some lbl) st') *)
+
+
+  (*     | Seq [] -> *)
+  (*       fun st -> *)
+  (*       let _ = State.mark_as_end st in *)
+  (*       st, fsm *)
+
+  (*     | Seq gis -> *)
+  (*       fun st -> *)
+  (*       let end_st, end_fsm = *)
+  (*         List.fold_left *)
+  (*           (fun (st', fsm) g -> f  fsm g st') *)
+  (*           (st, fsm) *)
+  (*           gis *)
+  (*       in *)
+  (*       let _ = State.mark_as_end end_st in *)
+  (*       end_st, end_fsm *)
+
+  (*     | Choice branches -> *)
+  (*       fun st -> *)
+  (*       let end_sts, fsms = List.map (fun g -> f fsm g st) branches |> List.split in *)
+  (*       let fsm' = List.fold_left (fun fsm fsm' -> merge fsm fsm') fsm fsms in *)
+  (*       (\* TODO the end state is boolshit (maybe this should split the thing) *\) *)
+  (*       List.hd end_sts, fsm' *)
+
+  (*     | Fin g' -> *)
+  (*       fun st -> *)
+  (*       let end_st, fsm' = f fsm g' st in *)
+  (*       let st' = State.mark_as_not_end end_st in *)
+  (*       st, FSM.add_edge fsm' st' st *)
+
+
+  (*     | Inf g' -> *)
+  (*       fun st -> *)
+  (*       let end_st, fsm' = f fsm g' st in *)
+  (*       let st' = State.mark_as_not_end end_st in *)
+  (*       (\* Inf can never sequence, so we get a fresh start for the continuation *\) *)
+  (*       State.fresh (), FSM.add_edge fsm' st' st *)
+
+  (*     | Par _ -> *)
+  (*       assert false *)
+
+  (*   in *)
+
+  (*   let end_st, fsm_final = f start_fsm _g start in *)
+  (*   let _ = State.mark_as_end end_st in *)
+  (*   (start, fsm_final) *)
 
 
   module Dot = struct
@@ -117,7 +177,7 @@ module Global = struct
 
       let vertex_attributes = function
         | v when State.is_end v -> [`Shape `Doublecircle ; `Label ""]
-        | v when State.is_start v -> [`Shape `Circle ; `Label "S"]
+        | v when State.is_start v -> [`Shape `Circle ; `Label "Sr"]
         | _ -> [`Shape `Circle ; `Label "" ]
 
       let default_edge_attributes _ = []

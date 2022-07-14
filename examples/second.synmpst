@@ -1,0 +1,23 @@
+(*) A simple protocol
+
+
+global Adder(role C, role S)
+{
+  choice {
+      HOLA from C to S;
+  } or {
+    HALLO from C to S;
+  }
+(*
+  fin {
+    HELLO(int) from C to S;
+
+      ADD(int) from C to S;
+      RES(int) from S to C;
+    }
+
+    BYE() from C to S;
+    BYE() from S to C;
+*)
+
+}
