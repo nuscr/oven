@@ -13,8 +13,8 @@ module State = struct
 
   let compare s1 s2 = compare s1.id s2.id
 
-  let mark_as_start s =
-    s.is_start := true ; s
+  (* let mark_as_start s = *)
+  (*   s.is_start := true ; s *)
 
   let mark_as_end s =
     s.is_end := true ; s
@@ -73,18 +73,18 @@ module Global = struct
     | s::ss -> State.as_string s ^ "::" ^ print_vertices ss
 
   (* compose two machines allowing all their interleavings *)
-  let parallel_compose (fsm : FSM.t) (fsm' : FSM.t) : FSM.t =
-    let generate_state_space fsm fsm' : 'a =
+  let parallel_compose (s_st, e_st) (fsm : FSM.t) (fsm' : FSM.t) : FSM.t =
+    let generate_state_space (s_st, e_st) fsm fsm' : 'a =
       let sts_fsm = get_vertices fsm in
       let sts_fsm' = get_vertices fsm' in
       "Size of sts_fsm: " ^ string_of_int (List.length sts_fsm) ^ " -- "  ^ (print_vertices sts_fsm) |> Utils.log;
       "Size of sts_fsm': " ^ string_of_int (List.length sts_fsm') ^ " -- "  ^ (print_vertices sts_fsm') |> Utils.log;
       (* new combined_state *)
       let ncs st st' =
-        let n_st = State.fresh() in
-        let n_st = if State.is_start st && State.is_start st' then State.mark_as_start n_st else n_st in
-        let n_st = if State.is_end st && State.is_end st' then State.mark_as_end n_st else n_st in
-        n_st
+        if st = s_st && st = st'
+        then s_st
+        else if st = e_st && st = st'
+        then e_st else State.fresh()
       in
       let state_space = List.fold_left (fun b a  -> List.fold_left (fun b' a' -> ((a, a'), ncs a a')::b') b sts_fsm') [] sts_fsm in
       (* generate state_machine for the combined state *)
@@ -93,7 +93,7 @@ module Global = struct
       state_space, machine
     in
 
-    let dict, jfsm = generate_state_space fsm fsm' in
+    let dict, jfsm = generate_state_space (s_st, e_st) fsm fsm' in
 
     let rec dict_to_string = function
       | [] -> "[]"
@@ -149,6 +149,8 @@ module Global = struct
        and returns the actual used ones.
     *)
     let rec f fsm g (s_st, e_st) =
+      "s_st = " ^ State.as_string s_st |> Utils.log ;
+      "e_st = " ^ State.as_string e_st |> Utils.log ;
       match g with
       | MessageTransfer lbl ->
           let fsm' = FSM.add_vertex fsm e_st in
@@ -192,10 +194,12 @@ module Global = struct
       (*   (s_st, e_st), parallel_compose fsm1 fsm2 *)
 
       | Par branches ->
-        let _, fsms = List.map (fun g -> f fsm g (s_st, e_st)) branches |> List.split in
+        let m = FSM.add_vertex (FSM.add_vertex FSM.empty s_st) e_st in
+
+        let _, fsms = List.map (fun g -> f m g (s_st, e_st)) branches |> List.split in
         List.iter (fun fsm -> "branch number of vertices: " ^ (FSM.nb_vertex fsm |> string_of_int) |> Utils.log) fsms;
-        let fsm' = List.fold_left parallel_compose fsm fsms in
-        (s_st, e_st), fsm'
+        let fsm' = List.fold_left (parallel_compose (s_st, e_st)) m fsms in
+        (s_st, e_st), (merge fsm fsm')
 
     in
     let end_st = State.fresh_end() in
@@ -215,9 +219,9 @@ module Global = struct
       let default_vertex_attributes _ = []
 
       let vertex_attributes = function
-        | v when State.is_end v -> [`Shape `Doublecircle ; `Label ""]
-        | v when State.is_start v -> [`Shape `Circle ; `Label "S"]
-        | _ -> [`Shape `Circle ; `Label "" ]
+        | v when State.is_end v -> [`Shape `Doublecircle ; `Label (State.as_string v)]
+        | v when State.is_start v -> [`Shape `Circle ; `Label ("S-" ^ (State.as_string v))]
+        | v -> [`Shape `Circle ; `Label (State.as_string v) ]
 
       let default_edge_attributes _ = []
 
