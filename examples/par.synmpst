@@ -4,9 +4,9 @@ global Parallel(role C, role S)
 {
   par {
     HOLA from C to S;
-    (*) HALLO from S to C;
+    HALLO from S to C;
   } and {
     HALLO from C to S;
-    (*) HOLA from S to C;
+    HOLA from S to C;
   }
 }
