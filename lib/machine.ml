@@ -3,7 +3,7 @@ open Graph
 
 module State = struct
   type t = { id : int
-           ; is_start : bool
+           ; is_start : bool ref
            ; is_end : bool ref
            }
 
@@ -13,20 +13,26 @@ module State = struct
 
   let compare s1 s2 = compare s1.id s2.id
 
+  let mark_as_start s =
+    s.is_start := true ; s
+
   let mark_as_end s =
     s.is_end := true ; s
+
+  let as_string s =
+    string_of_int s.id
 
   (* let mark_as_not_end s = *)
   (*   s.is_end := false ; s *)
 
-  let is_start s = s.is_start
+  let is_start s = !(s.is_start)
   let is_end s = !(s.is_end)
 
   let fresh, fresh_start, fresh_end =
     let n = ref 0 in
-    ((fun () -> incr n ; {id = !n ; is_start = false ; is_end = ref false}),
-     (fun () -> incr n ; {id = !n ; is_start = true ; is_end = ref false}),
-     (fun () -> incr n ; {id = !n ; is_start = false ; is_end = ref true}))
+    ((fun () -> incr n ; {id = !n ; is_start = ref false ; is_end = ref false}),
+     (fun () -> incr n ; {id = !n ; is_start = ref true ; is_end = ref false}),
+     (fun () -> incr n ; {id = !n ; is_start = ref false ; is_end = ref true}))
 end
 
 module Global = struct
@@ -44,12 +50,97 @@ module Global = struct
 
   module FSM = Persistent.Digraph.ConcreteLabeled (State) (Label)
 
+  let get_vertices (fsm : FSM.t) : FSM.V.t list =
+    let l = FSM.fold_vertex (fun st l -> st::l) fsm [] in
+    assert (List.length l = FSM.nb_vertex fsm) ;
+    l
+
+  (* simple merge two state machines *)
   let merge (fsm : FSM.t) (fsm' : FSM.t) : FSM.t =
     (* extend with vertices *)
     let with_vertices = FSM.fold_vertex (fun v g -> FSM.add_vertex g v) fsm' fsm in
     (* extend with edges *)
     let with_edges = FSM.fold_edges_e (fun e g -> FSM.add_edge_e g e) fsm' with_vertices in
     with_edges
+
+
+  (* let get_transitions_from_state (fsm :FSM.t) (st : State.t) : FSM.E.t list = *)
+  (*   FSM.fold_edges_e (fun e l -> if FSM.E.src e = st then e::l else l) fsm [] *)
+
+
+  let rec print_vertices = function
+    | [] -> "[]"
+    | s::ss -> State.as_string s ^ "::" ^ print_vertices ss
+
+  (* compose two machines allowing all their interleavings *)
+  let parallel_compose (fsm : FSM.t) (fsm' : FSM.t) : FSM.t =
+    let generate_state_space fsm fsm' : 'a =
+      let sts_fsm = get_vertices fsm in
+      let sts_fsm' = get_vertices fsm' in
+      "Size of sts_fsm: " ^ string_of_int (List.length sts_fsm) ^ " -- "  ^ (print_vertices sts_fsm) |> Utils.log;
+      "Size of sts_fsm': " ^ string_of_int (List.length sts_fsm') ^ " -- "  ^ (print_vertices sts_fsm') |> Utils.log;
+      (* new combined_state *)
+      let ncs st st' =
+        let n_st = State.fresh() in
+        let n_st = if State.is_start st && State.is_start st' then State.mark_as_start n_st else n_st in
+        let n_st = if State.is_end st && State.is_end st' then State.mark_as_end n_st else n_st in
+        n_st
+      in
+      let state_space = List.fold_left (fun b a  -> List.fold_left (fun b' a' -> ((a, a'), ncs a a')::b') b sts_fsm') [] sts_fsm in
+      (* generate state_machine for the combined state *)
+      let machine = List.fold_left (fun fsm (_, st) -> FSM.add_vertex fsm st) FSM.empty state_space
+      in
+      state_space, machine
+    in
+
+    let dict, jfsm = generate_state_space fsm fsm' in
+
+    let rec dict_to_string = function
+      | [] -> "[]"
+      | ((s1, s2), s3)::dict ->
+        "(" ^ State.as_string s1 ^ ", " ^  State.as_string s2 ^ "), " ^  State.as_string s3 ^ ")::" ^ dict_to_string dict
+    in
+
+    Utils.log @@ dict_to_string dict ;
+    "Size of fsm: " ^ string_of_int (FSM.nb_vertex fsm) |> Utils.log;
+    "Size of fsm': " ^ string_of_int (FSM.nb_vertex fsm') |> Utils.log;
+    "Size of space: " ^ string_of_int (List.length dict) |> Utils.log;
+
+    (* adds an edge many times to the product space *)
+    let add_edges from_first e fsm =
+      let src_sts = List.filter (fun ((st, st'), _) -> if from_first then st = FSM.E.src e else st' = FSM.E.src e) dict in
+
+      let find_end_state ( (s1, s2), _) e =
+        let s = FSM.E.src e in
+        let d = FSM.E.dst e in
+
+        if from_first && (s = s1) then
+          try
+          let _, d_res = List.find (fun ((x0, x1), _) -> x0 = d && x1 = s2) dict in
+          d_res
+          with
+          | _ -> failwith ("this: " ^ dict_to_string dict)
+
+        else if (not from_first) && s = s2 then
+          try
+          let _, d_res = List.find (fun ((x0, x1), _) -> x1 = d && x0 = s1) dict in
+          d_res
+          with
+          | _ -> failwith ("that: " ^ dict_to_string dict)
+
+        else
+          failwith "Violation: e is not related to s1, s2."
+
+      in
+
+      let coords = List.map
+          (fun ((_c_s_st, c_e_st), src_st) -> src_st, find_end_state ((_c_s_st, c_e_st), src_st) e)
+          src_sts
+      in
+      List.fold_left (fun fsm' (src, dst) -> FSM.add_edge_e fsm' (FSM.E.create src (FSM.E.label e) dst) ) fsm coords
+    in
+    let jfsm' = FSM.fold_edges_e (add_edges true) fsm jfsm in
+    FSM.fold_edges_e (add_edges false) fsm' jfsm'
 
   let generate_state_machine (_g : global) : State.t * FSM.t =
     let start = State.fresh_start () in
@@ -95,8 +186,23 @@ module Global = struct
           let _, fsm' = f fsm g' (s_st, s_st) in
           (s_st, e_st), fsm'
 
+      | Par [b1 ; b2] ->
+        let _, fsm1 = f fsm b1 (s_st, e_st) in
+        let _, fsm2 = f fsm b2 (s_st, e_st) in
+
+        (s_st, e_st), parallel_compose fsm1 fsm2
+
       | Par _ ->
-        assert false
+        failwith "Parallel with the wrong number of branches"
+
+      (* | Par branches -> *)
+
+      (*   let _, fsms = List.map (fun g -> f fsm g (s_st, e_st)) branches |> List.split in *)
+
+      (*   List.iter (fun fsm -> "branch number of vertices: " ^ (FSM.nb_vertex fsm |> string_of_int) |> Utils.log) fsms; *)
+
+      (*   let fsm' = List.fold_left parallel_compose fsm fsms in *)
+      (*   (s_st, e_st), fsm' *)
 
     in
     let end_st = State.fresh_end() in
@@ -177,7 +283,7 @@ module Global = struct
 
       let vertex_attributes = function
         | v when State.is_end v -> [`Shape `Doublecircle ; `Label ""]
-        | v when State.is_start v -> [`Shape `Circle ; `Label "Sr"]
+        | v when State.is_start v -> [`Shape `Circle ; `Label "S"]
         | _ -> [`Shape `Circle ; `Label "" ]
 
       let default_edge_attributes _ = []

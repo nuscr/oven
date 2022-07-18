@@ -99,7 +99,7 @@ let display_labels (lbls : (string * SynMPSTlib__.Syntax.transition_label) list)
   To_dom.of_element @@ T.(ul (List.map display_label lbls))
 
 
-let analyse () =
+let analyse' () =
   try
     let () = Interface.Error.reset () in
     let protocol = Interface.Code.get () in
@@ -117,10 +117,13 @@ let analyse () =
     (* let labels = SynMPSTlib.get_transitions cu' in *)
     (* let labels_html = display_labels labels in *)
     (* W.(set_children (get "result") [(labels_html :> Dom.node Js.t)]) *)
-
-
   with
   | e -> Interface.Error.display_exn ("Error:" ^ Printexc.to_string e)
+
+
+let analyse () =
+  analyse' () ;
+  Js_of_ocaml.Firebug.console##log (Js_of_ocaml.Js.string @@ SynMPSTlib.get_log())
 
 (* let analyse () = *)
 (*   let () = Interface.Error.reset () in *)

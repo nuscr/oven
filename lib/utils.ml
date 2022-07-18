@@ -8,3 +8,10 @@ let rec uniq x =
   match x with
   | [] -> []
   | h::t -> h::(helper (uniq t) h)
+
+
+let log, get_log =
+  let contents = ref "" in
+  (fun s ->
+     contents := !contents ^ "\n" ^ s),
+  (fun () -> let s = !contents in contents := "" ; s)

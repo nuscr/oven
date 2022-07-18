@@ -17,3 +17,5 @@ val project_state_machine : Syntax.role -> Machine.Global.FSM.t -> Machine.Local
 
 
 val dot_of_global_machine : Machine.Global.FSM.t -> string
+
+val get_log : unit -> string

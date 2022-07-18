@@ -51,3 +51,5 @@ module Toplevel = struct
 end
 
 include Toplevel
+
+let get_log = Utils.get_log

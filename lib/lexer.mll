@@ -65,7 +65,7 @@ and token = parse
 | "from" { FROM_KW }
 | "to" { TO_KW }
 | "or" { OR_KW }
-| "or" { AND_KW }
+| "and" { AND_KW }
 | "choice" { CHOICE_KW }
 | "fin" { FIN_KW }
 | "inf" { INF_KW }
