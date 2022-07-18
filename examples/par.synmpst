@@ -2,6 +2,7 @@
 
 global Parallel(role C, role S)
 {
+  PRE from C to S;
   par {
     HOLA from C to S;
     HALLO from S to C;
@@ -9,4 +10,5 @@ global Parallel(role C, role S)
     HALLO from C to S;
     HOLA from S to C;
   }
+  POST from C to S;
 }

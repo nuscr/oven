@@ -188,17 +188,18 @@ module Global = struct
           let _, fsm' = f fsm g' (s_st, s_st) in
           (s_st, e_st), fsm'
 
-      (* | Par [b1 ; b2] -> *)
-      (*   let _, fsm1 = f fsm b1 (s_st, e_st) in *)
-      (*   let _, fsm2 = f fsm b2 (s_st, e_st) in *)
-      (*   (s_st, e_st), parallel_compose fsm1 fsm2 *)
-
       | Par branches ->
         let m = FSM.add_vertex (FSM.add_vertex FSM.empty s_st) e_st in
 
         let _, fsms = List.map (fun g -> f m g (s_st, e_st)) branches |> List.split in
         List.iter (fun fsm -> "branch number of vertices: " ^ (FSM.nb_vertex fsm |> string_of_int) |> Utils.log) fsms;
-        let fsm' = List.fold_left (parallel_compose (s_st, e_st)) m fsms in
+        let fsm' =
+          match fsms with
+          | [] -> m
+          | [fsm] -> fsm
+          | fsm::fsms' ->
+          List.fold_left (parallel_compose (s_st, e_st)) fsm fsms'
+        in
         (s_st, e_st), (merge fsm fsm')
 
     in
