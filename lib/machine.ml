@@ -186,88 +186,21 @@ module Global = struct
           let _, fsm' = f fsm g' (s_st, s_st) in
           (s_st, e_st), fsm'
 
-      | Par [b1 ; b2] ->
-        let _, fsm1 = f fsm b1 (s_st, e_st) in
-        let _, fsm2 = f fsm b2 (s_st, e_st) in
+      (* | Par [b1 ; b2] -> *)
+      (*   let _, fsm1 = f fsm b1 (s_st, e_st) in *)
+      (*   let _, fsm2 = f fsm b2 (s_st, e_st) in *)
+      (*   (s_st, e_st), parallel_compose fsm1 fsm2 *)
 
-        (s_st, e_st), parallel_compose fsm1 fsm2
-
-      | Par _ ->
-        failwith "Parallel with the wrong number of branches"
-
-      (* | Par branches -> *)
-
-      (*   let _, fsms = List.map (fun g -> f fsm g (s_st, e_st)) branches |> List.split in *)
-
-      (*   List.iter (fun fsm -> "branch number of vertices: " ^ (FSM.nb_vertex fsm |> string_of_int) |> Utils.log) fsms; *)
-
-      (*   let fsm' = List.fold_left parallel_compose fsm fsms in *)
-      (*   (s_st, e_st), fsm' *)
+      | Par branches ->
+        let _, fsms = List.map (fun g -> f fsm g (s_st, e_st)) branches |> List.split in
+        List.iter (fun fsm -> "branch number of vertices: " ^ (FSM.nb_vertex fsm |> string_of_int) |> Utils.log) fsms;
+        let fsm' = List.fold_left parallel_compose fsm fsms in
+        (s_st, e_st), fsm'
 
     in
     let end_st = State.fresh_end() in
     let _, fsm_final = f start_fsm _g (start, end_st) in
     (start, fsm_final)
-
-
-  (* let generate_state_machine' (_g : global) : State.t * FSM.t = *)
-  (*   let start = State.fresh_start () in *)
-  (*   let start_fsm =  FSM.add_vertex FSM.empty start in *)
-  (*   let rec f fsm g = *)
-  (*     match g with *)
-  (*     | MessageTransfer lbl -> *)
-  (*       fun st -> *)
-  (*       let st' = State.fresh() in *)
-  (*       let fsm' = FSM.add_vertex fsm st' in *)
-  (*       st', FSM.add_edge_e fsm' (FSM.E.create st (Some lbl) st') *)
-
-
-  (*     | Seq [] -> *)
-  (*       fun st -> *)
-  (*       let _ = State.mark_as_end st in *)
-  (*       st, fsm *)
-
-  (*     | Seq gis -> *)
-  (*       fun st -> *)
-  (*       let end_st, end_fsm = *)
-  (*         List.fold_left *)
-  (*           (fun (st', fsm) g -> f  fsm g st') *)
-  (*           (st, fsm) *)
-  (*           gis *)
-  (*       in *)
-  (*       let _ = State.mark_as_end end_st in *)
-  (*       end_st, end_fsm *)
-
-  (*     | Choice branches -> *)
-  (*       fun st -> *)
-  (*       let end_sts, fsms = List.map (fun g -> f fsm g st) branches |> List.split in *)
-  (*       let fsm' = List.fold_left (fun fsm fsm' -> merge fsm fsm') fsm fsms in *)
-  (*       (\* TODO the end state is boolshit (maybe this should split the thing) *\) *)
-  (*       List.hd end_sts, fsm' *)
-
-  (*     | Fin g' -> *)
-  (*       fun st -> *)
-  (*       let end_st, fsm' = f fsm g' st in *)
-  (*       let st' = State.mark_as_not_end end_st in *)
-  (*       st, FSM.add_edge fsm' st' st *)
-
-
-  (*     | Inf g' -> *)
-  (*       fun st -> *)
-  (*       let end_st, fsm' = f fsm g' st in *)
-  (*       let st' = State.mark_as_not_end end_st in *)
-  (*       (\* Inf can never sequence, so we get a fresh start for the continuation *\) *)
-  (*       State.fresh (), FSM.add_edge fsm' st' st *)
-
-  (*     | Par _ -> *)
-  (*       assert false *)
-
-  (*   in *)
-
-  (*   let end_st, fsm_final = f start_fsm _g start in *)
-  (*   let _ = State.mark_as_end end_st in *)
-  (*   (start, fsm_final) *)
-
 
   module Dot = struct
     module Display = struct
