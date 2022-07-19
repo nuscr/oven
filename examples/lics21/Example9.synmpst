@@ -1,0 +1,10 @@
+(*) Example 9 [van Glabbeek et al., LICS'21]
+
+global Example9(role b, role se, role sh) {
+  fin {
+    TALK() from b to se;
+  }
+  BUY() from b to se;
+  ORDER() from se to sh;
+}
+

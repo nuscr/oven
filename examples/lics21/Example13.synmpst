@@ -1,0 +1,16 @@
+(*) Example 13 [van Glabbeek et al., LICS'21]
+
+global Example13(role b1, role b2, role s1, role s2) {
+  par {
+    fin {
+      WAIT() from b1 to s1;
+    }
+    ORDER() from b1 to s1;
+  } and {
+    fin {
+      WAIT() from b2 to s2;
+    }
+    ORDER() from b2 to s2;
+  }
+}
+

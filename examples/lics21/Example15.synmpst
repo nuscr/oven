@@ -1,0 +1,11 @@
+(*) Example 15 [van Glabbeek et al., LICS'21]
+
+global Example15(role b, role s1, role s2) {
+  fin {
+    Order1 from b to s1;
+    Wait from b to s2;
+  }
+  Order2 from b to s2;
+  Done from b to s1;
+}
+
