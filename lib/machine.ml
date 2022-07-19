@@ -181,7 +181,8 @@ module Global = struct
 
       | Fin g' ->
           let _, fsm' = f fsm g' (s_st, s_st) in
-          (s_st, s_st), fsm'
+          let _, fsm'' = f fsm' g' (s_st, e_st) in
+          (s_st, e_st), fsm''
 
 
       | Inf g' ->
