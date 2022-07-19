@@ -154,12 +154,8 @@ module Global = struct
       match g with
       | MessageTransfer lbl ->
         let e x y = FSM.E.create x (Some lbl) y in
-        (*let fsm' = FSM.add_edge_e (FSM.add_vertex fsm e_st) (e s_st e_st) in*)
-        let fsm' = fsm in
-
-        let fsm'' = List.fold_left (fun fsm st -> FSM.add_edge_e fsm (e st e_st)) fsm' next in
-
-        [e_st], fsm''
+        let fsm' = List.fold_left (fun fsm st -> FSM.add_edge_e fsm (e st e_st)) fsm next in
+        [e_st], fsm'
 
       | Seq gis ->
         let rec connect fsm gis (s_st, e_st) next =
@@ -170,7 +166,7 @@ module Global = struct
           | g'::gs ->
             let fresh_st = State.fresh() in
             let next', fsm' = f fsm g' (s_st, fresh_st) next in
-            connect fsm' gs (fresh_st, e_st) next' (* mmm *)
+            connect fsm' gs (fresh_st, e_st) next'
 
           | [] ->
             let _ = State.mark_as_end s_st in
@@ -182,8 +178,7 @@ module Global = struct
       | Choice branches ->
         let nexts, fsms = List.map (fun g -> f fsm g (s_st, e_st) next) branches |> List.split in
         let fsm' = List.fold_left merge fsm fsms in
-        let next' = next @ List.concat nexts in
-        next', fsm'
+        List.concat nexts, fsm'
 
       | Fin g' ->
           let next', fsm' = f fsm g' (s_st, e_st) next in
@@ -191,13 +186,13 @@ module Global = struct
           [s_st ; e_st], fsm''
 
       | Inf g' ->
-          let next', fsm' = f fsm g' (s_st, s_st) next in
-          next', fsm'
+          let _, fsm' = f fsm g' (s_st, s_st) next in
+          [e_st], fsm'
 
       | Par branches ->
         let m = FSM.add_vertex (FSM.add_vertex FSM.empty s_st) e_st in
 
-        let _, fsms = List.map (fun g -> f m g (s_st, e_st) next) branches |> List.split in
+        let nexts, fsms = List.map (fun g -> f m g (s_st, e_st) next) branches |> List.split in
         List.iter (fun fsm -> "branch number of vertices: " ^ (FSM.nb_vertex fsm |> string_of_int) |> Utils.log) fsms;
         let fsm' =
           match fsms with
@@ -206,7 +201,7 @@ module Global = struct
           | fsm::fsms' ->
           List.fold_left (parallel_compose (s_st, e_st)) fsm fsms'
         in
-        next, (merge fsm fsm')
+        List.concat nexts, (merge fsm fsm')
 
     in
     let end_st = State.fresh_end() in

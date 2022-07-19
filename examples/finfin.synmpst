@@ -1,0 +1,14 @@
+(*) A simple protocol
+
+(*) This protocol is not well behaved but it needs to still generate a FSM.
+
+global FinAfterFin (role C, role S)
+{
+  fin {
+    HELLO(int) from C to S;
+  }
+  fin {
+    BYE(int) from S to C;
+  }
+  DONE(int) from C to S;
+}
