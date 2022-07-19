@@ -1,0 +1,10 @@
+(*) Streaming protocol [Honda et al., POPL'08]
+
+global Streaming(role DP, role KP, role K, role C) {
+  inf {
+    DATA(bool) from DP to K;
+    KEY(bool) from KP to K;
+    XOR(bool) from K to C;
+  }
+}
+

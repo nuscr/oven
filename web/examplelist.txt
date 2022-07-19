@@ -1,3 +1,5 @@
 examples/first.synmpst
 examples/second.synmpst
 examples/par.synmpst
+examples/popl08/TwoBuyer.synmpst
+examples/popl08/Streaming.synmpst

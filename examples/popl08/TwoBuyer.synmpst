@@ -1,0 +1,17 @@
+(*) Two Buyer protocol [Honda et al., POPL'08]
+
+global TwoBuyer(role B1, role B2, role S) {
+  BOOK(string) from B1 to S;
+  QUOTE(int) from S to B1;
+  QUOTE(int) from S to B2;
+  CONTRIB(int) from B1 to B2;
+  
+  choice {
+    OK() from B2 to S;
+    ADDRESS(string) from B2 to S;
+    DELIVERY(date) from S to B2;
+  } or {
+    QUIT() from B2 to S;
+  }
+}
+
