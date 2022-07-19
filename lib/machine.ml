@@ -183,7 +183,7 @@ module Global = struct
       | Fin g' ->
           let next', fsm' = f fsm g' (s_st, e_st) next in
           let next'', fsm'' = f fsm' g' (e_st, e_st) next' in
-          [s_st ; e_st] @ next'', fsm''
+          next @ next' @ next'' @ [s_st ; e_st], fsm''
 
       | Inf g' ->
           let _, fsm' = f fsm g' (s_st, s_st) next in

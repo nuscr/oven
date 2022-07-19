@@ -1,0 +1,11 @@
+(*) This protocol is not well behaved but it needs to still generate a FSM.
+
+global NestedFin (role C, role S)
+{
+  fin {
+    A(int) from C to S;
+    fin{
+      B(int) from C to S;
+    }
+  }
+}
