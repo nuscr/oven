@@ -33,6 +33,8 @@ module State = struct
     ((fun () -> incr n ; {id = !n ; is_start = ref false ; is_end = ref false}),
      (fun () -> incr n ; {id = !n ; is_start = ref true ; is_end = ref false}),
      (fun () -> incr n ; {id = !n ; is_start = ref false ; is_end = ref true}))
+
+  let renumber_state n {id = _ ; is_start ; is_end} = {id = n ; is_start ; is_end}
 end
 
 module Global = struct
@@ -215,6 +217,18 @@ module Global = struct
     List.iter (fun st -> let _ = State.mark_as_end st in ()) next ;
     (start, fsm_final)
 
+    let minimise_state_numbers fsm =
+      let vertices = get_vertices fsm |> List.mapi (fun n st -> (st, State.renumber_state n st)) in
+
+      let fsm' = List.fold_left (fun fsm (_, st) -> FSM.add_vertex fsm st ) FSM.empty vertices in
+      let update e =
+        let tr st =
+          List.assoc st vertices
+        in
+        FSM.E.create (FSM.E.src e |> tr) (FSM.E.label e) (FSM.E.dst e |> tr)
+      in
+      FSM.fold_edges_e (fun e fsm -> FSM.add_edge_e fsm (update e)) fsm fsm'
+
   module Dot = struct
     module Display = struct
       include FSM
@@ -254,7 +268,7 @@ module Global = struct
       Buffer.contents buffer
   end
 
-  let generate_dot = Dot.generate_dot
+  let generate_dot fsm = fsm |> minimise_state_numbers |> Dot.generate_dot
 
 end
 
