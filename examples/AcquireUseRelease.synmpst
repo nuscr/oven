@@ -1,0 +1,13 @@
+(*) Acquire-Use-Release protocol
+
+global AcquireUseRelease(role C, role S1, role S2) {
+  inf {
+    ACQ() from C to S1;
+    PERM() from S1 to C;
+    fin {
+      USE(string) from C to S2;
+    }
+    REL() from C to S1;
+  }
+}
+
