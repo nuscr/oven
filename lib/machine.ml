@@ -182,8 +182,8 @@ module Global = struct
 
       | Fin g' ->
           let next', fsm' = f fsm g' (s_st, e_st) next in
-          let _, fsm'' = f fsm' g' (e_st, e_st) next' in
-          [s_st ; e_st], fsm''
+          let next'', fsm'' = f fsm' g' (e_st, e_st) next' in
+          [s_st ; e_st] @ next'', fsm''
 
       | Inf g' ->
           let _, fsm' = f fsm g' (s_st, s_st) next in
@@ -205,7 +205,8 @@ module Global = struct
 
     in
     let end_st = State.fresh_end() in
-    let _, fsm_final = f start_fsm _g (start, end_st) [start] in
+    let next, fsm_final = f start_fsm _g (start, end_st) [start] in
+    List.iter (fun st -> let _ = State.mark_as_end st in ()) next ;
     (start, fsm_final)
 
   module Dot = struct
