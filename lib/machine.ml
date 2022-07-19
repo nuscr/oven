@@ -148,6 +148,12 @@ module Global = struct
     (* f takes (s_st, e_st) which are proposed start and end states for the translation
        and returns the actual used ones.
     *)
+
+    (* f does the recursive translation.
+       s_st and e_st are the states that will bound the translated type
+       next is a list of states that lead to the machine we are currently translating
+       and the first element of the returned value is the places where the execution will continue
+    *)
     let rec f fsm g (s_st, e_st) next =
       "s_st = " ^ State.as_string s_st |> Utils.log ;
       "e_st = " ^ State.as_string e_st |> Utils.log ;
