@@ -10,4 +10,3 @@ global AcquireUseRelease(role C, role S1, role S2) {
     REL() from C to S1;
   }
 }
-
