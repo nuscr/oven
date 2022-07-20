@@ -20,11 +20,10 @@ module State = struct
     s.is_end := true ; s
 
   let as_string {id ; is_start ; is_end} =
-    let s_str = if !is_start then "s" else "" in
-    let e_str = if !is_end then "e" else "" in
-    let extra = if !is_start || !is_end then "[" ^ s_str ^ e_str ^ "]" else "" in
-    (string_of_int id) ^ extra
-
+    let s_str = if !is_start then "S" else "" in
+    let e_str = if !is_end then "E" else "" in
+    let extra = if !is_start || !is_end then s_str ^ e_str ^ "-" else "" in
+    extra ^ (string_of_int id)
 
   (* let mark_as_not_end s = *)
   (*   s.is_end := false ; s *)
@@ -255,7 +254,7 @@ module Global = struct
       let default_vertex_attributes _ = []
 
       let vertex_attributes = function
-        | v when State.is_start v -> [`Shape `Circle ; `Style `Filled ; `Fillcolor 0x77FF77 ; `Label ("S-" ^ (State.as_string v))]
+        | v when State.is_start v -> [`Shape `Circle ; `Style `Filled ; `Fillcolor 0x77FF77 ; `Label (State.as_string v)]
         | v when State.is_end v -> [`Shape `Doublecircle ; `Style `Filled ; `Fillcolor 0xFF7777 ; `Label (State.as_string v)]
         | v -> [`Shape `Circle ; `Label (State.as_string v) ]
 
@@ -281,7 +280,7 @@ module Global = struct
       Buffer.contents buffer
   end
 
-  let generate_dot fsm = fsm (*|> _minimise_state_numbers*) |> Dot.generate_dot
+  let generate_dot fsm = fsm |> _minimise_state_numbers |> Dot.generate_dot
 
 end
 
