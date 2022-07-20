@@ -48,6 +48,12 @@ module Toplevel = struct
   let project_state_machine = Machine.Local.project
 
   let dot_of_global_machine = Machine.Global.generate_dot
+
+  let  generate_all_local_machines : Syntax.global Syntax.protocol -> Machine.Local.FSM.t =
+    Machine.Local.generate_all_local
+
+  let dot_of_local_machine = Machine.Local.generate_dot
+
 end
 
 include Toplevel

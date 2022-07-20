@@ -31,11 +31,12 @@ module State = struct
   let is_start s = !(s.is_start)
   let is_end s = !(s.is_end)
 
-  let fresh, fresh_start, fresh_end =
+  let fresh, fresh_start, fresh_end, freshen =
     let n = ref 0 in
     ((fun () -> incr n ; {id = !n ; is_start = ref false ; is_end = ref false}),
      (fun () -> incr n ; {id = !n ; is_start = ref true ; is_end = ref false}),
-     (fun () -> incr n ; {id = !n ; is_start = ref false ; is_end = ref true}))
+     (fun () -> incr n ; {id = !n ; is_start = ref false ; is_end = ref true}),
+     (fun st -> incr n ; {id = !n ; is_start = ref (is_start st) ; is_end = ref (is_end st)}))
 
   let renumber_state n {id = _ ; is_start ; is_end} = {id = n ; is_start ; is_end}
 end
@@ -298,6 +299,9 @@ module Local = struct
 
   module FSM = Persistent.Digraph.ConcreteLabeled (State) ( Label)
   let project (r : Syntax.role) (fsm : Global.FSM.t) : FSM.t =
+    let complete fsm : FSM.t =
+      fsm
+    in
     let project_edge e =
       FSM.E.create
         (Global.FSM.E.src e)
@@ -311,7 +315,27 @@ module Local = struct
         fsm
         with_vertices
     in
-    with_edges
+    with_edges |> complete
+
+  let get_vertices (fsm : FSM.t) : FSM.V.t list =
+    let l = FSM.fold_vertex (fun st l -> st::l) fsm [] in
+    assert (List.length l = FSM.nb_vertex fsm) ;
+    l
+
+
+  (* TODO make this modular and not copy pasted *)
+  let _minimise_state_numbers fsm  =
+    let vertices = get_vertices fsm |> List.mapi (fun n st -> (st, State.renumber_state n st)) in
+
+    let fsm' = List.fold_left (fun fsm (_, st) -> FSM.add_vertex fsm st ) FSM.empty vertices in
+    let update e =
+      let tr st =
+        List.assoc st vertices
+      in
+      FSM.E.create (FSM.E.src e |> tr) (FSM.E.label e) (FSM.E.dst e |> tr)
+    in
+    FSM.fold_edges_e (fun e fsm -> FSM.add_edge_e fsm (update e)) fsm fsm'
+
 
   (* TODO make this modular and not copy pasted *)
   module Dot = struct
@@ -355,4 +379,31 @@ module Local = struct
   end
 
   let generate_dot fsm = fsm (* |> _minimise_state_numbers *) |> Dot.generate_dot
+
+  let disjoint_merge fsm fsm' =
+    let copy src dst  =
+      let vertices = get_vertices src |> List.map (fun st -> (st, State.freshen st)) in
+
+      let dst' = List.fold_left (fun fsm (_, st) -> FSM.add_vertex fsm st ) dst vertices in
+      let update e =
+        let tr st =
+          List.assoc st vertices
+        in
+        FSM.E.create (FSM.E.src e |> tr) (FSM.E.label e) (FSM.E.dst e |> tr)
+      in
+      FSM.fold_edges_e (fun e fsm -> FSM.add_edge_e fsm (update e)) src dst'
+    in
+    copy fsm @@ copy fsm' FSM.empty |> _minimise_state_numbers
+
+  let generate_all_local protocol =
+    let roles = protocol.roles in
+
+    let local_machine (g : global) (r : role) =
+      let _, gfsm = Global.generate_state_machine g in
+      project r gfsm
+    in
+
+    List.fold_left (fun fsm r -> let lfsm = local_machine protocol.interactions r in disjoint_merge lfsm fsm) FSM.empty roles
+
+
 end

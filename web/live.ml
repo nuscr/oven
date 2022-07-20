@@ -109,8 +109,9 @@ let analyse' () =
     match cu' with
     | [] -> Interface.Error.display_exn "No protocols found!"
     | prot::_ ->
-      let _, fsm = SynMPSTlib.generate_global_state_machine prot.interactions in
-      SynMPSTlib.dot_of_global_machine fsm |> Interface.Graph.set_dot
+      let fsm = SynMPSTlib.generate_all_local_machines prot in
+      (* let _, fsm = SynMPSTlib.generate_global_state_machine prot.interactions in *)
+      SynMPSTlib.dot_of_local_machine fsm |> Interface.Graph.set_dot
 
     (* let tr : Dom_html.element Js.t = SynMPSTlib.get_traces_as_string cu' |> T.txt |> To_dom.of_element in *)
     (* W.(set_children (get "projected") [(tr :> Dom.node Js.t)]) ; *)
