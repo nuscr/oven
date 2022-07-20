@@ -256,8 +256,8 @@ module Global = struct
       let default_vertex_attributes _ = []
 
       let vertex_attributes = function
-        | v when State.is_end v -> [`Shape `Doublecircle ; `Label (State.as_string v)]
-        | v when State.is_start v -> [`Shape `Circle ; `Label ("S-" ^ (State.as_string v))]
+        | v when State.is_start v -> [`Shape `Circle ; `Style `Filled ; `Fillcolor 0x77FF77 ; `Label ("S-" ^ (State.as_string v))]
+        | v when State.is_end v -> [`Shape `Doublecircle ; `Style `Filled ; `Fillcolor 0xFF7777 ; `Label (State.as_string v)]
         | v -> [`Shape `Circle ; `Label (State.as_string v) ]
 
       let default_edge_attributes _ = []
