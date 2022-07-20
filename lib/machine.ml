@@ -155,14 +155,8 @@ module Global = struct
   let filter_degenerate_branches branches =
     List.filter (function Seq [] -> false | _ -> true) branches
 
-  let generate_state_machine (_g : global) : State.t * FSM.t =
+  let generate_state_machine (g : global) : State.t * FSM.t =
     let start = State.fresh_start () in
-    (* let start_fsm =  FSM.add_vertex FSM.empty start in *)
-    let start_fsm = FSM.empty in (* TODO remove *)
-    (* f takes (s_st, e_st) which are proposed start and end states for the translation
-       and returns the actual used ones.
-    *)
-
     (* tr does the recursive translation.
        s_st and e_st are the states that will bound the translated type
        next is a list of states that lead to the machine we are currently translating
@@ -192,10 +186,6 @@ module Global = struct
             let st = State.fresh_start () |> State.mark_as_end in
             "Empty sequence state:" ^ State.as_string st |> Utils.log;
             [st], FSM.add_vertex FSM.empty st
-
-
-            (* let _ = State.mark_as_end s_st in *)
-            (* next, fsm *)
 
         in
         connect fsm gis (s_st, e_st) next
@@ -236,7 +226,7 @@ module Global = struct
           List.concat nexts, (merge fsm fsm')
     in
     let end_st = State.fresh_end() in
-    let next, fsm_final = tr start_fsm _g (start, end_st) [start] in
+    let next, fsm_final = tr FSM.empty g (start, end_st) [start] in
     List.iter (fun st -> let _ = State.mark_as_end st in ()) next ;
     (start, fsm_final)
 
