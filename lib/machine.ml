@@ -300,14 +300,19 @@ module Local = struct
   module FSM = Persistent.Digraph.ConcreteLabeled (State) ( Label)
 
 
-  let rec state_can_step (fsm : FSM.t) (st : State.t) : bool =
+  let rec state_can_step (fsm : FSM.t) (st : State.t) (visited : State.t list) : bool =
     let edges_from_st = FSM.fold_edges_e (fun e l -> if FSM.E.src e = st then e::l else l) fsm []  in
     (* if it can step then done *)
     if List.exists (fun e -> FSM.E.label e |> Option.is_some) edges_from_st then true
     else
       let rec check = function
         | [] -> false
-        | e::es -> state_can_step fsm (FSM.E.dst e) || check es
+        | e::es ->
+          let dst = FSM.E.dst e in
+          if List.mem dst visited then
+            check es
+          else
+            state_can_step fsm dst (st::visited) || check es
       in
       check edges_from_st
 
@@ -322,10 +327,11 @@ module Local = struct
         FSM.E.create (FSM.E.dst e) (FSM.E.label e) (FSM.E.src e)
       in
 
-      let new_tau_edges = List.filter_map (fun e -> if state_can_step fsm (FSM.E.dst e) then Some (reverse_edge e) else None) tau_edges in
+      let new_tau_edges = List.filter_map (fun e -> if state_can_step fsm (FSM.E.dst e) [] then Some (reverse_edge e) else None) tau_edges in
 
       List.fold_left FSM.add_edge_e fsm new_tau_edges
     in
+
     let project_edge e =
       FSM.E.create
         (Global.FSM.E.src e)
