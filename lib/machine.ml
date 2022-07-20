@@ -13,14 +13,18 @@ module State = struct
 
   let compare s1 s2 = compare s1.id s2.id
 
-  (* let mark_as_start s = *)
-  (*   s.is_start := true ; s *)
+  let mark_as_start s =
+    s.is_start := true ; s
 
   let mark_as_end s =
     s.is_end := true ; s
 
-  let as_string s =
-    string_of_int s.id
+  let as_string {id ; is_start ; is_end} =
+    let s_str = if !is_start then "s" else "" in
+    let e_str = if !is_end then "e" else "" in
+    let extra = if !is_start || !is_end then "[" ^ s_str ^ e_str ^ "]" else "" in
+    (string_of_int id) ^ extra
+
 
   (* let mark_as_not_end s = *)
   (*   s.is_end := false ; s *)
@@ -82,10 +86,15 @@ module Global = struct
       "Size of sts_fsm': " ^ string_of_int (List.length sts_fsm') ^ " -- "  ^ (print_vertices sts_fsm') |> Utils.log;
       (* new combined_state *)
       let ncs st st' =
+        let new_st () =
+          let new_st = State.fresh() in
+          let new_st' = if State.is_start st && State.is_start st' then State.mark_as_start new_st else new_st in
+          if State.is_end st && State.is_end st' then State.mark_as_end new_st' else new_st'
+        in
         if st = s_st && st = st'
         then s_st
         else if st = e_st && st = st'
-        then e_st else State.fresh()
+        then e_st else new_st ()
       in
       let state_space = List.fold_left (fun b a  -> List.fold_left (fun b' a' -> ((a, a'), ncs a a')::b') b sts_fsm') [] sts_fsm in
       (* generate state_machine for the combined state *)
@@ -145,7 +154,8 @@ module Global = struct
 
   let generate_state_machine (_g : global) : State.t * FSM.t =
     let start = State.fresh_start () in
-    let start_fsm =  FSM.add_vertex FSM.empty start in
+    (* let start_fsm =  FSM.add_vertex FSM.empty start in *)
+    let start_fsm = FSM.empty in (* TODO remove *)
     (* f takes (s_st, e_st) which are proposed start and end states for the translation
        and returns the actual used ones.
     *)
@@ -175,7 +185,10 @@ module Global = struct
             let next', fsm' = tr fsm g' (s_st, fresh_st) next in
             connect fsm' gs (fresh_st, e_st) next'
 
-          | [] -> [], FSM.add_vertex FSM.empty (State.fresh_start () |> State.mark_as_end)
+          | [] ->
+            let st = State.fresh_start () |> State.mark_as_end in
+            "Empty sequence state:" ^ State.as_string st |> Utils.log;
+            [], FSM.add_vertex FSM.empty st
 
 
             (* let _ = State.mark_as_end s_st in *)
