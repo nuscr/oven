@@ -42,15 +42,25 @@ type global  (* consider renaming just global *)
 
 type compilation_unit = global protocol list
 
-let rec syntactic_checks _ = true
-(* TODO: implement syntactic checks here *)
 
-let validate_global_type g = syntactic_checks g
+let rec validate_roles roles = function
+  | MessageTransfer {sender ; receiver ; label = _} ->
+    if List.mem sender roles && List.mem receiver roles then true
+    else Error.UserError "Unknown role used in protocol." |> raise
+  | Choice branches
+  | Par branches
+  | Seq branches ->
+    List.for_all (validate_roles roles) branches
+  | Fin g
+  | Inf g ->
+    validate_roles roles g
+
+
+let validate_global_protocol protocol =
+  validate_roles protocol.roles protocol.interactions
 
 let validate_compilation_unit cu =
-  List.for_all
-    (function { protocol_name = _ ; roles = _ ; interactions} -> validate_global_type interactions)
-    cu
+  List.for_all validate_global_protocol cu
 
 (* local "types" *)
 
