@@ -218,7 +218,7 @@ module Global = struct
 
       | Par [] ->
         "EMPTY PAR" |> Utils.log ;
-        next (*@ [s_st]*), fsm
+        next, fsm
 
       | Par branches ->
         let branches = filter_degenerate_branches branches in
