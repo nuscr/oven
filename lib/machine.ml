@@ -125,15 +125,15 @@ module Global = struct
 
         if from_first && (s = s1) then
           try
-          let _, d_res = List.find (fun ((x0, x1), _) -> x0 = d && x1 = s2) dict in
-          d_res
+            let _, d_res = List.find (fun ((x0, x1), _) -> x0 = d && x1 = s2) dict in
+            d_res
           with
           | _ -> failwith ("this: " ^ dict_to_string dict)
 
         else if (not from_first) && s = s2 then
           try
-          let _, d_res = List.find (fun ((x0, x1), _) -> x1 = d && x0 = s1) dict in
-          d_res
+            let _, d_res = List.find (fun ((x0, x1), _) -> x1 = d && x0 = s1) dict in
+            d_res
           with
           | _ -> failwith ("that: " ^ dict_to_string dict)
 
@@ -197,13 +197,13 @@ module Global = struct
           List.concat nexts, fsm'
 
       | Fin g' ->
-          let next', fsm' = tr fsm g' (s_st, e_st) next in
-          let next'', fsm'' = tr fsm' g' (e_st, e_st) next' in
-          next @ next' @ next'' @ [s_st ; e_st], fsm''
+        let next', fsm' = tr fsm g' (s_st, e_st) next in
+        let next'', fsm'' = tr fsm' g' (e_st, e_st) next' in
+        next @ next' @ next'' @ [s_st ; e_st], fsm''
 
       | Inf g' ->
-          let _, fsm' = tr fsm g' (s_st, s_st) next in
-          [e_st], fsm'
+        let _, fsm' = tr fsm g' (s_st, s_st) next in
+        [e_st], fsm'
 
       | Par [] ->
         "EMPTY PAR" |> Utils.log ;
@@ -229,17 +229,17 @@ module Global = struct
     List.iter (fun st -> let _ = State.mark_as_end st in ()) next ;
     (start, fsm_final)
 
-    let _minimise_state_numbers fsm =
-      let vertices = get_vertices fsm |> List.mapi (fun n st -> (st, State.renumber_state n st)) in
+  let _minimise_state_numbers fsm =
+    let vertices = get_vertices fsm |> List.mapi (fun n st -> (st, State.renumber_state n st)) in
 
-      let fsm' = List.fold_left (fun fsm (_, st) -> FSM.add_vertex fsm st ) FSM.empty vertices in
-      let update e =
-        let tr st =
-          List.assoc st vertices
-        in
-        FSM.E.create (FSM.E.src e |> tr) (FSM.E.label e) (FSM.E.dst e |> tr)
+    let fsm' = List.fold_left (fun fsm (_, st) -> FSM.add_vertex fsm st ) FSM.empty vertices in
+    let update e =
+      let tr st =
+        List.assoc st vertices
       in
-      FSM.fold_edges_e (fun e fsm -> FSM.add_edge_e fsm (update e)) fsm fsm'
+      FSM.E.create (FSM.E.src e |> tr) (FSM.E.label e) (FSM.E.dst e |> tr)
+    in
+    FSM.fold_edges_e (fun e fsm -> FSM.add_edge_e fsm (update e)) fsm fsm'
 
   module Dot = struct
     module Display = struct
@@ -312,4 +312,47 @@ module Local = struct
         with_vertices
     in
     with_edges
+
+  (* TODO make this modular and not copy pasted *)
+  module Dot = struct
+    module Display = struct
+      include FSM
+
+      let vertex_name v =
+        string_of_int v.State.id
+
+
+      let graph_attributes _ = [`Rankdir `LeftToRight]
+
+      let default_vertex_attributes _ = []
+
+      let vertex_attributes = function
+        | v when State.is_start v && State.is_end v -> [`Shape `Doublecircle ; `Style `Filled ; `Fillcolor 0x7777FF ; `Label (State.as_string v)]
+        | v when State.is_start v -> [`Shape `Circle ; `Style `Filled ; `Fillcolor 0x77FF77 ; `Label (State.as_string v)]
+        | v when State.is_end v -> [`Shape `Doublecircle ; `Style `Filled ; `Fillcolor 0xFF7777 ; `Label (State.as_string v)]
+        | v -> [`Shape `Circle ; `Label (State.as_string v) ]
+
+      let default_edge_attributes _ = []
+
+      let edge_attributes (e : edge) =
+        match FSM.E.label e with
+        | None -> [`Label "tau"]
+        | Some l -> [`Label (Syntax.Local.string_of_local_transition_label l)]
+
+      let get_subgraph _ = None
+
+    end
+
+    module Output = Graphviz.Dot(Display)
+
+    let generate_dot fsm =
+      let buffer_size = 65536 in
+      let buffer = Buffer.create buffer_size in
+      let formatter = Format.formatter_of_buffer buffer in
+      Output.fprint_graph formatter fsm ;
+      Format.pp_print_flush formatter () ;
+      Buffer.contents buffer
+  end
+
+  let generate_dot fsm = fsm (* |> _minimise_state_numbers *) |> Dot.generate_dot
 end

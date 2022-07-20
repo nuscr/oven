@@ -49,4 +49,6 @@ module Local :
   end
 
   val project : Syntax.role -> Global.FSM.t -> FSM.t
+
+  val generate_dot : FSM.t -> string
   end
