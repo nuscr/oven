@@ -152,6 +152,9 @@ module Global = struct
     let jfsm' = FSM.fold_edges_e (add_edges true) fsm jfsm in
     FSM.fold_edges_e (add_edges false) fsm' jfsm'
 
+  let filter_degenerate_branches branches =
+    List.filter (function Seq [] -> false | _ -> true) branches
+
   let generate_state_machine (_g : global) : State.t * FSM.t =
     let start = State.fresh_start () in
     (* let start_fsm =  FSM.add_vertex FSM.empty start in *)
@@ -188,7 +191,7 @@ module Global = struct
           | [] ->
             let st = State.fresh_start () |> State.mark_as_end in
             "Empty sequence state:" ^ State.as_string st |> Utils.log;
-            [], FSM.add_vertex FSM.empty st
+            [st], FSM.add_vertex FSM.empty st
 
 
             (* let _ = State.mark_as_end s_st in *)
@@ -198,9 +201,11 @@ module Global = struct
         connect fsm gis (s_st, e_st) next
 
       | Choice branches ->
-        let nexts, fsms = List.map (fun g -> tr fsm g (s_st, e_st) next) branches |> List.split in
-        let fsm' = List.fold_left merge fsm fsms in
-        List.concat nexts, fsm'
+        let branches = filter_degenerate_branches branches in
+        if List.length branches = 0 then next, fsm else
+          let nexts, fsms = List.map (fun g -> tr fsm g (s_st, e_st) next) branches |> List.split in
+          let fsm' = List.fold_left merge fsm fsms in
+          List.concat nexts, fsm'
 
       | Fin g' ->
           let next', fsm' = tr fsm g' (s_st, e_st) next in
@@ -211,20 +216,24 @@ module Global = struct
           let _, fsm' = tr fsm g' (s_st, s_st) next in
           [e_st], fsm'
 
+      | Par [] ->
+        "EMPTY PAR" |> Utils.log ;
+        next (*@ [s_st]*), fsm
+
       | Par branches ->
-        let m = FSM.add_vertex (FSM.add_vertex FSM.empty s_st) e_st in
-
-        let nexts, fsms = List.map (fun g -> tr m g (s_st, e_st) next) branches |> List.split in
-        List.iter (fun fsm -> "branch number of vertices: " ^ (FSM.nb_vertex fsm |> string_of_int) |> Utils.log) fsms;
-        let fsm' =
-          match fsms with
-          | [] -> m
-          | [fsm] -> fsm
-          | fsm::fsms' ->
-          List.fold_left (parallel_compose (s_st, e_st)) fsm fsms'
-        in
-        List.concat nexts, (merge fsm fsm')
-
+        let branches = filter_degenerate_branches branches in
+        if List.length branches = 0 then next, fsm else
+          let m = FSM.add_vertex (FSM.add_vertex FSM.empty s_st) e_st in
+          let nexts, fsms = List.map (fun g -> tr m g (s_st, e_st) next) branches |> List.split in
+          List.iter (fun fsm -> "branch number of vertices: " ^ (FSM.nb_vertex fsm |> string_of_int) |> Utils.log) fsms;
+          let fsm' =
+            match fsms with
+            | [] -> m
+            | [fsm] -> fsm
+            | fsm::fsms' ->
+              List.fold_left (parallel_compose (s_st, e_st)) fsm fsms'
+          in
+          List.concat nexts, (merge fsm fsm')
     in
     let end_st = State.fresh_end() in
     let next, fsm_final = tr start_fsm _g (start, end_st) [start] in
