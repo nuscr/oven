@@ -69,7 +69,6 @@ module Global = struct
   (* let get_transitions_from_state (fsm :FSM.t) (st : State.t) : FSM.E.t list = *)
   (*   FSM.fold_edges_e (fun e l -> if FSM.E.src e = st then e::l else l) fsm [] *)
 
-
   let rec print_vertices = function
     | [] -> "[]"
     | s::ss -> State.as_string s ^ "::" ^ print_vertices ss
@@ -151,12 +150,12 @@ module Global = struct
        and returns the actual used ones.
     *)
 
-    (* f does the recursive translation.
+    (* tr does the recursive translation.
        s_st and e_st are the states that will bound the translated type
        next is a list of states that lead to the machine we are currently translating
        and the first element of the returned value is the places where the execution will continue
     *)
-    let rec f fsm g (s_st, e_st) next =
+    let rec tr fsm g (s_st, e_st) next =
       "s_st = " ^ State.as_string s_st |> Utils.log ;
       "e_st = " ^ State.as_string e_st |> Utils.log ;
       match g with
@@ -169,38 +168,40 @@ module Global = struct
         let rec connect fsm gis (s_st, e_st) next =
           match gis with
           | [g'] ->
-            f fsm g' (s_st, e_st) next
+            tr fsm g' (s_st, e_st) next
 
           | g'::gs ->
             let fresh_st = State.fresh() in
-            let next', fsm' = f fsm g' (s_st, fresh_st) next in
+            let next', fsm' = tr fsm g' (s_st, fresh_st) next in
             connect fsm' gs (fresh_st, e_st) next'
 
-          | [] ->
-            let _ = State.mark_as_end s_st in
-            next, fsm
+          | [] -> [], FSM.add_vertex FSM.empty (State.fresh_start () |> State.mark_as_end)
+
+
+            (* let _ = State.mark_as_end s_st in *)
+            (* next, fsm *)
 
         in
         connect fsm gis (s_st, e_st) next
 
       | Choice branches ->
-        let nexts, fsms = List.map (fun g -> f fsm g (s_st, e_st) next) branches |> List.split in
+        let nexts, fsms = List.map (fun g -> tr fsm g (s_st, e_st) next) branches |> List.split in
         let fsm' = List.fold_left merge fsm fsms in
         List.concat nexts, fsm'
 
       | Fin g' ->
-          let next', fsm' = f fsm g' (s_st, e_st) next in
-          let next'', fsm'' = f fsm' g' (e_st, e_st) next' in
+          let next', fsm' = tr fsm g' (s_st, e_st) next in
+          let next'', fsm'' = tr fsm' g' (e_st, e_st) next' in
           next @ next' @ next'' @ [s_st ; e_st], fsm''
 
       | Inf g' ->
-          let _, fsm' = f fsm g' (s_st, s_st) next in
+          let _, fsm' = tr fsm g' (s_st, s_st) next in
           [e_st], fsm'
 
       | Par branches ->
         let m = FSM.add_vertex (FSM.add_vertex FSM.empty s_st) e_st in
 
-        let nexts, fsms = List.map (fun g -> f m g (s_st, e_st) next) branches |> List.split in
+        let nexts, fsms = List.map (fun g -> tr m g (s_st, e_st) next) branches |> List.split in
         List.iter (fun fsm -> "branch number of vertices: " ^ (FSM.nb_vertex fsm |> string_of_int) |> Utils.log) fsms;
         let fsm' =
           match fsms with
@@ -213,11 +214,11 @@ module Global = struct
 
     in
     let end_st = State.fresh_end() in
-    let next, fsm_final = f start_fsm _g (start, end_st) [start] in
+    let next, fsm_final = tr start_fsm _g (start, end_st) [start] in
     List.iter (fun st -> let _ = State.mark_as_end st in ()) next ;
     (start, fsm_final)
 
-    let minimise_state_numbers fsm =
+    let _minimise_state_numbers fsm =
       let vertices = get_vertices fsm |> List.mapi (fun n st -> (st, State.renumber_state n st)) in
 
       let fsm' = List.fold_left (fun fsm (_, st) -> FSM.add_vertex fsm st ) FSM.empty vertices in
@@ -268,7 +269,7 @@ module Global = struct
       Buffer.contents buffer
   end
 
-  let generate_dot fsm = fsm |> minimise_state_numbers |> Dot.generate_dot
+  let generate_dot fsm = fsm (*|> _minimise_state_numbers*) |> Dot.generate_dot
 
 end
 
