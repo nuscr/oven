@@ -19,7 +19,7 @@ module Toplevel = struct
 
 
 
-  let _parse fname (ch : In_channel.t) : Syntax.compilation_unit  =
+  let _parse fname ch : Syntax.compilation_unit  =
     let lexbuf = set_filename fname (Lexing.from_channel ch) in
     parse_from_lexbuf lexbuf
 

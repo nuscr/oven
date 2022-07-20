@@ -3,7 +3,8 @@
  (action
   (run ./genex_dune.sh))
  (deps
-  (source_tree ../examples)))
+  (source_tree ../examples)
+  (file examplelist.txt)))
 
 (executable
  (name live)

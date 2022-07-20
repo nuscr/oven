@@ -13,7 +13,6 @@
  (flags
   ("--explain" "-la" "2")))
 
-
 (library
  (name synMPSTlib)
  (public_name synMPST.lib)
@@ -28,4 +27,4 @@
  ;   ppx_sexp_conv
  ;   ppxlib.metaquot
  ;   ppx_here))
-)
+ )
