@@ -319,6 +319,7 @@ module Local = struct
 
 
   let project (r : Syntax.role) (fsm : Global.FSM.t) : FSM.t =
+    "Projecting role: " ^  r |> Utils.log ;
     (* add the \tau transitions induced by L-Rev *)
     let complete fsm : FSM.t =
       let tau_edges = FSM.fold_edges_e (fun e l -> if FSM.E.label e |> Option.is_none then e::l else l) fsm []  in
