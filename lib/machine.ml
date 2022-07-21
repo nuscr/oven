@@ -391,7 +391,7 @@ module Local = struct
 
       let edge_attributes (e : edge) =
         match FSM.E.label e with
-        | None -> [`Label "tau"]
+        | None -> [`Label "τ"]
         | Some l -> [`Label (Syntax.Local.string_of_local_transition_label l)]
 
       let get_subgraph _ = None
