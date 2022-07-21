@@ -28,7 +28,7 @@ module Local = struct
 
   let string_of_local_transition_label lbl =
     let dir = match lbl.direction with Sending -> "!" | Receiving -> "?" in
-    lbl.sender ^ "/" ^ lbl.receiver ^ dir ^ lbl.label.name
+    lbl.sender ^ dir ^ lbl.receiver ^ "<" ^ lbl.label.name ^ ">"
 end
 
 
