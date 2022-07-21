@@ -300,7 +300,15 @@ module Local = struct
   module FSM = Persistent.Digraph.ConcreteLabeled (State) ( Label)
 
 
-  let rec state_can_step (fsm : FSM.t) (st : State.t) (visited : State.t list) : bool =
+  let rec state_can_step (fsm : FSM.t) (st : State.t) (_visited : State.t list) : bool =
+    let edges_from_st = FSM.fold_edges_e (fun e l -> if FSM.E.src e = st then e::l else l) fsm []  in
+    match edges_from_st with
+    | [] -> false
+    | _::_ -> true
+
+
+  (* if the state can step with a non tau transition explore transitively *)
+  let rec _state_can_step_recursive (fsm : FSM.t) (st : State.t) (visited : State.t list) : bool =
     let edges_from_st = FSM.fold_edges_e (fun e l -> if FSM.E.src e = st then e::l else l) fsm []  in
     (* if it can step then done *)
     if List.exists (fun e -> FSM.E.label e |> Option.is_some) edges_from_st then true
