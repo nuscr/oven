@@ -306,7 +306,6 @@ module Local = struct
     | [] -> false
     | _::_ -> true
 
-
   (* if the state can step with a non tau transition explore transitively *)
   let rec _state_can_step_recursive (fsm : FSM.t) (st : State.t) (visited : State.t list) : bool =
     let edges_from_st = FSM.fold_edges_e (fun e l -> if FSM.E.src e = st then e::l else l) fsm []  in
@@ -323,8 +322,6 @@ module Local = struct
             state_can_step fsm dst (st::visited) || check es
       in
       check edges_from_st
-
-
 
   let project (r : Syntax.role) (fsm : Global.FSM.t) : FSM.t =
     "Projecting role: " ^  r |> Utils.log ;
