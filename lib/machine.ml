@@ -61,11 +61,14 @@ module type STATE = sig
   (* val as_string : t -> string *)
   val list_as_string : t list -> string
 
+  val mark_as_start : t -> t
+  val mark_as_end : t -> t
+
   (* val fresh_start : unit -> t *)
   (* val fresh_end : unit -> t *)
 
-  (* val is_start : t -> bool *)
-  (* val is_end : t -> bool *)
+  val is_start : t -> bool
+  val is_end : t -> bool
 end
 
 module type LABEL = sig
@@ -175,8 +178,13 @@ module Bisimulation (State : STATE) (Label : LABEL) = struct
     bs'
 
   let extract_minimal (bs : block list) (es : FSM.edge list) : FSM.t =
-    (* TODO: find start and end states *)
-    let st_dict = List.map (fun b -> b, State.fresh()) bs in
+    let new_state_from_block b =
+      let st = State.fresh() in
+      let st = if List.exists State.is_start b then State.mark_as_start st else st in
+      let st = if List.exists State.is_end b then State.mark_as_end st else st in
+      st
+    in
+    let st_dict = List.map (fun b -> b, new_state_from_block b) bs in
 
     let lookup st =
       let rec l = function
