@@ -3,6 +3,7 @@ examples/second.synmpst
 examples/par.synmpst
 examples/finfin.synmpst
 examples/nestedfin.synmpst
+examples/choice.synmpst
 examples/AcquireUseRelease.synmpst
 examples/lics21/Example9.synmpst
 examples/lics21/Example13.synmpst
