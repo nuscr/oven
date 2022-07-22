@@ -58,7 +58,7 @@ module type STATE = sig
 
   val fresh : unit -> t
 
-  (* val as_string : t -> string *)
+  val as_string : t -> string
   val list_as_string : t list -> string
 
   val mark_as_start : t -> t
@@ -130,9 +130,6 @@ module Bisimulation (State : STATE) (Label : LABEL) = struct
                else (b1, st'::b2))
             ([], []) b
         in
-        "Split: " ^  State.list_as_string b |> Utils.log;
-        "b1 = " ^ State.list_as_string b1 |> Utils.log;
-        "b2 = " ^ State.list_as_string b2 |> Utils.log;
         b1, b2 (* TODO remove the let *)
     in
 
@@ -158,24 +155,19 @@ module Bisimulation (State : STATE) (Label : LABEL) = struct
       for_each_block [] false bs
     in
 
-    let print_block_list bs =
-      let str = bs |> List.map State.list_as_string |> String.concat "; " in
-      "[" ^ str ^ "]"
-    in
-
     let rec compute_while_changes bs =
       let changed, bs' = compute bs in
       if changed then
-        ("changed to: " ^ print_block_list bs' |> Utils.log ;
-        compute_while_changes bs')
+        compute_while_changes bs'
       else
         bs'
 
     in
-    "splitting: " ^ print_block_list bs |> Utils.log ;
     let bs' = compute_while_changes bs in
-    "resulting in: " ^ print_block_list bs' |> Utils.log ;
     bs'
+
+  let dict_as_string dict =
+    List.map (fun (a, b) -> "(" ^ State.list_as_string a ^ " |-> " ^ State.as_string b ^ ")") dict |> String.concat "\n\t"
 
   let extract_minimal (bs : block list) (es : FSM.edge list) : FSM.t =
     let new_state_from_block b =
@@ -185,7 +177,7 @@ module Bisimulation (State : STATE) (Label : LABEL) = struct
       st
     in
     let st_dict = List.map (fun b -> b, new_state_from_block b) bs in
-
+    "Translation dictionary is :" ^ dict_as_string st_dict |> Utils.log ;
     let lookup st =
       let rec l = function
         | [] -> Error.Violation "State not found, this is a bug!" |> raise
@@ -398,7 +390,6 @@ module Global = struct
     in
     FSM.fold_edges_e (fun e fsm -> FSM.add_edge_e fsm (update e)) fsm fsm'
 
-
   module B = Bisimulation (State) (Label)
   let minimise fsm = B.minimise fsm
 
@@ -541,7 +532,6 @@ module Local = struct
   (* TODO make this modular and not copy pasted *)
   let _minimise_state_numbers fsm  =
     let vertices = get_vertices fsm |> List.mapi (fun n st -> (st, State.renumber_state n st)) in
-
     let fsm' = List.fold_left (fun fsm (_, st) -> FSM.add_vertex fsm st ) FSM.empty vertices in
     let update e =
       let tr st =
