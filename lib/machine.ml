@@ -25,6 +25,10 @@ module State = struct
     let extra = if !is_start || !is_end then s_str ^ e_str ^ "-" else "" in
     extra ^ (string_of_int id)
 
+  let rec list_as_string = function
+    | [] -> "[]"
+    | s::ss -> as_string s ^ "::" ^ list_as_string ss
+
   (* let mark_as_not_end s = *)
   (*   s.is_end := false ; s *)
 
@@ -39,7 +43,11 @@ module State = struct
      (fun st -> incr n ; {id = !n ; is_start = ref (is_start st) ; is_end = ref (is_end st)}))
 
   let renumber_state n {id = _ ; is_start ; is_end} = {id = n ; is_start ; is_end}
+
+
 end
+
+(* TODO move to a more modular place *)
 
 
 module type STATE = sig
@@ -49,6 +57,10 @@ module type STATE = sig
   val compare : t -> t -> int
 
   val fresh : unit -> t
+
+  (* val as_string : t -> string *)
+  val list_as_string : t list -> string
+
   (* val fresh_start : unit -> t *)
   (* val fresh_end : unit -> t *)
 
@@ -75,18 +87,16 @@ module Bisimulation (State : STATE) (Label : LABEL) = struct
     FSM.fold_edges_e (fun e l -> e::l) fsm []
 
   let compute_bisimulation_quotient (fsm : FSM.t) : block list =
+    "Start computing bisimul quot." |> Utils.log;
     let initial () : block list * FSM.edge list =
       (* a singleton block with all the states to be refined *)
       let bs : block list = [FSM.fold_vertex (fun st l -> st :: l) fsm []] in
       let edges = get_edges fsm in
       bs, edges
     in
-    (* (\* edges with label a from st in fsm *\) *)
-    (* let edges_with st a fsm = *)
-    (*   (\* FSM_SB.succ_e fsm st |> List.filter (fun e ->  a = FSM_SB.E.label e) *\) *)
-    (*   assert false *)
 
     let bs, edges = initial() in
+    "States: " ^ State.list_as_string (List.hd bs) |> Utils.log ;
     (* Performance: this is quite naive, as we compare lots of blocks for identity, so many
        very slow comparisons of lists. If we run into performance probles,
        this is a thing to improve. It should not be hard once the system is working. *)
@@ -117,19 +127,21 @@ module Bisimulation (State : STATE) (Label : LABEL) = struct
                else (b1, st'::b2))
             ([], []) b
         in
+        "Split: " ^  State.list_as_string b |> Utils.log;
+        "b1 = " ^ State.list_as_string b1 |> Utils.log;
+        "b2 = " ^ State.list_as_string b2 |> Utils.log;
         b1, b2 (* TODO remove the let *)
     in
 
     let compute (bs : block list) : 'a =
-
       let rec for_each_edge (b : block) : FSM.edge list -> bool * block list = function
         | [] -> false, [b]
         | e::es ->
           let b1, b2 = split b (FSM.E.label e) bs in
           if Utils.is_empty b2 then
-            true, [b1; b2]
-          else
             for_each_edge b es
+          else
+            true, [b1; b2]
       in
 
       let rec for_each_block acc_bs changed = function
@@ -137,21 +149,30 @@ module Bisimulation (State : STATE) (Label : LABEL) = struct
         | b::bs ->
           (* sort? *)
           let changed', split_b = for_each_edge b edges  in
-          for_each_block (acc_bs @ split_b) changed' bs
+          for_each_block (acc_bs @ split_b) (changed || changed') bs
       in
 
       for_each_block [] false bs
     in
 
+    let print_block_list bs =
+      let str = bs |> List.map State.list_as_string |> String.concat "; " in
+      "[" ^ str ^ "]"
+    in
+
     let rec compute_while_changes bs =
       let changed, bs' = compute bs in
       if changed then
-        compute_while_changes bs'
+        ("changed to: " ^ print_block_list bs' |> Utils.log ;
+        compute_while_changes bs')
       else
         bs'
 
     in
-    compute_while_changes bs
+    "splitting: " ^ print_block_list bs |> Utils.log ;
+    let bs' = compute_while_changes bs in
+    "resulting in: " ^ print_block_list bs |> Utils.log ;
+    bs'
 
   let extract_minimal (bs : block list) (es : FSM.edge list) : FSM.t =
     (* TODO: find start and end states *)
@@ -204,21 +225,13 @@ module Global = struct
     let with_edges = FSM.fold_edges_e (fun e g -> FSM.add_edge_e g e) fsm' with_vertices in
     with_edges
 
-
-  (* let get_transitions_from_state (fsm :FSM.t) (st : State.t) : FSM.E.t list = *)
-  (*   FSM.fold_edges_e (fun e l -> if FSM.E.src e = st then e::l else l) fsm [] *)
-
-  let rec print_vertices = function
-    | [] -> "[]"
-    | s::ss -> State.as_string s ^ "::" ^ print_vertices ss
-
   (* compose two machines allowing all their interleavings *)
   let parallel_compose (s_st, e_st) (fsm : FSM.t) (fsm' : FSM.t) : FSM.t =
     let generate_state_space (s_st, e_st) fsm fsm' : 'a =
       let sts_fsm = get_vertices fsm in
       let sts_fsm' = get_vertices fsm' in
-      "Size of sts_fsm: " ^ string_of_int (List.length sts_fsm) ^ " -- "  ^ (print_vertices sts_fsm) |> Utils.log;
-      "Size of sts_fsm': " ^ string_of_int (List.length sts_fsm') ^ " -- "  ^ (print_vertices sts_fsm') |> Utils.log;
+      "Size of sts_fsm: " ^ string_of_int (List.length sts_fsm) ^ " -- "  ^ (State.list_as_string sts_fsm) |> Utils.log;
+      "Size of sts_fsm': " ^ string_of_int (List.length sts_fsm') ^ " -- "  ^ (State.list_as_string sts_fsm') |> Utils.log;
       (* new combined_state *)
       let ncs st st' =
         let new_st () =
@@ -290,7 +303,7 @@ module Global = struct
   let filter_degenerate_branches branches =
     List.filter (function Seq [] -> false | _ -> true) branches
 
-  let generate_state_machine (g : global) : State.t * FSM.t =
+  let generate_state_machine' (g : global) : State.t * FSM.t =
     let start = State.fresh_start () in
     (* tr does the recursive translation.
        s_st and e_st are the states that will bound the translated type
@@ -381,13 +394,32 @@ module Global = struct
   module B = Bisimulation (State) (Label)
   let minimise fsm = B.minimise fsm
 
+  (* this function appears twice, move them to a generic module *)
+  let disjoint_merge fsm fsm' =
+    let copy src dst  =
+      let vertices = get_vertices src |> List.map (fun st -> (st, State.freshen st)) in
+
+      let dst' = List.fold_left (fun fsm (_, st) -> FSM.add_vertex fsm st ) dst vertices in
+      let update e =
+        let tr st =
+          List.assoc st vertices
+        in
+        FSM.E.create (FSM.E.src e |> tr) (FSM.E.label e) (FSM.E.dst e |> tr)
+      in
+      FSM.fold_edges_e (fun e fsm -> FSM.add_edge_e fsm (update e)) src dst'
+    in
+    copy fsm @@ copy fsm' FSM.empty |> _minimise_state_numbers
+
+  let generate_state_machine (g : global) : State.t * FSM.t =
+    let st, fsm = generate_state_machine' g in
+    st, disjoint_merge fsm (minimise fsm)
+
   module Dot = struct
     module Display = struct
       include FSM
 
       let vertex_name v =
         string_of_int v.State.id
-
 
       let graph_attributes _ = [`Rankdir `LeftToRight]
 
