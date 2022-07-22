@@ -171,7 +171,7 @@ module Bisimulation (State : STATE) (Label : LABEL) = struct
     in
     "splitting: " ^ print_block_list bs |> Utils.log ;
     let bs' = compute_while_changes bs in
-    "resulting in: " ^ print_block_list bs |> Utils.log ;
+    "resulting in: " ^ print_block_list bs' |> Utils.log ;
     bs'
 
   let extract_minimal (bs : block list) (es : FSM.edge list) : FSM.t =
@@ -179,18 +179,18 @@ module Bisimulation (State : STATE) (Label : LABEL) = struct
     let st_dict = List.map (fun b -> b, State.fresh()) bs in
 
     let lookup st =
-      let rec l st = function
+      let rec l = function
         | [] -> Error.Violation "State not found, this is a bug!" |> raise
         | (b, st')::_ when List.mem st b -> st'
-        | _::dict -> l st dict
+        | _::dict -> l dict
       in
-      l st st_dict
+      l st_dict
     in
 
     (* add states *)
     let fsm = List.fold_left (fun fsm (_, st) -> FSM.add_vertex fsm st) FSM.empty st_dict in
     (* add edges *)
-    List.fold_left (fun fsm e -> FSM.add_edge_e fsm (FSM.E.create (FSM.E.src e |> lookup) (FSM.E.label e) (FSM.E.src e |> lookup)) ) fsm es
+    List.fold_left (fun fsm e -> FSM.add_edge_e fsm (FSM.E.create (FSM.E.src e |> lookup) (FSM.E.label e) (FSM.E.dst e |> lookup)) ) fsm es
 
 
   let minimise (fsm : FSM.t) : FSM.t =
