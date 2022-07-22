@@ -1,0 +1,18 @@
+global Borked(role C, role S) {
+  par {
+    fin {
+      D from S to C;
+      fin {
+        A() from C to S;
+        AA from S to C;
+      }
+    }
+    C from S to C;
+  } and {
+    choice {
+      XXX from C to S;
+    } or {
+      YYY from C to S;
+    }
+  }
+}
