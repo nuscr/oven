@@ -349,7 +349,7 @@ module Global = struct
       | Choice branches ->
         let branches = filter_degenerate_branches branches in
         if List.length branches = 0 then next, fsm else
-          let nexts, fsms = List.map (fun g -> tr fsm g (s_st, e_st) next) branches |> List.split in
+          let nexts, fsms = List.map (fun g -> tr fsm g (s_st, State.fresh()) next) branches |> List.split in
           let fsm' = List.fold_left merge fsm fsms in
           List.concat nexts, fsm'
 
