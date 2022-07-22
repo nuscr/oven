@@ -29,6 +29,8 @@ module Global : sig
   val merge : FSM.t -> FSM.t -> FSM.t
   val generate_state_machine : Syntax.global -> State.t * FSM.t
 
+  val minimise : FSM.t -> FSM.t
+
   val generate_dot : FSM.t -> string
 end
 

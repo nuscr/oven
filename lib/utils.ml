@@ -10,6 +10,14 @@ let rec uniq x =
   | h::t -> h::(helper (uniq t) h)
 
 
+let is_empty = function
+  | [] -> true
+  | _ -> false
+
+let is_non_empty = function
+  | [] -> false
+  | _ -> true
+
 let log, get_log =
   let contents = ref "" in
   (fun s ->

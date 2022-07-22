@@ -41,6 +41,141 @@ module State = struct
   let renumber_state n {id = _ ; is_start ; is_end} = {id = n ; is_start ; is_end}
 end
 
+
+module type STATE = sig
+  type t
+  val equal : t -> t -> bool
+  val hash : t -> int
+  val compare : t -> t -> int
+
+  val fresh : unit -> t
+  (* val fresh_start : unit -> t *)
+  (* val fresh_end : unit -> t *)
+
+  (* val is_start : t -> bool *)
+  (* val is_end : t -> bool *)
+end
+
+module type LABEL = sig
+  type t
+
+  val default : t
+
+  val compare : t -> t -> int
+end
+
+module Bisimulation (State : STATE) (Label : LABEL) = struct
+  (* Compute the bisimulation quotient using the algorithm by Kanellakis and Smolka *)
+
+  module FSM = Persistent.Digraph.ConcreteLabeled (State) (Label)
+
+  type block = State.t list
+
+  let get_edges fsm =
+    FSM.fold_edges_e (fun e l -> e::l) fsm []
+
+  let compute_bisimulation_quotient (fsm : FSM.t) : block list =
+    let initial () : block list * FSM.edge list =
+      (* a singleton block with all the states to be refined *)
+      let bs : block list = [FSM.fold_vertex (fun st l -> st :: l) fsm []] in
+      let edges = get_edges fsm in
+      bs, edges
+    in
+    (* (\* edges with label a from st in fsm *\) *)
+    (* let edges_with st a fsm = *)
+    (*   (\* FSM_SB.succ_e fsm st |> List.filter (fun e ->  a = FSM_SB.E.label e) *\) *)
+    (*   assert false *)
+
+    let bs, edges = initial() in
+    (* Performance: this is quite naive, as we compare lots of blocks for identity, so many
+       very slow comparisons of lists. If we run into performance probles,
+       this is a thing to improve. It should not be hard once the system is working. *)
+
+    (* states that can be reached with label a from st *)
+    let can_reach_with st a =
+      List.filter_map (fun e -> if FSM.E.src e = st && FSM.E.label e = a then Some (FSM.E.dst e) else None) edges
+    in
+
+    let find_state_in_blocks st bs =
+      List.filter (List.mem st) bs
+    in
+
+    let can_reach_block st a bs =
+      let sts = can_reach_with st a in
+      List.map (fun st -> find_state_in_blocks st bs) sts |> Utils.uniq
+    in
+
+    let split (b : block) (a : Label.t) (bs : block list) : block * block =
+      match b with
+      | [] -> [], []
+      | st::_ -> (* choose some state in the block *)
+        let b1, b2 =
+          List.fold_left
+            (fun (b1, b2) st' ->
+               if can_reach_block st a bs = can_reach_block st' a bs
+               then (st'::b1, b2)
+               else (b1, st'::b2))
+            ([], []) b
+        in
+        b1, b2 (* TODO remove the let *)
+    in
+
+    let compute (bs : block list) : 'a =
+
+      let rec for_each_edge (b : block) : FSM.edge list -> bool * block list = function
+        | [] -> false, [b]
+        | e::es ->
+          let b1, b2 = split b (FSM.E.label e) bs in
+          if Utils.is_empty b2 then
+            true, [b1; b2]
+          else
+            for_each_edge b es
+      in
+
+      let rec for_each_block acc_bs changed = function
+        | [] -> changed, acc_bs
+        | b::bs ->
+          (* sort? *)
+          let changed', split_b = for_each_edge b edges  in
+          for_each_block (acc_bs @ split_b) changed' bs
+      in
+
+      for_each_block [] false bs
+    in
+
+    let rec compute_while_changes bs =
+      let changed, bs' = compute bs in
+      if changed then
+        compute_while_changes bs'
+      else
+        bs'
+
+    in
+    compute_while_changes bs
+
+  let extract_minimal (bs : block list) (es : FSM.edge list) : FSM.t =
+    (* TODO: find start and end states *)
+    let st_dict = List.map (fun b -> b, State.fresh()) bs in
+
+    let lookup st =
+      let rec l st = function
+        | [] -> Error.Violation "State not found, this is a bug!" |> raise
+        | (b, st')::_ when List.mem st b -> st'
+        | _::dict -> l st dict
+      in
+      l st st_dict
+    in
+
+    (* add states *)
+    let fsm = List.fold_left (fun fsm (_, st) -> FSM.add_vertex fsm st) FSM.empty st_dict in
+    (* add edges *)
+    List.fold_left (fun fsm e -> FSM.add_edge_e fsm (FSM.E.create (FSM.E.src e |> lookup) (FSM.E.label e) (FSM.E.src e |> lookup)) ) fsm es
+
+
+  let minimise (fsm : FSM.t) : FSM.t =
+    extract_minimal (compute_bisimulation_quotient fsm) (get_edges fsm)
+end
+
 module Global = struct
   module Label = struct
     type t = transition_label option
@@ -242,6 +377,10 @@ module Global = struct
     in
     FSM.fold_edges_e (fun e fsm -> FSM.add_edge_e fsm (update e)) fsm fsm'
 
+
+  module B = Bisimulation (State) (Label)
+  let minimise fsm = B.minimise fsm
+
   module Dot = struct
     module Display = struct
       include FSM
@@ -440,6 +579,4 @@ module Local = struct
     in
 
     List.fold_left (fun fsm r -> let lfsm = local_machine protocol.interactions r in disjoint_merge lfsm fsm) FSM.empty roles
-
-
 end
