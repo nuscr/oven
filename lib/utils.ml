@@ -19,7 +19,7 @@ let is_non_empty = function
   | _ -> true
 
 let log, get_log =
-  let contents = ref "" in
+  let contents = Buffer.create 4096 in
   (fun s ->
-     contents := !contents ^ "\n" ^ s),
-  (fun () -> let s = !contents in contents := "" ; s)
+     Buffer.add_string contents s; Buffer.add_char contents '\n'),
+  (fun () -> let s = Buffer.contents contents in Buffer.clear contents ; s)
