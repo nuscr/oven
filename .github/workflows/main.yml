@@ -30,14 +30,22 @@ jobs:
           path: _opam
           key: ${{ runner.os }}-${{ matrix.ocaml-version }}-${{ hashFiles('dune-project') }}
 
+      - name: Setup yarn
+        uses: actions/setup-node@v3
+        with:
+          cache: 'yarn'
+          cache-dependency-path: 'web/yarn.lock'
+
       # - run: cd SynMPST && opam install . --deps-only --with-doc --with-test
 
       - run: opam install menhir dune js_of_ocaml js_of_ocaml-ppx js_of_ocaml-tyxml ocamlgraph
 
       - run: opam exec -- dune build
 
+      - run: cd web && yarn
+
       - name: Deploy live version
-        run: WHERE=../site opam exec -- make -C web deploy
+        run: WHERE=../site opam exec -- make -C web minify
 
       - name: Actually deploy
         if: github.event_name == 'push'
