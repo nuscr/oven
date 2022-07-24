@@ -17,8 +17,6 @@ module Toplevel = struct
       raise (Error.UserError ("Parsing error: " ^ pos_str))
     | e -> raise (Error.Violation ("Found a problem:" ^  Printexc.to_string e))
 
-
-
   let _parse fname ch : Syntax.compilation_unit  =
     let lexbuf = set_filename fname (Lexing.from_channel ch) in
     parse_from_lexbuf lexbuf

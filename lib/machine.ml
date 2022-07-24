@@ -44,11 +44,11 @@ module State = struct
 
   let renumber_state n {id = _ ; is_start ; is_end} = {id = n ; is_start ; is_end}
 
+  let get_id {id ; _ } = id
 
 end
 
 (* TODO move to a more modular place *)
-
 
 module type STATE = sig
   type t
@@ -56,7 +56,11 @@ module type STATE = sig
   val hash : t -> int
   val compare : t -> t -> int
 
+  val get_id : t -> int
+
   val fresh : unit -> t
+  val freshen : t -> t
+  val renumber_state : int -> t -> t
 
   val as_string : t -> string
   val list_as_string : t list -> string
@@ -77,17 +81,181 @@ module type LABEL = sig
   val default : t
 
   val compare : t -> t -> int
+
+  val as_string : t -> string
+end
+
+module FSM (State : STATE) (Label : LABEL) = struct
+  module G = Persistent.Digraph.ConcreteLabeled (State) (Label)
+  include G
+
+  let get_edges fsm =
+    fold_edges_e (fun e l -> e::l) fsm []
+
+  let get_vertices (fsm : t) : V.t list =
+    let l = fold_vertex (fun st l -> st::l) fsm [] in
+    assert (List.length l = nb_vertex fsm) ;
+    l
+
+  (* states that can be reached in one step with label a from st *)
+  let can_reach_with edges st a =
+    List.filter_map (fun e -> if E.src e = st && E.label e = a then Some (E.dst e) else None) edges
+
+  let minimise_state_numbers fsm =
+    let vertices = get_vertices fsm |> List.mapi (fun n st -> (st, State.renumber_state n st)) in
+
+    let fsm' = List.fold_left (fun fsm (_, st) -> add_vertex fsm st ) empty vertices in
+    let update e =
+      let tr st =
+        List.assoc st vertices
+      in
+      E.create (E.src e |> tr) (E.label e) (E.dst e |> tr)
+    in
+    fold_edges_e (fun e fsm -> add_edge_e fsm (update e)) fsm fsm'
+
+
+  (* simple merge two state machines *)
+  let merge (fsm : t) (fsm' : t) : t =
+    (* extend with vertices *)
+    let with_vertices = fold_vertex (fun v g -> add_vertex g v) fsm' fsm in
+    (* extend with edges *)
+    let with_edges = fold_edges_e (fun e g -> add_edge_e g e) fsm' with_vertices in
+    with_edges
+
+  (* this function appears twice, move them to a generic module *)
+  let disjoint_merge fsm fsm' =
+    let copy src dst  =
+      let vertices = get_vertices src |> List.map (fun st -> (st, State.freshen st)) in
+
+      let dst' = List.fold_left (fun fsm (_, st) -> add_vertex fsm st ) dst vertices in
+      let update e =
+        let tr st =
+          List.assoc st vertices
+        in
+        E.create (E.src e |> tr) (E.label e) (E.dst e |> tr)
+      in
+      fold_edges_e (fun e fsm -> add_edge_e fsm (update e)) src dst'
+    in
+    copy fsm @@ copy fsm' empty |> minimise_state_numbers
+
+  (* compose two machines allowing all their interleavings *)
+  let parallel_compose (s_st, e_st) (fsm : t) (fsm' : t) : t =
+    let generate_state_space (s_st, e_st) fsm fsm' : 'a =
+      let sts_fsm = get_vertices fsm in
+      let sts_fsm' = get_vertices fsm' in
+      "Size of sts_fsm: " ^ string_of_int (List.length sts_fsm) ^ " -- "  ^ (State.list_as_string sts_fsm) |> Utils.log;
+      "Size of sts_fsm': " ^ string_of_int (List.length sts_fsm') ^ " -- "  ^ (State.list_as_string sts_fsm') |> Utils.log;
+      (* new combined_state *)
+      let ncs st st' =
+        let new_st () =
+          let new_st = State.fresh() in
+          let new_st' = if State.is_start st && State.is_start st' then State.mark_as_start new_st else new_st in
+          if State.is_end st && State.is_end st' then State.mark_as_end new_st' else new_st'
+        in
+        if st = s_st && st = st'
+        then s_st
+        else if st = e_st && st = st'
+        then e_st else new_st ()
+      in
+      let state_space = List.fold_left (fun b a  -> List.fold_left (fun b' a' -> ((a, a'), ncs a a')::b') b sts_fsm') [] sts_fsm in
+      (* generate state_machine for the combined state *)
+      let machine = List.fold_left (fun fsm (_, st) -> add_vertex fsm st) empty state_space
+      in
+      state_space, machine
+    in
+
+    let dict, jfsm = generate_state_space (s_st, e_st) fsm fsm' in
+
+    let rec dict_to_string = function
+      | [] -> "[]"
+      | ((s1, s2), s3)::dict ->
+        "(" ^ State.as_string s1 ^ ", " ^  State.as_string s2 ^ "), " ^  State.as_string s3 ^ ")::" ^ dict_to_string dict
+    in
+
+    Utils.log @@ dict_to_string dict ;
+    "Size of fsm: " ^ string_of_int (nb_vertex fsm) |> Utils.log;
+    "Size of fsm': " ^ string_of_int (nb_vertex fsm') |> Utils.log;
+    "Size of space: " ^ string_of_int (List.length dict) |> Utils.log;
+
+    (* adds an edge many times to the product space *)
+    let add_edges from_first e fsm =
+      let src_sts = List.filter (fun ((st, st'), _) -> if from_first then st = E.src e else st' = E.src e) dict in
+
+      let find_end_state ( (s1, s2), _) e =
+        let s = E.src e in
+        let d = E.dst e in
+
+        if from_first && (s = s1) then
+          try
+            let _, d_res = List.find (fun ((x0, x1), _) -> x0 = d && x1 = s2) dict in
+            d_res
+          with
+          | _ -> failwith ("this: " ^ dict_to_string dict)
+
+        else if (not from_first) && s = s2 then
+          try
+            let _, d_res = List.find (fun ((x0, x1), _) -> x1 = d && x0 = s1) dict in
+            d_res
+          with
+          | _ -> failwith ("that: " ^ dict_to_string dict)
+
+        else
+          failwith "Violation: e is not related to s1, s2."
+
+      in
+
+      let coords = List.map
+          (fun ((_c_s_st, c_e_st), src_st) -> src_st, find_end_state ((_c_s_st, c_e_st), src_st) e)
+          src_sts
+      in
+      List.fold_left (fun fsm' (src, dst) -> add_edge_e fsm' (E.create src (E.label e) dst) ) fsm coords
+    in
+    let jfsm' = fold_edges_e (add_edges true) fsm jfsm in
+    fold_edges_e (add_edges false) fsm' jfsm'
+
+  module Dot = struct
+    module Display = struct
+      include G
+
+      let vertex_name v =
+        string_of_int @@ State.get_id v
+
+      let graph_attributes _ = [`Rankdir `LeftToRight]
+
+      let default_vertex_attributes _ = []
+
+      let vertex_attributes = function
+        | v when State.is_start v && State.is_end v -> [`Shape `Doublecircle ; `Style `Filled ; `Fillcolor 0x7777FF ; `Label (State.as_string v)]
+        | v when State.is_start v -> [`Shape `Circle ; `Style `Filled ; `Fillcolor 0x77FF77 ; `Label (State.as_string v)]
+        | v when State.is_end v -> [`Shape `Doublecircle ; `Style `Filled ; `Fillcolor 0xFF7777 ; `Label (State.as_string v)]
+        | v -> [`Shape `Circle ; `Label (State.as_string v) ]
+
+      let default_edge_attributes _ = []
+
+      let edge_attributes (e : edge) = [ `Label (Label.as_string @@ E.label e) ]
+
+      let get_subgraph _ = None
+    end
+
+    module Output = Graphviz.Dot(Display)
+
+    let generate_dot fsm =
+      let buffer_size = 65536 in
+      let buffer = Buffer.create buffer_size in
+      let formatter = Format.formatter_of_buffer buffer in
+      Output.fprint_graph formatter fsm ;
+      Format.pp_print_flush formatter () ;
+      Buffer.contents buffer
+  end
 end
 
 module Bisimulation (State : STATE) (Label : LABEL) = struct
   (* Compute the bisimulation quotient using the algorithm by Kanellakis and Smolka *)
 
-  module FSM = Persistent.Digraph.ConcreteLabeled (State) (Label)
+  module FSM = FSM (State) (Label)
+  include FSM
 
   type block = State.t list
-
-  let get_edges fsm =
-    FSM.fold_edges_e (fun e l -> e::l) fsm []
 
   let compute_bisimulation_quotient (fsm : FSM.t) : block list =
     "Start computing bisimul quot." |> Utils.log;
@@ -104,17 +272,13 @@ module Bisimulation (State : STATE) (Label : LABEL) = struct
        very slow comparisons of lists. If we run into performance probles,
        this is a thing to improve. It should not be hard once the system is working. *)
 
-    (* states that can be reached with label a from st *)
-    let can_reach_with st a =
-      List.filter_map (fun e -> if FSM.E.src e = st && FSM.E.label e = a then Some (FSM.E.dst e) else None) edges
-    in
 
     let find_state_in_blocks st bs =
       List.filter (List.mem st) bs
     in
 
     let can_reach_block st a bs =
-      let sts = can_reach_with st a in
+      let sts = can_reach_with edges st a in
       List.map (fun st -> find_state_in_blocks st bs) sts |> Utils.uniq
     in
 
@@ -208,97 +372,14 @@ module Global = struct
     let project r lbl =
       Option.bind lbl
         (fun l-> Operations.Local.project_transition r l)
+
+    let as_string = function
+      | None -> "τ"
+      | Some l -> string_of_transition_label l
   end
 
-  module FSM = Persistent.Digraph.ConcreteLabeled (State) (Label)
-
-  let get_vertices (fsm : FSM.t) : FSM.V.t list =
-    let l = FSM.fold_vertex (fun st l -> st::l) fsm [] in
-    assert (List.length l = FSM.nb_vertex fsm) ;
-    l
-
-  (* simple merge two state machines *)
-  let merge (fsm : FSM.t) (fsm' : FSM.t) : FSM.t =
-    (* extend with vertices *)
-    let with_vertices = FSM.fold_vertex (fun v g -> FSM.add_vertex g v) fsm' fsm in
-    (* extend with edges *)
-    let with_edges = FSM.fold_edges_e (fun e g -> FSM.add_edge_e g e) fsm' with_vertices in
-    with_edges
-
-  (* compose two machines allowing all their interleavings *)
-  let parallel_compose (s_st, e_st) (fsm : FSM.t) (fsm' : FSM.t) : FSM.t =
-    let generate_state_space (s_st, e_st) fsm fsm' : 'a =
-      let sts_fsm = get_vertices fsm in
-      let sts_fsm' = get_vertices fsm' in
-      "Size of sts_fsm: " ^ string_of_int (List.length sts_fsm) ^ " -- "  ^ (State.list_as_string sts_fsm) |> Utils.log;
-      "Size of sts_fsm': " ^ string_of_int (List.length sts_fsm') ^ " -- "  ^ (State.list_as_string sts_fsm') |> Utils.log;
-      (* new combined_state *)
-      let ncs st st' =
-        let new_st () =
-          let new_st = State.fresh() in
-          let new_st' = if State.is_start st && State.is_start st' then State.mark_as_start new_st else new_st in
-          if State.is_end st && State.is_end st' then State.mark_as_end new_st' else new_st'
-        in
-        if st = s_st && st = st'
-        then s_st
-        else if st = e_st && st = st'
-        then e_st else new_st ()
-      in
-      let state_space = List.fold_left (fun b a  -> List.fold_left (fun b' a' -> ((a, a'), ncs a a')::b') b sts_fsm') [] sts_fsm in
-      (* generate state_machine for the combined state *)
-      let machine = List.fold_left (fun fsm (_, st) -> FSM.add_vertex fsm st) FSM.empty state_space
-      in
-      state_space, machine
-    in
-
-    let dict, jfsm = generate_state_space (s_st, e_st) fsm fsm' in
-
-    let rec dict_to_string = function
-      | [] -> "[]"
-      | ((s1, s2), s3)::dict ->
-        "(" ^ State.as_string s1 ^ ", " ^  State.as_string s2 ^ "), " ^  State.as_string s3 ^ ")::" ^ dict_to_string dict
-    in
-
-    Utils.log @@ dict_to_string dict ;
-    "Size of fsm: " ^ string_of_int (FSM.nb_vertex fsm) |> Utils.log;
-    "Size of fsm': " ^ string_of_int (FSM.nb_vertex fsm') |> Utils.log;
-    "Size of space: " ^ string_of_int (List.length dict) |> Utils.log;
-
-    (* adds an edge many times to the product space *)
-    let add_edges from_first e fsm =
-      let src_sts = List.filter (fun ((st, st'), _) -> if from_first then st = FSM.E.src e else st' = FSM.E.src e) dict in
-
-      let find_end_state ( (s1, s2), _) e =
-        let s = FSM.E.src e in
-        let d = FSM.E.dst e in
-
-        if from_first && (s = s1) then
-          try
-            let _, d_res = List.find (fun ((x0, x1), _) -> x0 = d && x1 = s2) dict in
-            d_res
-          with
-          | _ -> failwith ("this: " ^ dict_to_string dict)
-
-        else if (not from_first) && s = s2 then
-          try
-            let _, d_res = List.find (fun ((x0, x1), _) -> x1 = d && x0 = s1) dict in
-            d_res
-          with
-          | _ -> failwith ("that: " ^ dict_to_string dict)
-
-        else
-          failwith "Violation: e is not related to s1, s2."
-
-      in
-
-      let coords = List.map
-          (fun ((_c_s_st, c_e_st), src_st) -> src_st, find_end_state ((_c_s_st, c_e_st), src_st) e)
-          src_sts
-      in
-      List.fold_left (fun fsm' (src, dst) -> FSM.add_edge_e fsm' (FSM.E.create src (FSM.E.label e) dst) ) fsm coords
-    in
-    let jfsm' = FSM.fold_edges_e (add_edges true) fsm jfsm in
-    FSM.fold_edges_e (add_edges false) fsm' jfsm'
+  module FSM = FSM (State) (Label)
+  include FSM
 
   let filter_degenerate_branches branches =
     List.filter (function Seq [] -> false | _ -> true) branches
@@ -378,97 +459,31 @@ module Global = struct
     List.iter (fun st -> let _ = State.mark_as_end st in ()) next ;
     (start, fsm_final)
 
-  let _minimise_state_numbers fsm =
-    let vertices = get_vertices fsm |> List.mapi (fun n st -> (st, State.renumber_state n st)) in
-
-    let fsm' = List.fold_left (fun fsm (_, st) -> FSM.add_vertex fsm st ) FSM.empty vertices in
-    let update e =
-      let tr st =
-        List.assoc st vertices
-      in
-      FSM.E.create (FSM.E.src e |> tr) (FSM.E.label e) (FSM.E.dst e |> tr)
-    in
-    FSM.fold_edges_e (fun e fsm -> FSM.add_edge_e fsm (update e)) fsm fsm'
-
   module B = Bisimulation (State) (Label)
   let minimise fsm = B.minimise fsm
-
-  (* this function appears twice, move them to a generic module *)
-  let disjoint_merge fsm fsm' =
-    let copy src dst  =
-      let vertices = get_vertices src |> List.map (fun st -> (st, State.freshen st)) in
-
-      let dst' = List.fold_left (fun fsm (_, st) -> FSM.add_vertex fsm st ) dst vertices in
-      let update e =
-        let tr st =
-          List.assoc st vertices
-        in
-        FSM.E.create (FSM.E.src e |> tr) (FSM.E.label e) (FSM.E.dst e |> tr)
-      in
-      FSM.fold_edges_e (fun e fsm -> FSM.add_edge_e fsm (update e)) src dst'
-    in
-    copy fsm @@ copy fsm' FSM.empty |> _minimise_state_numbers
 
   let generate_state_machine (g : global) : State.t * FSM.t =
     let st, fsm = generate_state_machine' g in
     st, disjoint_merge fsm (minimise fsm)
 
-  module Dot = struct
-    module Display = struct
-      include FSM
-
-      let vertex_name v =
-        string_of_int v.State.id
-
-      let graph_attributes _ = [`Rankdir `LeftToRight]
-
-      let default_vertex_attributes _ = []
-
-      let vertex_attributes = function
-        | v when State.is_start v && State.is_end v -> [`Shape `Doublecircle ; `Style `Filled ; `Fillcolor 0x7777FF ; `Label (State.as_string v)]
-        | v when State.is_start v -> [`Shape `Circle ; `Style `Filled ; `Fillcolor 0x77FF77 ; `Label (State.as_string v)]
-        | v when State.is_end v -> [`Shape `Doublecircle ; `Style `Filled ; `Fillcolor 0xFF7777 ; `Label (State.as_string v)]
-        | v -> [`Shape `Circle ; `Label (State.as_string v) ]
-
-      let default_edge_attributes _ = []
-
-      let edge_attributes (e : edge) =
-        match FSM.E.label e with
-        | None -> [`Label "tau"]
-        | Some l -> [`Label (Syntax.string_of_transition_label l)]
-
-      let get_subgraph _ = None
-
-    end
-
-    module Output = Graphviz.Dot(Display)
-
-    let generate_dot fsm =
-      let buffer_size = 65536 in
-      let buffer = Buffer.create buffer_size in
-      let formatter = Format.formatter_of_buffer buffer in
-      Output.fprint_graph formatter fsm ;
-      Format.pp_print_flush formatter () ;
-      Buffer.contents buffer
-  end
-
-  let generate_dot fsm = fsm |> _minimise_state_numbers |> Dot.generate_dot
-
+  let generate_dot fsm = fsm |> minimise_state_numbers |> Dot.generate_dot
 end
 
-
 module Local = struct
-
   module Label = struct
     type t = Syntax.Local.local_transition_label option
 
     let default : t = None
 
     let compare = Stdlib.compare (* consider a more specific one *)
+
+    let as_string = function
+      | None -> "τ"
+      | Some l -> Syntax.Local.string_of_local_transition_label l
   end
 
-  module FSM = Persistent.Digraph.ConcreteLabeled (State) ( Label)
-
+  module FSM = FSM (State) ( Label)
+  include FSM
 
   let rec state_can_step (fsm : FSM.t) (st : State.t) (_visited : State.t list) : bool =
     let edges_from_st = FSM.fold_edges_e (fun e l -> if FSM.E.src e = st then e::l else l) fsm []  in
@@ -523,67 +538,8 @@ module Local = struct
     in
     with_edges |> complete
 
-  let get_vertices (fsm : FSM.t) : FSM.V.t list =
-    let l = FSM.fold_vertex (fun st l -> st::l) fsm [] in
-    assert (List.length l = FSM.nb_vertex fsm) ;
-    l
 
-
-  (* TODO make this modular and not copy pasted *)
-  let _minimise_state_numbers fsm  =
-    let vertices = get_vertices fsm |> List.mapi (fun n st -> (st, State.renumber_state n st)) in
-    let fsm' = List.fold_left (fun fsm (_, st) -> FSM.add_vertex fsm st ) FSM.empty vertices in
-    let update e =
-      let tr st =
-        List.assoc st vertices
-      in
-      FSM.E.create (FSM.E.src e |> tr) (FSM.E.label e) (FSM.E.dst e |> tr)
-    in
-    FSM.fold_edges_e (fun e fsm -> FSM.add_edge_e fsm (update e)) fsm fsm'
-
-
-  (* TODO make this modular and not copy pasted *)
-  module Dot = struct
-    module Display = struct
-      include FSM
-
-      let vertex_name v =
-        string_of_int v.State.id
-
-
-      let graph_attributes _ = [`Rankdir `LeftToRight]
-
-      let default_vertex_attributes _ = []
-
-      let vertex_attributes = function
-        | v when State.is_start v && State.is_end v -> [`Shape `Doublecircle ; `Style `Filled ; `Fillcolor 0x7777FF ; `Label (State.as_string v)]
-        | v when State.is_start v -> [`Shape `Circle ; `Style `Filled ; `Fillcolor 0x77FF77 ; `Label (State.as_string v)]
-        | v when State.is_end v -> [`Shape `Doublecircle ; `Style `Filled ; `Fillcolor 0xFF7777 ; `Label (State.as_string v)]
-        | v -> [`Shape `Circle ; `Label (State.as_string v) ]
-
-      let default_edge_attributes _ = []
-
-      let edge_attributes (e : edge) =
-        match FSM.E.label e with
-        | None -> [`Label "τ"]
-        | Some l -> [`Label (Syntax.Local.string_of_local_transition_label l)]
-
-      let get_subgraph _ = None
-
-    end
-
-    module Output = Graphviz.Dot(Display)
-
-    let generate_dot fsm =
-      let buffer_size = 65536 in
-      let buffer = Buffer.create buffer_size in
-      let formatter = Format.formatter_of_buffer buffer in
-      Output.fprint_graph formatter fsm ;
-      Format.pp_print_flush formatter () ;
-      Buffer.contents buffer
-  end
-
-  let generate_dot fsm = fsm (* |> _minimise_state_numbers *) |> Dot.generate_dot
+  let generate_dot fsm = fsm (* |> minimise_state_numbers *) |> Dot.generate_dot
 
   let disjoint_merge fsm fsm' =
     let copy src dst  =
@@ -598,7 +554,7 @@ module Local = struct
       in
       FSM.fold_edges_e (fun e fsm -> FSM.add_edge_e fsm (update e)) src dst'
     in
-    copy fsm @@ copy fsm' FSM.empty |> _minimise_state_numbers
+    copy fsm @@ copy fsm' FSM.empty |> minimise_state_numbers
 
   let generate_all_local protocol =
     let roles = protocol.roles in
