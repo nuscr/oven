@@ -125,7 +125,7 @@ module FSM (State : STATE) (Label : LABEL) = struct
     List.fold_left merge empty fsms
 
   (* this function appears twice, move them to a generic module *)
-  let disjoint_merge fsm fsm' =
+  let _disjoint_merge fsm fsm' =
     let copy src dst  =
       let vertices = get_vertices src |> List.map (fun st -> (st, State.freshen st)) in
 
@@ -495,7 +495,8 @@ module Global = struct
 
   let generate_state_machine (g : global) : State.t * FSM.t =
     let st, fsm = generate_state_machine' g in
-    st, disjoint_merge fsm (minimise fsm)
+    (* st, disjoint_merge fsm (minimise fsm) *)
+    st, minimise fsm
 
   let generate_dot fsm = fsm |> minimise_state_numbers |> Dot.generate_dot
 end
