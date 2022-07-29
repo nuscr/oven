@@ -18,6 +18,18 @@ let is_non_empty = function
   | [] -> false
   | _ -> true
 
+let rem x l =
+  let rec f acc = function
+    | [] -> acc
+    | y::ys when x = y -> f acc ys
+    | y::ys -> f (y::acc) ys
+  in
+  f [] l
+
+let rec minus l1 = function
+  | [] -> l1
+  | y::ys -> minus (rem y l1) ys
+
 let log, get_log =
   let contents = Buffer.create 4096 in
   (fun s ->

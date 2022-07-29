@@ -48,8 +48,6 @@ module State = struct
 
 end
 
-(* TODO move to a more modular place *)
-
 module type STATE = sig
   type t
   val equal : t -> t -> bool
@@ -122,6 +120,10 @@ module FSM (State : STATE) (Label : LABEL) = struct
     let with_edges = fold_edges_e (fun e g -> add_edge_e g e) fsm' with_vertices in
     with_edges
 
+  (* simple merge two state machines *)
+  let merge_all (fsms : t list) : t =
+    List.fold_left merge empty fsms
+
   (* this function appears twice, move them to a generic module *)
   let disjoint_merge fsm fsm' =
     let copy src dst  =
@@ -139,8 +141,8 @@ module FSM (State : STATE) (Label : LABEL) = struct
     copy fsm @@ copy fsm' empty |> minimise_state_numbers
 
   (* compose two machines allowing all their interleavings *)
-  let parallel_compose (s_st, e_st) (fsm : t) (fsm' : t) : t =
-    let generate_state_space (s_st, e_st) fsm fsm' : 'a =
+  let parallel_compose (fsm : t) (fsm' : t) : t =
+    let generate_state_space fsm fsm' : 'a =
       let sts_fsm = get_vertices fsm in
       let sts_fsm' = get_vertices fsm' in
       "Size of sts_fsm: " ^ string_of_int (List.length sts_fsm) ^ " -- "  ^ (State.list_as_string sts_fsm) |> Utils.log;
@@ -152,10 +154,8 @@ module FSM (State : STATE) (Label : LABEL) = struct
           let new_st' = if State.is_start st && State.is_start st' then State.mark_as_start new_st else new_st in
           if State.is_end st && State.is_end st' then State.mark_as_end new_st' else new_st'
         in
-        if st = s_st && st = st'
-        then s_st
-        else if st = e_st && st = st'
-        then e_st else new_st ()
+        if  st = st' then st else
+          new_st ()
       in
       let state_space = List.fold_left (fun b a  -> List.fold_left (fun b' a' -> ((a, a'), ncs a a')::b') b sts_fsm') [] sts_fsm in
       (* generate state_machine for the combined state *)
@@ -164,7 +164,7 @@ module FSM (State : STATE) (Label : LABEL) = struct
       state_space, machine
     in
 
-    let dict, jfsm = generate_state_space (s_st, e_st) fsm fsm' in
+    let dict, jfsm = generate_state_space fsm fsm' in
 
     let rec dict_to_string = function
       | [] -> "[]"
@@ -212,6 +212,29 @@ module FSM (State : STATE) (Label : LABEL) = struct
     in
     let jfsm' = fold_edges_e (add_edges true) fsm jfsm in
     fold_edges_e (add_edges false) fsm' jfsm'
+
+  let only_reachable_from st fsm =
+    let add_state_and_successors n_fsm st =
+      let next_sts = succ fsm st in
+      let next_edges = succ_e fsm st in
+
+      let n_fsm' = List.fold_left (fun fsm st -> add_vertex fsm st ) (add_vertex n_fsm st) next_sts in
+      List.fold_left (fun fsm e -> add_edge_e fsm e) n_fsm' next_edges
+    in
+
+    let rec f n_fsm visited to_visit =
+      match to_visit with
+      | [] -> n_fsm
+      |  st::remaining ->
+        (* states reachable from st *)
+        let reachable = succ fsm st in
+        let n_fsm' = add_state_and_successors n_fsm st in
+
+        let visited' = st::visited in
+        let to_visit' = Utils.minus (reachable @ remaining) visited' in
+        f n_fsm' visited' to_visit'
+    in
+    f empty [] [st]
 
   module Dot = struct
     module Display = struct
@@ -423,13 +446,13 @@ module Global = struct
         let branches = filter_degenerate_branches branches in
         if List.length branches = 0 then next, fsm else
           let nexts, fsms = List.map (fun g -> tr fsm g (s_st, State.fresh()) next) branches |> List.split in
-          let fsm' = List.fold_left merge fsm fsms in
-          List.concat nexts, fsm'
+          let fsm' = merge_all fsms in
+          List.concat nexts |> Utils.uniq, fsm'
 
       | Fin g' ->
         let next', fsm' = tr fsm g' (s_st, e_st) next in
         let next'', fsm'' = tr fsm' g' (e_st, e_st) next' in
-        next @ next' @ next'' @ [(*s_st ;*) e_st], fsm''
+        next @ next' @ next'' @ [e_st] |> Utils.uniq, fsm''
 
       | Inf g' ->
         let _, fsm' = tr fsm g' (s_st, s_st) next in
@@ -442,22 +465,27 @@ module Global = struct
       | Par branches ->
         let branches = filter_degenerate_branches branches in
         if List.length branches = 0 then next, fsm else
-          let m = FSM.add_vertex (FSM.add_vertex FSM.empty s_st) e_st in
-          let nexts, fsms = List.map (fun g -> tr m g (s_st, e_st) next) branches |> List.split in
+          let m () =
+            FSM.add_vertex (FSM.add_vertex FSM.empty s_st) e_st
+          in
+          let nexts, fsms = List.map (fun g -> tr (m ()) g (s_st, e_st) next) branches |> List.split in
           List.iter (fun fsm -> "branch number of vertices: " ^ (FSM.nb_vertex fsm |> string_of_int) |> Utils.log) fsms;
           let fsm' =
             match fsms with
-            | [] -> m
+            | [] -> m ()
             | [fsm] -> fsm
             | fsm::fsms' ->
-              List.fold_left (parallel_compose (s_st, e_st)) fsm fsms'
+              List.fold_left parallel_compose fsm fsms'
           in
-          List.concat nexts, (merge fsm fsm')
+          let resfsm = merge fsm fsm' in
+          let size = resfsm |> FSM.get_vertices |> List.length |> Int.to_string in
+          "PAR size result: " ^ size |> Utils.log ;
+          List.concat nexts, resfsm
     in
     let end_st = State.fresh_end() in
     let next, fsm_final = tr FSM.empty g (start, end_st) [start] in
     List.iter (fun st -> let _ = State.mark_as_end st in ()) next ;
-    (start, fsm_final)
+    (start, fsm_final |> only_reachable_from start)
 
   module B = Bisimulation (State) (Label)
   let minimise fsm = B.minimise fsm
