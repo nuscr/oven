@@ -141,7 +141,7 @@ module FSM (State : STATE) (Label : LABEL) = struct
     copy fsm @@ copy fsm' empty |> minimise_state_numbers
 
   (* compose two machines allowing all their interleavings *)
-  let parallel_compose (fsm : t) (fsm' : t) : t =
+  let parallel_compose (assoc, fsm : State.t list * t) (assoc', fsm' : State.t list * t) :  State.t list * t =
     let generate_state_space fsm fsm' : 'a =
       let sts_fsm = get_vertices fsm in
       let sts_fsm' = get_vertices fsm' in
@@ -165,6 +165,9 @@ module FSM (State : STATE) (Label : LABEL) = struct
     in
 
     let dict, jfsm = generate_state_space fsm fsm' in
+
+    let assoc_space = List.fold_left (fun b a -> List.fold_left (fun b' a' -> (a, a')::b') b assoc') [] assoc in
+    let res_assoc = List.map (fun stst' -> List.assoc stst' dict) assoc_space in
 
     let rec dict_to_string = function
       | [] -> "[]"
@@ -211,7 +214,7 @@ module FSM (State : STATE) (Label : LABEL) = struct
       List.fold_left (fun fsm' (src, dst) -> add_edge_e fsm' (E.create src (E.label e) dst) ) fsm coords
     in
     let jfsm' = fold_edges_e (add_edges true) fsm jfsm in
-    fold_edges_e (add_edges false) fsm' jfsm'
+    res_assoc, fold_edges_e (add_edges false) fsm' jfsm'
 
   let only_reachable_from st fsm =
     let add_state_and_successors n_fsm st =
@@ -468,19 +471,19 @@ module Global = struct
           let m () =
             FSM.add_vertex (FSM.add_vertex FSM.empty s_st) e_st
           in
-          let nexts, fsms = List.map (fun g -> tr (m ()) g (s_st, e_st) next) branches |> List.split in
-          List.iter (fun fsm -> "branch number of vertices: " ^ (FSM.nb_vertex fsm |> string_of_int) |> Utils.log) fsms;
-          let fsm' =
-            match fsms with
-            | [] -> m ()
-            | [fsm] -> fsm
-            | fsm::fsms' ->
-              List.fold_left parallel_compose fsm fsms'
+          let next_fsms = List.map (fun g -> tr (m ()) g (s_st, e_st) next) branches in
+          List.iter (fun (_, fsm) -> "branch number of vertices: " ^ (FSM.nb_vertex fsm |> string_of_int) |> Utils.log) next_fsms;
+          let nexts, fsm' =
+            match next_fsms with
+            | [] -> [], m ()
+            | [next_fsm] -> next_fsm
+            | next_fsm::next_fsms' ->
+              List.fold_left parallel_compose next_fsm next_fsms'
           in
           let resfsm = merge fsm fsm' in
           let size = resfsm |> FSM.get_vertices |> List.length |> Int.to_string in
           "PAR size result: " ^ size |> Utils.log ;
-          List.concat nexts, resfsm
+          nexts, resfsm (* BUG after parallel compose nexts don't make any more sense *)
     in
     let end_st = State.fresh_end() in
     let next, fsm_final = tr FSM.empty g (start, end_st) [start] in
