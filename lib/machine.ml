@@ -96,12 +96,34 @@ module FSM (State : STATE) (Label : LABEL) = struct
     l
 
   (* states that can be reached in one step with label that is not tau a from st *)
-  let can_reach_with_labels edges st a =
+  let _can_reach_with_labels edges st a =
     List.filter_map (fun e -> if E.src e = st && E.label e = a && not (E.label e = Label.default) then Some (E.dst e) else None) edges
 
   (* states that can be reached in one step with label a from st *)
   let can_reach_with_anything edges st a =
     List.filter_map (fun e -> if E.src e = st && E.label e = a then Some (E.dst e) else None) edges
+
+  let walk_collect_vertices_with_predicate (fsm : t) (_st : State.t) (step : State.t -> edge list) (p : edge -> bool) : vertex list =
+    (* states from edges *)
+    let sfe es =
+      List.concat_map (fun e -> E.src e:: E.dst e::[]) es
+    in
+
+    let rec f visited acc to_visit =
+
+      match to_visit with
+      | [] -> acc
+
+      | curr_st::sts when List.mem curr_st visited  ->
+        f visited acc sts
+
+      | curr_st::sts ->
+        let acc' = (List.filter p (succ_e fsm curr_st) |> List.map E.dst) @ acc in
+        let visited' = curr_st::visited in
+        let to_visit' = to_visit @ (sfe @@ step curr_st)  in
+        f  visited' acc' (sts@to_visit')
+    in
+    f [] [] [_st]
 
   let walk_with_predicate (st : State.t) (step : State.t -> edge list) (p : edge -> bool) : bool =
     let rec f st visited =
@@ -122,8 +144,11 @@ module FSM (State : STATE) (Label : LABEL) = struct
     in
     f st []
 
+  let only_with_tau (fsm : t) (st : State.t) : edge list =
+    succ_e fsm st |> List.filter (fun e -> E.label e = Label.default)
+
   let with_any_transition (fsm : t) (st : State.t) : edge list =
-    fold_edges_e (fun e l -> if E.src e = st then e::l else l) fsm []
+    succ_e fsm st
 
   let minimise_state_numbers fsm =
     let vertices = get_vertices fsm |> List.mapi (fun n st -> (st, State.renumber_state n st)) in
@@ -336,7 +361,10 @@ module Bisimulation (State : STATE) (Label : LABEL) (Str : STRENGTH)  = struct
       let sts = if Str.is_strong then
           can_reach_with_anything edges st a (* this makes it a strong bisimulation *)
         else
-          can_reach_with_labels edges st a (* this makes it a weak bisimulation *)
+          (* can_reach_with_label_through_taus *)
+          (walk_collect_vertices_with_predicate fsm st
+            (only_with_tau fsm)
+            (fun e -> E.label e = a) ) @ can_reach_with_anything edges st a
     in
       List.map (fun st -> find_state_in_blocks st bs) sts |> Utils.uniq
     in
@@ -553,10 +581,6 @@ module Local = struct
   (* if state can step with ANY transition, including tau *)
   let state_can_step (fsm : FSM.t) (st : State.t) : bool =
     FSM.succ fsm st |> Utils.is_empty|> not
-
-  (* this cannot be in FSM because the notion of taus is not there *)
-  let only_with_tau (fsm : t) (st : State.t) : FSM.edge list =
-    FSM.fold_edges_e (fun e l -> if FSM.E.src e = st && FSM.E.label e |> Option.is_none then e::l else l) fsm []
 
   (* if the state can step with a non tau transition explore transitively *)
   let _state_can_step_recursive (fsm : FSM.t) (st : State.t) : bool =
