@@ -517,28 +517,49 @@ module Local = struct
   module FSM = FSM (State) ( Label)
   include FSM
 
-  let rec state_can_step (fsm : FSM.t) (st : State.t) (_visited : State.t list) : bool =
+  let state_can_step (fsm : FSM.t) (st : State.t) : bool =
     let edges_from_st = FSM.fold_edges_e (fun e l -> if FSM.E.src e = st then e::l else l) fsm []  in
     match edges_from_st with
     | [] -> false
     | _::_ -> true
 
+  let walk_with_predicate (st : State.t) (step : State.t -> FSM.edge list) (p : FSM.edge -> bool) : bool =
+    let rec f st visited =
+      let edges_from_st = step st in
+      (* if it can step then done *)
+      if List.exists p edges_from_st then true
+      else
+        let rec check = function
+          | [] -> false
+          | e::es ->
+            let dst = FSM.E.dst e in
+            if List.mem dst visited then
+              check es
+            else
+              f dst (st::visited) || check es
+        in
+        check edges_from_st
+    in
+    f st []
+
+  let with_any_transition (fsm : FSM.t) (st : State.t) : FSM.edge list =
+    FSM.fold_edges_e (fun e l -> if FSM.E.src e = st then e::l else l) fsm []
+
+  let only_with_tau (fsm : FSM.t) (st : State.t) : FSM.edge list =
+    FSM.fold_edges_e (fun e l -> if FSM.E.src e = st && FSM.E.label e |> Option.is_some  then e::l else l) fsm []
+
   (* if the state can step with a non tau transition explore transitively *)
-  let rec _state_can_step_recursive (fsm : FSM.t) (st : State.t) (visited : State.t list) : bool =
-    let edges_from_st = FSM.fold_edges_e (fun e l -> if FSM.E.src e = st then e::l else l) fsm []  in
-    (* if it can step then done *)
-    if List.exists (fun e -> FSM.E.label e |> Option.is_some) edges_from_st then true
-    else
-      let rec check = function
-        | [] -> false
-        | e::es ->
-          let dst = FSM.E.dst e in
-          if List.mem dst visited then
-            check es
-          else
-            state_can_step fsm dst (st::visited) || check es
-      in
-      check edges_from_st
+  let _state_can_step_recursive (fsm : FSM.t) (st : State.t) : bool =
+    walk_with_predicate st (with_any_transition fsm) (fun e -> FSM.E.label e |> Option.is_some)
+
+  (* true if there are any labelled transitions reachable by taus *)
+  let _may_step fsm st =
+    walk_with_predicate st (only_with_tau fsm) (fun e -> FSM.E.label e |> Option.is_some)
+
+  (* true if there are any terminal states reachable by taus *)
+  let _may_terminate fsm st =
+    walk_with_predicate st (only_with_tau fsm)(fun e -> FSM.E.dst e |> State.is_end)
+
 
   let project (r : Syntax.role) (fsm : Global.FSM.t) : FSM.t =
     "Projecting role: " ^  r |> Utils.log ;
@@ -550,7 +571,7 @@ module Local = struct
         FSM.E.create (FSM.E.dst e) (FSM.E.label e) (FSM.E.src e)
       in
 
-      let new_tau_edges = List.filter_map (fun e -> if state_can_step fsm (FSM.E.dst e) [] then Some (reverse_edge e) else None) tau_edges in
+      let new_tau_edges = List.filter_map (fun e -> if state_can_step fsm (FSM.E.dst e) then Some (reverse_edge e) else None) tau_edges in
 
       List.fold_left FSM.add_edge_e fsm new_tau_edges
     in
