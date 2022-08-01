@@ -552,11 +552,11 @@ module Local = struct
 
   (* if state can step with ANY transition, including tau *)
   let state_can_step (fsm : FSM.t) (st : State.t) : bool =
-    FSM.succ fsm st |> Utils.is_empty
+    FSM.succ fsm st |> Utils.is_empty|> not
 
   (* this cannot be in FSM because the notion of taus is not there *)
   let only_with_tau (fsm : t) (st : State.t) : FSM.edge list =
-    FSM.fold_edges_e (fun e l -> if FSM.E.src e = st && FSM.E.label e |> Option.is_some  then e::l else l) fsm []
+    FSM.fold_edges_e (fun e l -> if FSM.E.src e = st && FSM.E.label e |> Option.is_none then e::l else l) fsm []
 
   (* if the state can step with a non tau transition explore transitively *)
   let _state_can_step_recursive (fsm : FSM.t) (st : State.t) : bool =
