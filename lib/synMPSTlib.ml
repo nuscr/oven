@@ -52,6 +52,16 @@ module Toplevel = struct
 
   let dot_of_local_machine = Machine.Local.generate_dot
 
+  let well_behaved_protocol (proto : Syntax.global Syntax.protocol) : unit =
+    proto.Syntax.protocol_name ^ ": start wb." |> Utils.log ;
+    match Machine.Local.well_behaved_protocol proto with
+    | Either.Left () ->
+      proto.Syntax.protocol_name ^ ": done wb." |> Utils.log ;
+      ()
+    | Either.Right errMsg ->
+      proto.Syntax.protocol_name ^ ": failed with : " ^ errMsg |> Utils.log ;
+      Error.UserError (proto.Syntax.protocol_name ^ ": " ^ errMsg) |> raise
+
 end
 
 include Toplevel

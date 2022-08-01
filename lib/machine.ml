@@ -95,6 +95,12 @@ module FSM (State : STATE) (Label : LABEL) = struct
     assert (List.length l = nb_vertex fsm) ;
     l
 
+  let get_start_state fsm =
+    try
+      List.find State.is_start @@ get_vertices fsm
+    with
+    |_ -> Error.Violation "FSM Must have a start state." |> raise
+
   (* states that can be reached in one step with label that is not tau a from st *)
   let _can_reach_with_labels edges st a =
     List.filter_map (fun e -> if E.src e = st && E.label e = a && not (E.label e = Label.default) then Some (E.dst e) else None) edges
@@ -110,13 +116,10 @@ module FSM (State : STATE) (Label : LABEL) = struct
     in
 
     let rec f visited acc to_visit =
-
       match to_visit with
       | [] -> acc
-
       | curr_st::sts when List.mem curr_st visited  ->
         f visited acc sts
-
       | curr_st::sts ->
         let acc' = (List.filter p (succ_e fsm curr_st) |> List.map E.dst) @ acc in
         let visited' = curr_st::visited in
@@ -586,14 +589,8 @@ module Local = struct
   let _state_can_step_recursive (fsm : FSM.t) (st : State.t) : bool =
     walk_with_predicate st (with_any_transition fsm) (fun e -> FSM.E.label e |> Option.is_some)
 
-  (* true if there are any labelled transitions reachable by taus *)
-  let _may_step fsm st =
-    walk_with_predicate st (only_with_tau fsm) (fun e -> FSM.E.label e |> Option.is_some)
-
-  (* true if there are any terminal states reachable by taus *)
-  let _may_terminate fsm st =
-    walk_with_predicate st (only_with_tau fsm)(fun e -> FSM.E.dst e |> State.is_end)
-
+  let has_outgoing_transitions fsm st =
+    succ_e fsm st |> Utils.is_empty |> not
 
   let project (r : Syntax.role) (fsm : Global.FSM.t) : FSM.t =
     "Projecting role: " ^  r |> Utils.log ;
@@ -627,6 +624,57 @@ module Local = struct
     (* let minimise fsm = B.minimise fsm in *)
     with_edges |> complete (* |> minimise *)
 
+
+  type wb_res = (unit, string) Either.t
+
+  let pipe (s1 : wb_res) (s2 : unit -> wb_res) =
+    match s1 with
+    | Either.Left () -> s2 ()
+    | Either.Right _ -> s1
+
+  let rec pipe_fold (f: 'a -> wb_res)  (res : wb_res) : 'a list -> wb_res =
+    function
+    | [] -> res
+    | x::xs ->
+      pipe_fold f (pipe res (fun () -> f x)) xs
+
+  let rec wb (st, fsm : State.t * t) : wb_res =
+    pipe (c1 (st, fsm)) (fun _ -> (c2 (st, fsm)))
+
+  and c1 (st, fsm) : wb_res =
+    if has_outgoing_transitions fsm st then
+      if State.is_end st then
+        State.as_string st ^ " may terminate or continue (C1 violation)." |> Either.right
+      else
+        Either.left ()
+    else Either.left ()
+
+  and c2 _ : wb_res =
+    Either.left ()
+
+  and c5 fsm visited to_visit : wb_res =
+    match to_visit with
+    | [] -> Either.left ()
+    | st::_ when List.mem st visited -> Either.left()
+    | st::sts ->
+      begin match wb (st, fsm) with
+      | Either.Left () ->
+        let to_visit' = Utils.minus ((succ fsm st) @ sts) visited in
+        c5 fsm (st::visited) to_visit'
+      | Either.Right err -> Either.Right err
+      end
+
+  let well_behaved_role (st, fsm : State.t * t) : wb_res =
+    c5 fsm [] [st]
+
+  let well_behaved_protocol (proto : global protocol) : wb_res =
+    let roles = proto.roles in
+    let g = proto.interactions in
+    let _start, gfsm = Global.generate_state_machine g in
+
+    let lfsms = List.map (fun r -> let l = project r gfsm in get_start_state l, l) roles in
+
+    pipe_fold well_behaved_role (Either.left ()) lfsms
 
   let generate_dot fsm = fsm (* |> minimise_state_numbers *) |> Dot.generate_dot
 

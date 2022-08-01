@@ -113,7 +113,9 @@ let analyse' () =
       SynMPSTlib.dot_of_global_machine fsm |> Interface.GraphEFSM.set_dot ;
 
       let fsm = SynMPSTlib.generate_all_local_machines prot in
-      SynMPSTlib.dot_of_local_machine fsm |> Interface.GraphLocal.set_dot
+      SynMPSTlib.dot_of_local_machine fsm |> Interface.GraphLocal.set_dot ;
+
+      SynMPSTlib.well_behaved_protocol prot
 
     (* let tr : Dom_html.element Js.t = SynMPSTlib.get_traces_as_string cu' |> T.txt |> To_dom.of_element in *)
     (* W.(set_children (get "projected") [(tr :> Dom.node Js.t)]) ; *)
