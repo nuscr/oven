@@ -95,8 +95,12 @@ module FSM (State : STATE) (Label : LABEL) = struct
     assert (List.length l = nb_vertex fsm) ;
     l
 
+  (* states that can be reached in one step with label that is not tau a from st *)
+  let can_reach_with_labels edges st a =
+    List.filter_map (fun e -> if E.src e = st && E.label e = a && not (E.label e = Label.default) then Some (E.dst e) else None) edges
+
   (* states that can be reached in one step with label a from st *)
-  let can_reach_with edges st a =
+  let can_reach_with_anything edges st a =
     List.filter_map (fun e -> if E.src e = st && E.label e = a then Some (E.dst e) else None) edges
 
   let walk_with_predicate (st : State.t) (step : State.t -> edge list) (p : edge -> bool) : bool =
@@ -297,7 +301,11 @@ module FSM (State : STATE) (Label : LABEL) = struct
   end
 end
 
-module Bisimulation (State : STATE) (Label : LABEL) = struct
+module type STRENGTH = sig
+  val is_strong : bool
+end
+
+module Bisimulation (State : STATE) (Label : LABEL) (Str : STRENGTH)  = struct
   (* Compute the bisimulation quotient using the algorithm by Kanellakis and Smolka *)
 
   module FSM = FSM (State) (Label)
@@ -320,13 +328,16 @@ module Bisimulation (State : STATE) (Label : LABEL) = struct
        very slow comparisons of lists. If we run into performance probles,
        this is a thing to improve. It should not be hard once the system is working. *)
 
-
     let find_state_in_blocks st bs =
       List.filter (List.mem st) bs
     in
 
     let can_reach_block st a bs =
-      let sts = can_reach_with edges st a in
+      let sts = if Str.is_strong then
+          can_reach_with_anything edges st a (* this makes it a strong bisimulation *)
+        else
+          can_reach_with_labels edges st a (* this makes it a weak bisimulation *)
+    in
       List.map (fun st -> find_state_in_blocks st bs) sts |> Utils.uniq
     in
 
@@ -512,7 +523,7 @@ module Global = struct
     List.iter (fun st -> let _ = State.mark_as_end st in ()) next ;
     (start, fsm_final |> only_reachable_from start)
 
-  module B = Bisimulation (State) (Label)
+  module B = Bisimulation (State) (Label) (struct let is_strong = true end)
   let minimise fsm = B.minimise fsm
 
   let generate_state_machine (g : global) : State.t * FSM.t =
@@ -588,7 +599,9 @@ module Local = struct
         fsm
         with_vertices
     in
-    with_edges |> complete
+    (* let module B = Bisimulation (State) (Label) (struct let is_strong = true end) in *)
+    (* let minimise fsm = B.minimise fsm in *)
+    with_edges |> complete (* |> minimise *)
 
 
   let generate_dot fsm = fsm (* |> minimise_state_numbers *) |> Dot.generate_dot
