@@ -125,7 +125,7 @@ module FSM (State : STATE) (Label : LABEL) = struct
     List.fold_left merge empty fsms
 
   (* this function appears twice, move them to a generic module *)
-  let _disjoint_merge fsm fsm' =
+  let disjoint_merge fsm fsm' =
     let copy src dst  =
       let vertices = get_vertices src |> List.map (fun st -> (st, State.freshen st)) in
 
@@ -572,21 +572,6 @@ module Local = struct
 
 
   let generate_dot fsm = fsm (* |> minimise_state_numbers *) |> Dot.generate_dot
-
-  let disjoint_merge fsm fsm' =
-    let copy src dst  =
-      let vertices = get_vertices src |> List.map (fun st -> (st, State.freshen st)) in
-
-      let dst' = List.fold_left (fun fsm (_, st) -> FSM.add_vertex fsm st ) dst vertices in
-      let update e =
-        let tr st =
-          List.assoc st vertices
-        in
-        FSM.E.create (FSM.E.src e |> tr) (FSM.E.label e) (FSM.E.dst e |> tr)
-      in
-      FSM.fold_edges_e (fun e fsm -> FSM.add_edge_e fsm (update e)) src dst'
-    in
-    copy fsm @@ copy fsm' FSM.empty |> minimise_state_numbers
 
   let generate_all_local protocol =
     let roles = protocol.roles in
