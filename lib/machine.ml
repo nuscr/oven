@@ -99,6 +99,28 @@ module FSM (State : STATE) (Label : LABEL) = struct
   let can_reach_with edges st a =
     List.filter_map (fun e -> if E.src e = st && E.label e = a then Some (E.dst e) else None) edges
 
+  let walk_with_predicate (st : State.t) (step : State.t -> edge list) (p : edge -> bool) : bool =
+    let rec f st visited =
+      let edges_from_st = step st in
+      (* if it can step then done *)
+      if List.exists p edges_from_st then true
+      else
+        let rec check = function
+          | [] -> false
+          | e::es ->
+            let dst = E.dst e in
+            if List.mem dst visited then
+              check es
+            else
+              f dst (st::visited) || check es
+        in
+        check edges_from_st
+    in
+    f st []
+
+  let with_any_transition (fsm : t) (st : State.t) : edge list =
+    fold_edges_e (fun e l -> if E.src e = st then e::l else l) fsm []
+
   let minimise_state_numbers fsm =
     let vertices = get_vertices fsm |> List.mapi (fun n st -> (st, State.renumber_state n st)) in
 
@@ -517,35 +539,12 @@ module Local = struct
   module FSM = FSM (State) ( Label)
   include FSM
 
+  (* if state can step with ANY transition, including tau *)
   let state_can_step (fsm : FSM.t) (st : State.t) : bool =
-    let edges_from_st = FSM.fold_edges_e (fun e l -> if FSM.E.src e = st then e::l else l) fsm []  in
-    match edges_from_st with
-    | [] -> false
-    | _::_ -> true
+    FSM.succ fsm st |> Utils.is_empty
 
-  let walk_with_predicate (st : State.t) (step : State.t -> FSM.edge list) (p : FSM.edge -> bool) : bool =
-    let rec f st visited =
-      let edges_from_st = step st in
-      (* if it can step then done *)
-      if List.exists p edges_from_st then true
-      else
-        let rec check = function
-          | [] -> false
-          | e::es ->
-            let dst = FSM.E.dst e in
-            if List.mem dst visited then
-              check es
-            else
-              f dst (st::visited) || check es
-        in
-        check edges_from_st
-    in
-    f st []
-
-  let with_any_transition (fsm : FSM.t) (st : State.t) : FSM.edge list =
-    FSM.fold_edges_e (fun e l -> if FSM.E.src e = st then e::l else l) fsm []
-
-  let only_with_tau (fsm : FSM.t) (st : State.t) : FSM.edge list =
+  (* this cannot be in FSM because the notion of taus is not there *)
+  let only_with_tau (fsm : t) (st : State.t) : FSM.edge list =
     FSM.fold_edges_e (fun e l -> if FSM.E.src e = st && FSM.E.label e |> Option.is_some  then e::l else l) fsm []
 
   (* if the state can step with a non tau transition explore transitively *)
