@@ -192,7 +192,7 @@ module FSM (State : STATE) (Label : LABEL) = struct
       in
       fold_edges_e (fun e fsm -> add_edge_e fsm (update e)) src dst'
     in
-    copy fsm @@ copy fsm' empty |> minimise_state_numbers
+    copy fsm @@ copy fsm' empty
 
   (* compose two machines allowing all their interleavings *)
   let parallel_compose (assoc, fsm : State.t list * t) (assoc', fsm' : State.t list * t) :  State.t list * t =
@@ -559,9 +559,9 @@ module Global = struct
   let generate_state_machine (g : global) : State.t * FSM.t =
     let st, fsm = generate_state_machine' g in
     (* st, disjoint_merge fsm (minimise fsm) *)
-    st, minimise fsm
+    st, minimise fsm |> minimise_state_numbers
 
-  let generate_dot fsm = fsm |> minimise_state_numbers |> Dot.generate_dot
+  let generate_dot fsm = fsm |> Dot.generate_dot
 end
 
 module Local = struct
@@ -675,7 +675,7 @@ module Local = struct
 
     pipe_fold well_behaved_role (Either.left ()) lfsms
 
-  let generate_dot fsm = fsm (* |> minimise_state_numbers *) |> Dot.generate_dot
+  let generate_dot fsm = fsm |> Dot.generate_dot
 
   let generate_all_local protocol =
     let roles = protocol.roles in
