@@ -504,13 +504,12 @@ module Global = struct
           | [] ->
             let st = State.fresh_start () |> State.mark_as_end in
             "Empty sequence state:" ^ State.as_string st |> Utils.log;
-            [st], FSM.add_vertex FSM.empty st
+            st::next, FSM.add_vertex FSM.empty st
 
         in
         connect fsm gis (s_st, e_st) next
 
       | Choice branches ->
-        let branches = filter_degenerate_branches branches in
         if List.length branches = 0 then next, fsm else
           let nexts, fsms = List.map (fun g -> tr fsm g (s_st, State.fresh()) next) branches |> List.split in
           let fsm' = merge_all fsms in
