@@ -11,3 +11,4 @@ examples/lics21/Example13.synmpst
 examples/lics21/Example15.synmpst
 examples/popl08/Streaming.synmpst
 examples/popl08/TwoBuyer.synmpst
+examples/notwb/c2.synmpst

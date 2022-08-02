@@ -109,7 +109,7 @@ module FSM (State : STATE) (Label : LABEL) = struct
   let can_reach_with_anything edges st a =
     List.filter_map (fun e -> if E.src e = st && E.label e = a then Some (E.dst e) else None) edges
 
-  let walk_collect_vertices_with_predicate (fsm : t) (_st : State.t) (step : State.t -> edge list) (p : edge -> bool) : vertex list =
+  let walk_collect_vertices_with_predicate (fsm : t) (st : State.t) (step : State.t -> edge list) (p : edge -> bool) : vertex list =
     (* states from edges *)
     let sfe es =
       List.concat_map (fun e -> E.src e:: E.dst e::[]) es
@@ -126,7 +126,7 @@ module FSM (State : STATE) (Label : LABEL) = struct
         let to_visit' = to_visit @ (sfe @@ step curr_st)  in
         f  visited' acc' (sts@to_visit')
     in
-    f [] [] [_st]
+    f [] [] [st]
 
   let walk_with_predicate (st : State.t) (step : State.t -> edge list) (p : edge -> bool) : bool =
     let rec f st visited =
@@ -446,6 +446,14 @@ module Bisimulation (State : STATE) (Label : LABEL) (Str : STRENGTH)  = struct
     (* add edges *)
     List.fold_left (fun fsm e -> FSM.add_edge_e fsm (FSM.E.create (FSM.E.src e |> lookup) (FSM.E.label e) (FSM.E.dst e |> lookup)) ) fsm es
 
+  let are_states_bisimilar (blocks : block list) st1 st2 : bool =
+    let find_block (st : State.t) =
+      let find_in_block bl =
+        List.mem st bl
+      in
+      List.find find_in_block blocks
+    in
+    find_block st1 = find_block st2
 
   let minimise (fsm : FSM.t) : FSM.t =
     extract_minimal (compute_bisimulation_quotient fsm) (get_edges fsm)
@@ -648,8 +656,18 @@ module Local = struct
         Either.left ()
     else Either.left ()
 
-  and c2 _ : wb_res =
-    Either.left ()
+  and c2 (st, fsm) : wb_res =
+    let tau_reachable = walk_collect_vertices_with_predicate fsm st (only_with_tau fsm) (fun e -> E.label e = Label.default) in
+    let module B = Bisimulation (State) (Label) (struct let is_strong = false end) in
+    let blocks = B.compute_bisimulation_quotient fsm in
+    if List.for_all (fun st' -> B.are_states_bisimilar blocks st st') tau_reachable
+    then Either.left ()
+    else
+      try
+      let st' = List.find (fun st' -> B.are_states_bisimilar blocks st st' |> not) tau_reachable in
+      "States: " ^ State.as_string st ^ " and " ^ State.as_string st' ^ " are not bisimilar (C2 violation)." |> Either.right
+      with
+      _ -> Error.Violation "This is a bug. There must be a non bisimilar state."  |> raise
 
   and c5 fsm visited to_visit : wb_res =
     match to_visit with
