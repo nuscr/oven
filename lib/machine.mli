@@ -56,7 +56,7 @@ module Local :
 
   val generate_all_local : Syntax.global Syntax.protocol -> FSM.t
 
-  type wb_res = (unit, string) Either.t
+  type wb_res = (unit, string) Result.t
 
   val well_behaved_protocol : Syntax.global Syntax.protocol -> wb_res
 end

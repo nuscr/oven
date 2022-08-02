@@ -153,6 +153,10 @@ module FSM (State : STATE) (Label : LABEL) = struct
   let with_any_transition (fsm : t) (st : State.t) : edge list =
     succ_e fsm st
 
+  (* return all the tau reachable states *)
+  let tau_reachable fsm st =
+    walk_collect_vertices_with_predicate fsm st (only_with_tau fsm) (fun e -> E.label e = Label.default)
+
   let minimise_state_numbers fsm =
     let vertices = get_vertices fsm |> List.mapi (fun n st -> (st, State.renumber_state n st)) in
 
@@ -164,7 +168,6 @@ module FSM (State : STATE) (Label : LABEL) = struct
       E.create (E.src e |> tr) (E.label e) (E.dst e |> tr)
     in
     fold_edges_e (fun e fsm -> add_edge_e fsm (update e)) fsm fsm'
-
 
   (* simple merge two state machines *)
   let merge (fsm : t) (fsm' : t) : t =
@@ -632,12 +635,12 @@ module Local = struct
     with_edges |> complete (* |> minimise *)
 
 
-  type wb_res = (unit, string) Either.t
+  type wb_res = (unit, string) Result.t
 
   let pipe (s1 : wb_res) (s2 : unit -> wb_res) =
     match s1 with
-    | Either.Left () -> s2 ()
-    | Either.Right _ -> s1
+    | Result.Ok _ -> s2 ()
+    | Result.Error _ -> s1
 
   let rec pipe_fold (f: 'a -> wb_res)  (res : wb_res) : 'a list -> wb_res =
     function
@@ -645,40 +648,71 @@ module Local = struct
     | x::xs ->
       pipe_fold f (pipe res (fun () -> f x)) xs
 
+  let (let*) = Result.bind
+
   let rec wb (st, fsm : State.t * t) : wb_res =
-    pipe (c1 (st, fsm)) (fun _ -> (c2 (st, fsm)))
+    let* _ = c1 (st, fsm) in
+    let* _ = c2 (st, fsm) in
+    c3 (st, fsm)
+
+    (* pipe (c1 (st, fsm)) (fun _ -> pipe (c2 (st, fsm)) (fun _ -> c3 (st, fsm))) *)
 
   and c1 (st, fsm) : wb_res =
     if has_outgoing_transitions fsm st then
       if State.is_end st then
-        State.as_string st ^ " may terminate or continue (C1 violation)." |> Either.right
+        State.as_string st ^ " may terminate or continue (C1 violation)." |> Result.error
       else
-        Either.left ()
-    else Either.left ()
+        Result.ok ()
+    else Result.ok ()
 
   and c2 (st, fsm) : wb_res =
-    let tau_reachable = walk_collect_vertices_with_predicate fsm st (only_with_tau fsm) (fun e -> E.label e = Label.default) in
+    let by_tau = tau_reachable fsm st in
     let module B = Bisimulation (State) (Label) (struct let is_strong = false end) in
     let blocks = B.compute_bisimulation_quotient fsm in
-    if List.for_all (fun st' -> B.are_states_bisimilar blocks st st') tau_reachable
-    then Either.left ()
+    if List.for_all (fun st' -> B.are_states_bisimilar blocks st st') by_tau
+    then Result.ok ()
     else
       try
-      let st' = List.find (fun st' -> B.are_states_bisimilar blocks st st' |> not) tau_reachable in
-      "States: " ^ State.as_string st ^ " and " ^ State.as_string st' ^ " are not bisimilar (C2 violation)." |> Either.right
+      let st' = List.find (fun st' -> B.are_states_bisimilar blocks st st' |> not) by_tau in
+      "States: " ^ State.as_string st ^ " and " ^ State.as_string st' ^ " are not bisimilar (C2 violation)." |> Result.error
       with
       _ -> Error.Violation "This is a bug. There must be a non bisimilar state."  |> raise
 
+
+(* type local_transition_label = {sender: role ; receiver: role ; direction : direction ; label: message_label} *)
+  and c3 (st, fsm) : wb_res =
+    let is_send = function
+        | Some l -> l.Syntax.Local.direction = Syntax.Local.Sending
+        | None -> false
+    in
+    let by_tau = tau_reachable fsm st in
+
+    (* send labels and their states *)
+    let _sends =
+      List.concat_map
+        (fun st' -> List.filter_map (fun e -> if E.label e |> is_send then Some (E.label e, E.dst e) else None) (succ_e fsm st'))
+        by_tau
+    in
+
+    let _one_step (l : Label.t) st =
+      try
+        List.find (fun e -> l = E.label e) (succ_e fsm st) |> E.dst |> Either.left
+      with
+        | Not_found ->
+          "State: " ^ State.as_string st ^ " cannot take label " ^ Label.as_string l |> Either.right
+    in
+    Result.ok ()
+
   and c5 fsm visited to_visit : wb_res =
     match to_visit with
-    | [] -> Either.left ()
-    | st::_ when List.mem st visited -> Either.left()
+    | [] -> Result.ok ()
+    | st::_ when List.mem st visited -> Result.ok ()
     | st::sts ->
       begin match wb (st, fsm) with
-      | Either.Left () ->
+      | Result.Ok () ->
         let to_visit' = Utils.minus ((succ fsm st) @ sts) visited in
         c5 fsm (st::visited) to_visit'
-      | Either.Right err -> Either.Right err
+      | Result.Error err -> Result.error err
       end
 
   let well_behaved_role (st, fsm : State.t * t) : wb_res =
@@ -691,7 +725,7 @@ module Local = struct
 
     let lfsms = List.map (fun r -> let l = project r gfsm in get_start_state l, l) roles in
 
-    pipe_fold well_behaved_role (Either.left ()) lfsms
+    pipe_fold well_behaved_role (Result.ok ()) lfsms
 
   let generate_dot fsm = fsm |> Dot.generate_dot
 
