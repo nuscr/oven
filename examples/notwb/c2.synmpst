@@ -1,0 +1,9 @@
+(*) This is a C2 violation example
+
+global Borked(role A, role B, role C, role D) {
+  choice {
+    A() from A to B;
+  } or {
+    B() from C to D;
+  }
+}

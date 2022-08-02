@@ -1,0 +1,8 @@
+(*) This is a C1 violation example
+
+global Borked(role C, role S)
+{
+  fin {
+    HELLO(int) from C to S;
+  }
+}
