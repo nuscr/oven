@@ -639,20 +639,25 @@ module Local = struct
 
   module B = Bisimulation (State) (Label) (struct let is_strong = false end)
 
-  let pipe (s1 : wb_res) (s2 : unit -> wb_res) =
-    match s1 with
-    | Result.Ok _ -> s2 ()
-    | Result.Error _ -> s1
+  (* this is more applicative than monadic, as previous results don't change the future results *)
+  let special_bind (v : wb_res) (f : unit -> wb_res) : wb_res =
+    match v with
+    | Result.Ok _ -> f ()
+    | Result.Error msg ->
+      begin match f() with
+        | Result.Ok _ -> Result.Error msg
+        | Result.Error msg' -> msg ^ "\n" ^ msg' |> Result.error
+      end
 
   let rec pipe_fold (f: 'a -> wb_res)  (res : wb_res) : 'a list -> wb_res =
+    let (let*) = special_bind in
     function
     | [] -> res
     | x::xs ->
-      pipe_fold f (pipe res (fun () -> f x)) xs
-
-  let (let*) = Result.bind
+      pipe_fold f (let* _ = res in f x) xs
 
   let rec wb (st, fsm : State.t * t) : wb_res =
+    let (let*) = special_bind in
     let* _ = c1 (st, fsm) in
     let* _ = c2 (st, fsm) in
     c3 (st, fsm)
@@ -713,6 +718,7 @@ module Local = struct
     (* checks if the states are bisimilar after taking the step *)
 
     let check st l st' =
+      let (let*) = Result.bind in
       let* st_succ = one_step l st' in
       if B.are_states_bisimilar blocks st_succ st' then
         Result.ok ()
