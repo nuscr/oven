@@ -675,8 +675,6 @@ module Local = struct
 
   and c2 blocks (st, fsm) : wb_res =
     let by_tau = tau_reachable fsm st in
-
-
     if List.for_all (fun st' -> B.are_states_bisimilar blocks st st') by_tau
     then Result.ok ()
     else
@@ -685,7 +683,6 @@ module Local = struct
       "States: " ^ State.as_string st ^ " and " ^ State.as_string st' ^ " are not bisimilar (C2 violation)." |> Result.error
       with
       _ -> Error.Violation "This is a bug. There must be a non bisimilar state."  |> raise
-
 
 (* type local_transition_label = {sender: role ; receiver: role ; direction : direction ; label: message_label} *)
   and c3 blocks (st, fsm) : wb_res =
