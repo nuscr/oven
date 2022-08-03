@@ -661,9 +661,8 @@ module Local = struct
     let blocks = B.compute_bisimulation_quotient fsm in
     let* _ = c1 (st, fsm) in
     let* _ = c2 blocks (st, fsm) in
-    c3 blocks (st, fsm)
-
-    (* pipe (c1 (st, fsm)) (fun _ -> pipe (c2 (st, fsm)) (fun _ -> c3 (st, fsm))) *)
+    let* _ = c3 blocks (st, fsm) in
+    c4 blocks (st, fsm)
 
   and c1 (st, fsm) : wb_res =
     if has_outgoing_transitions fsm st then
@@ -713,7 +712,6 @@ module Local = struct
     in
 
     (* checks if the states are bisimilar after taking the step *)
-
     let check st l st' =
       let (let*) = Result.bind in
       let* st_succ = one_step l st' in
@@ -729,6 +727,9 @@ module Local = struct
 
     List.fold_left (fun r (l, st') -> Result.bind r (fun _ -> check st l st')) (Result.ok ()) _sends
 
+  and c4 _blocks (_st, _fsm) : wb_res =
+
+    Result.ok ()
 
   and c5 fsm visited to_visit : wb_res =
     match to_visit with
