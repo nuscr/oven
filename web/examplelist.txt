@@ -14,3 +14,4 @@ examples/popl08/TwoBuyer.synmpst
 examples/notwb/c1.synmpst
 examples/notwb/c2.synmpst
 examples/notwb/c3.synmpst
+examples/notwb/c4.synmpst

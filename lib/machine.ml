@@ -727,9 +727,33 @@ module Local = struct
 
     List.fold_left (fun r (l, st') -> Result.bind r (fun _ -> check st l st')) (Result.ok ()) _sends
 
-  and c4 _blocks (_st, _fsm) : wb_res =
-
-    Result.ok ()
+  and c4 blocks (st, fsm) : wb_res =
+    let by_tau = tau_reachable fsm st in
+    let weak_reductions = List.concat_map (fun st' -> succ_e fsm st' |> List.filter (fun e -> E.label e |> Option.is_some)) by_tau in
+    let rec f = function
+      | [] -> Result.ok ()
+      | e::es ->
+        (* split in the edges with a different label, and the states that the same label transitions to *)
+        let es_diff, st_same =
+          List.fold_left
+            (fun (d, s) e' -> if E.label e = E.label e' then (d, (E.dst e')::s) else (e'::d, s))
+            ([], [])
+            es
+        in
+        let bisim st' =
+          if B.are_states_bisimilar blocks st st' then
+            Result.ok ()
+          else
+            "States: " ^ State.as_string st
+            ^ " is not bisimilar to state: " ^ State.as_string st'
+            ^ " after taking label: " ^ Label.as_string (E.label e)
+            ^ " (C4 violation)."
+            |> Result.error
+        in
+        Result.bind (List.fold_left (fun r st' -> Result.bind r (fun _ -> bisim st')) (Result.ok ()) st_same)
+          (fun _ -> f es_diff)
+    in
+    f weak_reductions
 
   and c5 fsm visited to_visit : wb_res =
     match to_visit with
