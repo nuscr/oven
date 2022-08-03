@@ -658,9 +658,10 @@ module Local = struct
 
   let rec wb (st, fsm : State.t * t) : wb_res =
     let (let*) = special_bind in
+    let blocks = B.compute_bisimulation_quotient fsm in
     let* _ = c1 (st, fsm) in
-    let* _ = c2 (st, fsm) in
-    c3 (st, fsm)
+    let* _ = c2 blocks (st, fsm) in
+    c3 blocks (st, fsm)
 
     (* pipe (c1 (st, fsm)) (fun _ -> pipe (c2 (st, fsm)) (fun _ -> c3 (st, fsm))) *)
 
@@ -672,10 +673,10 @@ module Local = struct
         Result.ok ()
     else Result.ok ()
 
-  and c2 (st, fsm) : wb_res =
+  and c2 blocks (st, fsm) : wb_res =
     let by_tau = tau_reachable fsm st in
 
-    let blocks = B.compute_bisimulation_quotient fsm in
+
     if List.for_all (fun st' -> B.are_states_bisimilar blocks st st') by_tau
     then Result.ok ()
     else
@@ -687,8 +688,7 @@ module Local = struct
 
 
 (* type local_transition_label = {sender: role ; receiver: role ; direction : direction ; label: message_label} *)
-  and c3 (st, fsm) : wb_res =
-    let blocks = B.compute_bisimulation_quotient fsm in (* TODO reuse the same *)
+  and c3 blocks (st, fsm) : wb_res =
     let is_send = function
         | Some l -> l.Syntax.Local.direction = Syntax.Local.Sending
         | None -> false
