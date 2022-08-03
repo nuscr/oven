@@ -637,6 +637,8 @@ module Local = struct
 
   type wb_res = (unit, string) Result.t
 
+  module B = Bisimulation (State) (Label) (struct let is_strong = false end)
+
   let pipe (s1 : wb_res) (s2 : unit -> wb_res) =
     match s1 with
     | Result.Ok _ -> s2 ()
@@ -667,7 +669,7 @@ module Local = struct
 
   and c2 (st, fsm) : wb_res =
     let by_tau = tau_reachable fsm st in
-    let module B = Bisimulation (State) (Label) (struct let is_strong = false end) in
+
     let blocks = B.compute_bisimulation_quotient fsm in
     if List.for_all (fun st' -> B.are_states_bisimilar blocks st st') by_tau
     then Result.ok ()
@@ -681,6 +683,7 @@ module Local = struct
 
 (* type local_transition_label = {sender: role ; receiver: role ; direction : direction ; label: message_label} *)
   and c3 (st, fsm) : wb_res =
+    let blocks = B.compute_bisimulation_quotient fsm in (* TODO reuse the same *)
     let is_send = function
         | Some l -> l.Syntax.Local.direction = Syntax.Local.Sending
         | None -> false
@@ -694,14 +697,35 @@ module Local = struct
         by_tau
     in
 
-    let _one_step (l : Label.t) st =
+    (* makes the original state step with the labelled transition *)
+    let one_step (l : Label.t) st_error =
       try
-        List.find (fun e -> l = E.label e) (succ_e fsm st) |> E.dst |> Either.left
+        List.find (fun e -> l = E.label e) (succ_e fsm st) |> E.dst |> Result.ok
       with
         | Not_found ->
-          "State: " ^ State.as_string st ^ " cannot take label " ^ Label.as_string l |> Either.right
+          "State: " ^ State.as_string st
+          ^ " cannot take label: " ^ Label.as_string l
+          ^ " that reaches with tau state: " ^ State.as_string st_error
+          ^ " (C3 Violation)."
+          |> Result.error
     in
-    Result.ok ()
+
+    (* checks if the states are bisimilar after taking the step *)
+
+    let check st l st' =
+      let* st_succ = one_step l st' in
+      if B.are_states_bisimilar blocks st_succ st' then
+        Result.ok ()
+      else
+        "States: " ^ State.as_string st
+        ^ " is not bisimilar to state: " ^ State.as_string st'
+        ^ " after taking label: " ^ Label.as_string l
+        ^ " (C3 violation)."
+        |> Result.error
+    in
+
+    List.fold_left (fun r (l, st') -> Result.bind r (fun _ -> check st l st')) (Result.ok ()) _sends
+
 
   and c5 fsm visited to_visit : wb_res =
     match to_visit with
