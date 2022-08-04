@@ -109,6 +109,25 @@ module FSM (State : STATE) (Label : LABEL) = struct
   let can_reach_with_anything edges st a =
     List.filter_map (fun e -> if E.src e = st && E.label e = a then Some (E.dst e) else None) edges
 
+  let walk_collect_edges_with_predicate (fsm : t) (st : State.t) (step : State.t -> edge list) (p : edge -> bool) : edge list =
+    (* states from edges *)
+    let sfe es =
+      List.concat_map (fun e -> E.src e:: E.dst e::[]) es
+    in
+
+    let rec f visited acc to_visit =
+      match to_visit with
+      | [] -> acc
+      | curr_st::sts when List.mem curr_st visited  ->
+        f visited acc sts
+      | curr_st::sts ->
+        let acc' = (List.filter p (succ_e fsm curr_st)) @ acc in
+        let visited' = curr_st::visited in
+        let to_visit' = to_visit @ (sfe @@ step curr_st)  in
+        f  visited' acc' (sts@to_visit')
+    in
+    f [] [] [st]
+
   let walk_collect_vertices_with_predicate (fsm : t) (st : State.t) (step : State.t -> edge list) (p : edge -> bool) : vertex list =
     (* states from edges *)
     let sfe es =
@@ -156,6 +175,9 @@ module FSM (State : STATE) (Label : LABEL) = struct
   (* return all the tau reachable states *)
   let tau_reachable fsm st =
     walk_collect_vertices_with_predicate fsm st (only_with_tau fsm) (fun e -> E.label e = Label.default)
+
+  let tau_reachable_labelled_edges fsm st =
+    walk_collect_edges_with_predicate fsm st (only_with_tau fsm) (fun e -> E.label e = Label.default |> not)
 
   let minimise_state_numbers fsm =
     let vertices = get_vertices fsm |> List.mapi (fun n st -> (st, State.renumber_state n st)) in
@@ -367,10 +389,10 @@ module Bisimulation (State : STATE) (Label : LABEL) (Str : STRENGTH)  = struct
       let sts = if Str.is_strong then
           can_reach_with_anything edges st a (* this makes it a strong bisimulation *)
         else
-          (* can_reach_with_label_through_taus *)
-          (walk_collect_vertices_with_predicate fsm st
-            (only_with_tau fsm)
-            (fun e -> E.label e = a) ) @ can_reach_with_anything edges st a
+          (* labels that are tau reachable from this state *)
+          let weak_edges = tau_reachable_labelled_edges fsm st in
+          (* add the set of tau reacheable states from the destination of the edge *)
+          List.concat_map (fun e -> let dst = E.dst e in dst::(tau_reachable fsm dst)) weak_edges
     in
       List.map (fun st -> find_state_in_blocks st bs) sts |> Utils.uniq
     in
