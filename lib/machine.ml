@@ -702,7 +702,7 @@ module Local = struct
     let _blocks = WB.compute_bisimulation_quotient fsm in
     let* _res = _c1 r (st, fsm) in
     let* _res = _c2 r _blocks (st, fsm) in
-    (* let* _res = _c3 r _blocks (st, fsm) in *)
+    let* _res = _c3 r _blocks (st, fsm) in
     (* let* _res = _c4 r _blocks (st, fsm) in *)
     _res |> Result.ok
 
