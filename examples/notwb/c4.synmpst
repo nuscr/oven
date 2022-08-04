@@ -5,7 +5,7 @@ global Borked(role A, role B) {
     A() from A to B;
   } or {
     inf {
-      B() from A to B;
+      A() from A to B;
     }
   }
 }
