@@ -532,8 +532,10 @@ module Global = struct
         next @ next' @ next'' @ [e_st] |> Utils.uniq, fsm''
 
       | Inf g' ->
-        let _, fsm' = tr fsm g' (s_st, s_st) next in
-        [e_st], fsm'
+        let fresh_st = State.fresh() in
+        let next', fsm' = tr fsm g' (s_st, fresh_st) next in
+        let _, fsm'' = tr fsm' g' (fresh_st, fresh_st) next' in
+        [e_st] |> Utils.uniq, fsm''
 
       | Par [] ->
         "EMPTY PAR" |> Utils.log ;
