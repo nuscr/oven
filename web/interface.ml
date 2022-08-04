@@ -14,6 +14,7 @@ module Error = struct
 
   let display fmt =
     let display string =
+      let string = Str.global_substitute (Str.regexp "\\\\n") (fun _ -> "</br>") string in
       let e = Webutils.get errorbox in
       Webutils.(
         set_inner_html e "%s" string ;
