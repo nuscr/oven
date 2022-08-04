@@ -680,37 +680,37 @@ module Local = struct
     | x::xs ->
       pipe_fold f (let* _ = res in f x) xs
 
-  let rec wb (st, fsm : State.t * t) : wb_res =
+  let rec wb r (st, fsm : State.t * t) : wb_res =
     let (let*) = special_bind in
     let blocks = B.compute_bisimulation_quotient fsm in
-    let* _ = c1 (st, fsm) in
-    let* _ = c2 blocks (st, fsm) in
-    let* _ = c3 blocks (st, fsm) in
-    c4 blocks (st, fsm)
+    let* _ = c1 r (st, fsm) in
+    let* _ = c2 r blocks (st, fsm) in
+    let* _ = c3 r blocks (st, fsm) in
+    c4 r blocks (st, fsm)
 
-  and c1 (st, fsm) : wb_res =
+  and c1 r (st, fsm) : wb_res =
     if _state_can_step_recursive fsm st then
     (* if _has_outgoing_transitions fsm st then *)
       let weak_sts = st::tau_reachable fsm st in
       if List.exists State.is_end weak_sts then
-        State.as_string st ^ " may terminate or continue (C1 violation)." |> Result.error
+        "For role: " ^ r ^ " state: " ^ State.as_string st ^ " may terminate or continue (C1 violation)." |> Result.error
       else
         Result.ok ()
     else Result.ok ()
 
-  and c2 blocks (st, fsm) : wb_res =
+  and c2 r blocks (st, fsm) : wb_res =
     let by_tau = tau_reachable fsm st in
     if List.for_all (fun st' -> B.are_states_bisimilar blocks st st') by_tau
     then Result.ok ()
     else
       try
       let st' = List.find (fun st' -> B.are_states_bisimilar blocks st st' |> not) by_tau in
-      "States: " ^ State.as_string st ^ " and " ^ State.as_string st' ^ " are not bisimilar (C2 violation)." |> Result.error
+      "For role: " ^ r ^ " states: " ^ State.as_string st ^ " and " ^ State.as_string st' ^ " are not bisimilar (C2 violation)." |> Result.error
       with
       _ -> Error.Violation "This is a bug. There must be a non bisimilar state."  |> raise
 
 (* type local_transition_label = {sender: role ; receiver: role ; direction : direction ; label: message_label} *)
-  and c3 blocks (st, fsm) : wb_res =
+  and c3 r blocks (st, fsm) : wb_res =
     let is_send = function
         | Some l -> l.Syntax.Local.direction = Syntax.Local.Sending
         | None -> false
@@ -730,7 +730,8 @@ module Local = struct
         List.find (fun e -> l = E.label e) (succ_e fsm st) |> E.dst |> Result.ok
       with
         | Not_found ->
-          "State: " ^ State.as_string st
+          "For role: " ^ r ^
+          " state: " ^ State.as_string st
           ^ " cannot take label: " ^ Label.as_string l
           ^ " that reaches with tau state: " ^ State.as_string st_error
           ^ " (C3 Violation)."
@@ -753,7 +754,7 @@ module Local = struct
 
     List.fold_left (fun r (l, st') -> Result.bind r (fun _ -> check st l st')) (Result.ok ()) _sends
 
-  and c4 blocks (st, fsm) : wb_res =
+  and c4 r blocks (st, fsm) : wb_res =
     let by_tau = tau_reachable fsm st in
     let weak_reductions = List.concat_map (fun st' -> succ_e fsm st' |> List.filter (fun e -> E.label e |> Option.is_some)) by_tau in
     let rec f = function
@@ -770,7 +771,8 @@ module Local = struct
           if B.are_states_bisimilar blocks st st' then
             Result.ok ()
           else
-            "States: " ^ State.as_string st
+            "For role: " ^ r
+            ^ " states: " ^ State.as_string st
             ^ " is not bisimilar to state: " ^ State.as_string st'
             ^ " after taking label: " ^ Label.as_string (E.label e)
             ^ " (C4 violation)."
@@ -781,27 +783,27 @@ module Local = struct
     in
     f weak_reductions
 
-  and c5 fsm visited to_visit : wb_res =
+  and c5 r fsm visited to_visit : wb_res =
     match to_visit with
     | [] -> Result.ok ()
     | st::_ when List.mem st visited -> Result.ok ()
     | st::sts ->
-      begin match wb (st, fsm) with
+      begin match wb r (st, fsm) with
       | Result.Ok () ->
         let to_visit' = Utils.minus ((succ fsm st) @ sts) visited in
-        c5 fsm (st::visited) to_visit'
+        c5 r fsm (st::visited) to_visit'
       | Result.Error err -> Result.error err
       end
 
-  let well_behaved_role (st, fsm : State.t * t) : wb_res =
-    c5 fsm [] [st]
+  let well_behaved_role (r, st, fsm : role  * State.t * t) : wb_res =
+    c5 r fsm [] [st]
 
   let well_behaved_protocol (proto : global protocol) : wb_res =
     let roles = proto.roles in
     let g = proto.interactions in
     let _start, gfsm = Global.generate_state_machine g in
 
-    let lfsms = List.map (fun r -> let l = project r gfsm in get_start_state l, l) roles in
+    let lfsms = List.map (fun r -> let l = project r gfsm in r, get_start_state l, l) roles in
 
     pipe_fold well_behaved_role (Result.ok ()) lfsms
 
