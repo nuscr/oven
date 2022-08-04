@@ -703,7 +703,7 @@ module Local = struct
     let* _res = _c1 r (st, fsm) in
     let* _res = _c2 r _blocks (st, fsm) in
     let* _res = _c3 r _blocks (st, fsm) in
-    (* let* _res = _c4 r _blocks (st, fsm) in *)
+    let* _res = _c4 r _blocks (st, fsm) in
     _res |> Result.ok
 
   and _c1_alt r (st, fsm) : wb_res =
@@ -783,15 +783,28 @@ module Local = struct
     List.fold_left (fun r (l, st') -> Result.bind r (fun _ -> check st l st')) (Result.ok ()) _sends
 
   and _c4 r blocks (st, fsm) : wb_res =
+    let is_receive = function
+        | Some l -> l.Syntax.Local.direction = Syntax.Local.Receiving
+        | None -> false
+    in
     let by_tau = tau_reachable fsm st in
-    let weak_reductions = List.concat_map (fun st' -> succ_e fsm st' |> List.filter (fun e -> E.label e |> Option.is_some)) by_tau in
+    let weak_reductions =
+      List.concat_map
+        (fun st' -> succ_e fsm st' |> List.filter (fun e -> E.label e |> Option.is_some))
+        by_tau
+    in
     let rec f = function
       | [] -> Result.ok ()
       | e::es ->
-        (* split in the edges with a different label, and the states that the same label transitions to *)
-        let es_diff, st_same =
+        (* split in the edges with a different label, and the states that the same label transitions to *)        let es_diff, st_same =
           List.fold_left
-            (fun (d, s) e' -> if E.label e = E.label e' then (d, (E.dst e')::s) else (e'::d, s))
+            (fun (d, s) e' ->
+               if E.label e = E.label e' && E.label e |> is_receive
+               then
+                 let dst = E.dst e' in
+                 let t_r = tau_reachable fsm dst in
+                 (d, (E.dst e')::t_r @ s)
+               else (if E.label e' |> is_receive then  e'::d,s else d, s))
             ([], [])
             es
         in
@@ -809,7 +822,7 @@ module Local = struct
         Result.bind (List.fold_left (fun r st' -> Result.bind r (fun _ -> bisim st')) (Result.ok ()) st_same)
           (fun _ -> f es_diff)
     in
-    f weak_reductions
+    f (weak_reductions |> List.filter (fun e -> E.label e |> is_receive))
 
   and c5 r fsm visited to_visit : wb_res =
     match to_visit with
