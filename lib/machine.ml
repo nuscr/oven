@@ -626,6 +626,10 @@ module Local = struct
   let _has_outgoing_transitions fsm st =
     succ_e fsm st |> Utils.is_empty |> not
 
+  let _has_strong_outgoing_transitions fsm st =
+    succ_e fsm st |> List.filter (fun e -> E.label e = Label.default |> not) |> Utils.is_empty |> not
+
+
   let project (r : Syntax.role) (fsm : Global.FSM.t) : FSM.t =
     "Projecting role: " ^  r |> Utils.log ;
     (* add the \tau transitions induced by L-Rev *)
@@ -689,15 +693,25 @@ module Local = struct
     (* let* _res = _c4 r _blocks (st, fsm) in *)
     _res |> Result.ok
 
-  and _c1 r (st, fsm) : wb_res =
-    if _state_can_step_recursive fsm st then
+  and _c1_alt r (st, fsm) : wb_res =
+    (* if _state_can_step_recursive fsm st then *)
     (* if _has_outgoing_transitions fsm st then *)
+    if _has_strong_outgoing_transitions fsm st then
       let weak_sts = st::tau_reachable fsm st in
       if List.exists State.is_end weak_sts then
         "For role: " ^ r ^ " state: " ^ State.as_string st ^ " may terminate or continue (C1 violation)." |> Result.error
       else
         Result.ok ()
     else Result.ok ()
+
+  and _c1 r (st, fsm) : wb_res =
+    if _has_strong_outgoing_transitions fsm st then
+      if State.is_end st then
+        "For role: " ^ r ^ " state: " ^ State.as_string st ^ " may terminate or continue (C1 violation)." |> Result.error
+      else
+        Result.ok ()
+    else Result.ok ()
+
 
   and _c2 r blocks (st, fsm) : wb_res =
     let by_tau = tau_reachable fsm st in
