@@ -105,10 +105,6 @@ module FSM (State : STATE) (Label : LABEL) = struct
   let _can_reach_with_labels edges st a =
     List.filter_map (fun e -> if E.src e = st && E.label e = a && not (E.label e = Label.default) then Some (E.dst e) else None) edges
 
-  (* states that can be reached in one step with label a from st *)
-  let can_reach_with_anything edges st a =
-    List.filter_map (fun e -> if E.src e = st && E.label e = a then Some (E.dst e) else None) edges
-
   let walk_collect_edges_with_predicate (fsm : t) (st : State.t) (step : State.t -> edge list) (p : edge -> bool) : edge list =
     (* states from edges *)
     let sfe es =
@@ -178,6 +174,16 @@ module FSM (State : STATE) (Label : LABEL) = struct
 
   let tau_reachable_labelled_edges fsm st =
     walk_collect_edges_with_predicate fsm st (only_with_tau fsm) (fun e -> E.label e = Label.default |> not)
+
+  (* states that can be reached in one step with label a from st *)
+  let can_reach_with_anything edges st a =
+    List.filter_map (fun e -> if E.src e = st && E.label e = a then Some (E.dst e) else None) edges
+
+  let can_reach_with_weak_step fsm st a =
+    (* labels that are tau reachable from this state *)
+    let weak_edges = tau_reachable_labelled_edges fsm st in
+    (* add the set of tau reacheable states from the destination of the edge *)
+    List.concat_map (fun e -> let dst = E.dst e in if E.label e = a then dst::(tau_reachable fsm dst) else []) weak_edges
 
   let minimise_state_numbers fsm =
     let vertices = get_vertices fsm |> List.mapi (fun n st -> (st, State.renumber_state n st)) in
@@ -366,6 +372,13 @@ module Bisimulation (State : STATE) (Label : LABEL) (Str : STRENGTH)  = struct
 
   type block = State.t list
 
+  let blocks_as_string (bs : block list) : string =
+     List.map
+       (fun b ->
+          "["
+          ^ (List.map State.as_string b |> String.concat "; ")
+          ^ "]")  bs |> String.concat "\n"
+
   let compute_bisimulation_quotient (fsm : FSM.t) : block list =
     "Start computing bisimul quot." |> Utils.log;
     let initial () : block list * FSM.edge list =
@@ -387,12 +400,11 @@ module Bisimulation (State : STATE) (Label : LABEL) (Str : STRENGTH)  = struct
 
     let can_reach_block st a bs =
       let sts = if Str.is_strong then
-          can_reach_with_anything edges st a (* this makes it a strong bisimulation *)
+          (* this makes it a strong bisimulation *)
+          can_reach_with_anything edges st a
         else
-          (* labels that are tau reachable from this state *)
-          let weak_edges = tau_reachable_labelled_edges fsm st in
-          (* add the set of tau reacheable states from the destination of the edge *)
-          List.concat_map (fun e -> let dst = E.dst e in dst::(tau_reachable fsm dst)) weak_edges
+          (* this makes it a weak bisimulation *)
+          can_reach_with_weak_step fsm st a
     in
       List.map (fun st -> find_state_in_blocks st bs) sts |> Utils.uniq
     in
@@ -443,6 +455,7 @@ module Bisimulation (State : STATE) (Label : LABEL) (Str : STRENGTH)  = struct
 
     in
     let bs' = compute_while_changes bs in
+    "Blocks are:\n" ^ blocks_as_string bs' |> Utils.log ;
     bs'
 
   let dict_as_string dict =
