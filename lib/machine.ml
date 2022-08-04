@@ -665,7 +665,7 @@ module Local = struct
 
   type wb_res = (unit, string) Result.t
 
-  module B = Bisimulation (State) (Label) (struct let is_strong = false end)
+  module WB = Bisimulation (State) (Label) (struct let is_strong = false end)
 
   (* this is more applicative than monadic, as previous results don't change the future results *)
   let special_bind (v : wb_res) (f : unit -> wb_res) : wb_res =
@@ -686,9 +686,9 @@ module Local = struct
 
   let rec wb r (st, fsm : State.t * t) : wb_res =
     let (let*) = special_bind in
-    let _blocks = B.compute_bisimulation_quotient fsm in
+    let _blocks = WB.compute_bisimulation_quotient fsm in
     let* _res = _c1 r (st, fsm) in
-    (* let* _res = _c2 r _blocks (st, fsm) in *)
+    let* _res = _c2 r _blocks (st, fsm) in
     (* let* _res = _c3 r _blocks (st, fsm) in *)
     (* let* _res = _c4 r _blocks (st, fsm) in *)
     _res |> Result.ok
@@ -715,11 +715,11 @@ module Local = struct
 
   and _c2 r blocks (st, fsm) : wb_res =
     let by_tau = tau_reachable fsm st in
-    if List.for_all (fun st' -> B.are_states_bisimilar blocks st st') by_tau
+    if List.for_all (fun st' -> WB.are_states_bisimilar blocks st st') by_tau
     then Result.ok ()
     else
       try
-      let st' = List.find (fun st' -> B.are_states_bisimilar blocks st st' |> not) by_tau in
+      let st' = List.find (fun st' -> WB.are_states_bisimilar blocks st st' |> not) by_tau in
       "For role: " ^ r ^ " states: " ^ State.as_string st ^ " and " ^ State.as_string st' ^ " are not bisimilar (C2 violation)." |> Result.error
       with
       _ -> Error.Violation "This is a bug. There must be a non bisimilar state."  |> raise
@@ -757,7 +757,7 @@ module Local = struct
     let check st l st' =
       let (let*) = Result.bind in
       let* st_succ = one_step l st' in
-      if B.are_states_bisimilar blocks st_succ st' then
+      if WB.are_states_bisimilar blocks st_succ st' then
         Result.ok ()
       else
         "States: " ^ State.as_string st
@@ -783,7 +783,7 @@ module Local = struct
             es
         in
         let bisim st' =
-          if B.are_states_bisimilar blocks st st' then
+          if WB.are_states_bisimilar blocks st st' then
             Result.ok ()
           else
             "For role: " ^ r
