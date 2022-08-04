@@ -703,7 +703,7 @@ module Local = struct
     let* _res = _c1 r (st, fsm) in
     let* _res = _c2 r _blocks (st, fsm) in
     let* _res = _c3 r _blocks (st, fsm) in
-    let* _res = _c4 r _blocks (st, fsm) in
+    (* let* _res = _c4 r _blocks (st, fsm) in *)
     _res |> Result.ok
 
   and _c1_alt r (st, fsm) : wb_res =
