@@ -623,7 +623,7 @@ module Local = struct
   let _state_can_step_recursive (fsm : FSM.t) (st : State.t) : bool =
     walk_with_predicate st (with_any_transition fsm) (fun e -> FSM.E.label e |> Option.is_some)
 
-  let has_outgoing_transitions fsm st =
+  let _has_outgoing_transitions fsm st =
     succ_e fsm st |> Utils.is_empty |> not
 
   let project (r : Syntax.role) (fsm : Global.FSM.t) : FSM.t =
@@ -689,8 +689,10 @@ module Local = struct
     c4 blocks (st, fsm)
 
   and c1 (st, fsm) : wb_res =
-    if has_outgoing_transitions fsm st then
-      if State.is_end st then
+    if _state_can_step_recursive fsm st then
+    (* if _has_outgoing_transitions fsm st then *)
+      let weak_sts = st::tau_reachable fsm st in
+      if List.exists State.is_end weak_sts then
         State.as_string st ^ " may terminate or continue (C1 violation)." |> Result.error
       else
         Result.ok ()
