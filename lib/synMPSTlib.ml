@@ -60,7 +60,7 @@ module Toplevel = struct
       ()
     | Result.Error errMsg ->
       proto.Syntax.protocol_name ^ ": failed with : " ^ errMsg |> Utils.log ;
-      Error.UserError ("Protocol: " ^ proto.Syntax.protocol_name ^ " failed with: " ^ errMsg) |> raise
+      Error.UserError ("Protocol: " ^ proto.Syntax.protocol_name ^ " failed with:\n" ^ errMsg) |> raise
 
 end
 
