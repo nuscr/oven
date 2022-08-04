@@ -8,4 +8,5 @@ global NestedFin (role C, role S)
       B(int) from C to S;
     }
   }
+  DONE from C to S;
 }

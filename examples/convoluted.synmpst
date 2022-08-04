@@ -16,18 +16,3 @@ global Borked(role C, role S) {
     }
   }
 }
-
-
-(*
-
-Note: this example produces a split state machine, in this one machine has the start, and the other has the end.
-
-In this case, when we merge, both the start and the end are mapped to the single machine.
-
-(Because all states that are not marked and end but have not outgoing arrows are bisimilar to end)
-
-The separated machine is minimised into the resulting one. So we get one machine as a result.
-
-This may be related to issue #4
-
-*)

@@ -1,0 +1,36 @@
+global ParAUR(role C, role D, role S1, role S2) {
+  par {
+    inf {
+      ACQ1() from C to S1;
+      PERM1() from S1 to C;
+      fin {
+        USE1(string) from C to S2;
+      }
+      REL1() from C to S1;
+    }
+  } and {
+    inf {
+      ACQ2() from D to S1;
+      PERM2() from S1 to D;
+      fin {
+        USE2(string) from D to S2;
+      }
+      REL1() from D to S1;
+    }
+  }
+}
+
+
+global ParAUR2(role C, role D, role S1, role S2) {
+  par {
+    inf {
+      ACQ1() from C to S1;
+      PERM1() from S1 to C;
+    }
+  } and {
+    inf {
+      ACQ2() from D to S1;
+      PERM2() from S1 to D;
+    }
+  }
+}
