@@ -682,13 +682,14 @@ module Local = struct
 
   let rec wb r (st, fsm : State.t * t) : wb_res =
     let (let*) = special_bind in
-    let blocks = B.compute_bisimulation_quotient fsm in
-    let* _ = c1 r (st, fsm) in
-    let* _ = c2 r blocks (st, fsm) in
-    let* _ = c3 r blocks (st, fsm) in
-    c4 r blocks (st, fsm)
+    let _blocks = B.compute_bisimulation_quotient fsm in
+    let* _res = _c1 r (st, fsm) in
+    (* let* _res = _c2 r _blocks (st, fsm) in *)
+    (* let* _res = _c3 r _blocks (st, fsm) in *)
+    (* let* _res = _c4 r _blocks (st, fsm) in *)
+    _res |> Result.ok
 
-  and c1 r (st, fsm) : wb_res =
+  and _c1 r (st, fsm) : wb_res =
     if _state_can_step_recursive fsm st then
     (* if _has_outgoing_transitions fsm st then *)
       let weak_sts = st::tau_reachable fsm st in
@@ -698,7 +699,7 @@ module Local = struct
         Result.ok ()
     else Result.ok ()
 
-  and c2 r blocks (st, fsm) : wb_res =
+  and _c2 r blocks (st, fsm) : wb_res =
     let by_tau = tau_reachable fsm st in
     if List.for_all (fun st' -> B.are_states_bisimilar blocks st st') by_tau
     then Result.ok ()
@@ -710,7 +711,7 @@ module Local = struct
       _ -> Error.Violation "This is a bug. There must be a non bisimilar state."  |> raise
 
 (* type local_transition_label = {sender: role ; receiver: role ; direction : direction ; label: message_label} *)
-  and c3 r blocks (st, fsm) : wb_res =
+  and _c3 r blocks (st, fsm) : wb_res =
     let is_send = function
         | Some l -> l.Syntax.Local.direction = Syntax.Local.Sending
         | None -> false
@@ -754,7 +755,7 @@ module Local = struct
 
     List.fold_left (fun r (l, st') -> Result.bind r (fun _ -> check st l st')) (Result.ok ()) _sends
 
-  and c4 r blocks (st, fsm) : wb_res =
+  and _c4 r blocks (st, fsm) : wb_res =
     let by_tau = tau_reachable fsm st in
     let weak_reductions = List.concat_map (fun st' -> succ_e fsm st' |> List.filter (fun e -> E.label e |> Option.is_some)) by_tau in
     let rec f = function
