@@ -1,8 +1,4 @@
 module Toplevel = struct
-  let say_hello () = "hello!"
-
-  let _inactive = Syntax.Seq []
-
   let set_filename (fname : string) (lexbuf : Lexing.lexbuf) =
     lexbuf.Lexing.lex_curr_p <-
       {lexbuf.Lexing.lex_curr_p with Lexing.pos_fname= fname} ;
@@ -72,13 +68,13 @@ module CommandLineInterface = struct
   let process_role fsm r =
     let lfsm = Toplevel.project_state_machine r fsm in
     let dot = Toplevel.minimal_dot_of_local_machine lfsm in
-    "// role: " ^ r ^ "\n" ^ dot
+    "// Role: " ^ r ^ "\n" ^ dot
 
   let process_protocol (proto : global protocol) : string =
     Toplevel.well_behaved_protocol proto ;
     let _, fsm = Toplevel.generate_global_state_machine (proto.interactions) in
     let out = List.map (process_role fsm) proto.roles |> String.concat "\n" in
-    "// " ^ proto.protocol_name
+    "// Protocol: " ^ proto.protocol_name ^ "\n"
     ^ out
 
   let process_file_contents scribble =

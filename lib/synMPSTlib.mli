@@ -1,8 +1,3 @@
-
-
-val say_hello : unit -> string
-
-
 val parse_string : string -> Syntax.compilation_unit
 val translate_and_validate : Syntax.compilation_unit -> Syntax.compilation_unit
 
