@@ -7,18 +7,22 @@ let read_file fn =
 
 let usage_msg = "synMPST - command line tool\n Usage: syn <file1>"
 
-let input_file = ref ""
+let input_files = ref []
 
 let anon_fun filename =
-  input_file := filename
+  input_files := filename::!input_files
 
 let speclist = []
 
-let () =
-  Arg.parse speclist anon_fun usage_msg;
+
+let process_file input_file =
+    "// synMPST - Local state machines for: " ^ input_file |> print_endline ;
   try
-    let str = !input_file |> read_file |> SynMPSTlib.local_dots_of_scribble_file in
-    "// synMPST - Local state machines" |> print_endline ;
+    let str = input_file |> read_file |> SynMPSTlib.local_dots_of_scribble_file in
     str |> print_endline
   with
-  | exp ->  print_endline ("Unable to read the file!" ^ !input_file ^ "\n" ^ Printexc.to_string exp)
+  | exp ->  print_endline ("Unable to read the file!" ^ input_file ^ "\n" ^ Printexc.to_string exp)
+
+let () =
+  Arg.parse speclist anon_fun usage_msg;
+  List.iter process_file !input_files
