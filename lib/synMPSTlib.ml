@@ -66,6 +66,28 @@ module Toplevel = struct
 
 end
 
+module CommandLineInterface = struct
+  open Syntax
+
+  let process_role fsm r =
+    let lfsm = Toplevel.project_state_machine r fsm in
+    let dot = Toplevel.minimal_dot_of_local_machine lfsm in
+    "// role: " ^ r ^ "\n" ^ dot
+
+  let process_protocol (proto : global protocol) : string =
+    let _, fsm = Toplevel.generate_global_state_machine (proto.interactions) in
+    let out = List.map (process_role fsm) proto.roles |> String.concat "\n" in
+    "// " ^ proto.protocol_name
+    ^ out
+
+  let process_file_contents scribble =
+    let cu = Toplevel.parse_string scribble in
+    List.map process_protocol cu |> String.concat "\n"
+
+end
+
 include Toplevel
+
+let local_dots_of_scribble_file = CommandLineInterface.process_file_contents
 
 let get_log = Utils.get_log

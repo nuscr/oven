@@ -1,0 +1,9 @@
+(executables
+ (names main)
+ (libraries synMPSTlib))
+
+(install
+ (section bin)
+ (files
+  (main.exe as syn))
+ (package synMPST))

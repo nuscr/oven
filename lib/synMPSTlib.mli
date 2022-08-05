@@ -27,3 +27,5 @@ val get_log : unit -> string
 val generate_all_local_machines : Syntax.global Syntax.protocol -> Machine.Local.FSM.t
 
 val well_behaved_protocol : Syntax.global Syntax.protocol -> unit
+
+val local_dots_of_scribble_file : string -> string
