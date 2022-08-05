@@ -1,5 +1,6 @@
 (*) Streaming protocol [Honda et al., POPL'08]
 
+(*
 global Streaming(role DP, role KP, role K, role C) {
   inf {
     DATA(bool) from DP to K;
@@ -7,4 +8,36 @@ global Streaming(role DP, role KP, role K, role C) {
     XOR(bool) from K to C;
   }
 }
+*)
 
+(*) Version 1 (more sync needed)
+
+global Streaming_v1(role DP, role KP, role K, role C) {
+  inf {
+    par {
+      READY() from K to DP;
+      DATA(bool) from DP to K;
+    } and {
+      READY() from K to KP;
+      KEY(bool) from KP to K;
+    }
+    XOR(bool) from K to C;
+  }
+}
+
+(*) Version 2 (with a looser specification)
+global Streaming_v2(role DP, role KP, role K, role C) {
+  par {
+    inf {
+      DATA(bool) from DP to K;
+    }
+  } and {
+    inf {
+      KEY(bool) from KP to K;
+    }
+  } and {
+    inf {
+      XOR(bool) from K to C;
+    }
+  }
+}

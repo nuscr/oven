@@ -2,11 +2,11 @@
 
 global TwoBuyer(role B1, role B2, role S) {
   BOOK(string) from B1 to S;
-  QUOTE(int) from S to B1;
   par {
-    QUOTE(int) from S to B2;
-  } and {
+    QUOTE(int) from S to B1;
     CONTRIB(int) from B1 to B2;
+  } and {
+    QUOTE(int) from S to B2;
   }
   choice {
     OK() from B2 to S;
