@@ -75,6 +75,7 @@ module CommandLineInterface = struct
     "// role: " ^ r ^ "\n" ^ dot
 
   let process_protocol (proto : global protocol) : string =
+    Toplevel.well_behaved_protocol proto ;
     let _, fsm = Toplevel.generate_global_state_machine (proto.interactions) in
     let out = List.map (process_role fsm) proto.roles |> String.concat "\n" in
     "// " ^ proto.protocol_name
