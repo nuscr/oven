@@ -703,7 +703,7 @@ module Local = struct
     let* _res = _c1 r (st, fsm) in
     let* _res = _c2 r _blocks (st, fsm) in
     let* _res = _c3 r _blocks (st, fsm) in
-    (* let* _res = _c4 r _blocks (st, fsm) in *)
+    let* _res = _c4 r _blocks (st, fsm) in
     _res |> Result.ok
 
   and _c1_alt r (st, fsm) : wb_res =
@@ -787,7 +787,7 @@ module Local = struct
         | Some l -> l.Syntax.Local.direction = Syntax.Local.Receiving
         | None -> false
     in
-    let by_tau = tau_reachable fsm st in
+    let by_tau = st::tau_reachable fsm st in
     let weak_reductions =
       List.concat_map
         (fun st' -> succ_e fsm st' |> List.filter (fun e -> E.label e |> Option.is_some))
@@ -796,31 +796,37 @@ module Local = struct
     let rec f = function
       | [] -> Result.ok ()
       | e::es ->
-        (* split in the edges with a different label, and the states that the same label transitions to *)        let es_diff, st_same =
+        (* split in the edges with a different label, and the states that the same label transitions to *)
+        let es_diff, st_same =
           List.fold_left
             (fun (d, s) e' ->
-               if E.label e = E.label e' && E.label e |> is_receive
+               if E.label e = E.label e'
                then
-                 let dst = E.dst e' in
-                 let t_r = tau_reachable fsm dst in
-                 (d, (E.dst e')::t_r @ s)
+                 let t_r = tau_reachable fsm (E.dst e) in
+                 let t_r' = tau_reachable fsm (E.dst e') in
+                 (d, (E.dst e)::(E.dst e')::t_r @ t_r' @ s)
                else (if E.label e' |> is_receive then  e'::d,s else d, s))
             ([], [])
             es
         in
-        let bisim st' =
-          if WB.are_states_bisimilar blocks st st' then
-            Result.ok ()
-          else
-            "For role: " ^ r
-            ^ " states: " ^ State.as_string st
-            ^ " is not bisimilar to state: " ^ State.as_string st'
-            ^ " after taking label: " ^ Label.as_string (E.label e)
-            ^ " (C4 violation)."
-            |> Result.error
+        let are_bisim = match st_same with
+          | [] -> Result.ok ()
+          | [_] -> Result.ok ()
+          | s::ss ->
+            let check s s' =
+              if WB.are_states_bisimilar blocks s s' then
+                Result.ok ()
+              else
+                "For role: " ^ r
+                ^ " states: " ^ State.as_string s
+                ^ " is not bisimilar to state: " ^ State.as_string s'
+                ^ " after taking label: " ^ Label.as_string (E.label e)
+                ^ " (C4 violation)."
+                |> Result.error
+            in
+            List.fold_left (fun r s' -> Result.bind r (fun _ -> check s s')) (Result.ok ()) ss
         in
-        Result.bind (List.fold_left (fun r st' -> Result.bind r (fun _ -> bisim st')) (Result.ok ()) st_same)
-          (fun _ -> f es_diff)
+        Result.bind are_bisim (fun _ -> f es_diff)
     in
     f (weak_reductions |> List.filter (fun e -> E.label e |> is_receive))
 
