@@ -671,8 +671,8 @@ module Local = struct
         fsm
         with_vertices
     in
-    (* let module B = Bisimulation (State) (Label) (struct let is_strong = true end) in *)
-    (* let minimise fsm = B.minimise fsm in *)
+    (* let module WB = Bisimulation (State) (Label) (struct let is_strong = false end) in *)
+    (* let minimise fsm = WB.minimise fsm in *)
     with_edges |> complete (* |> minimise *)
 
 
