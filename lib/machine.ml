@@ -495,6 +495,14 @@ module Bisimulation (State : STATE) (Label : LABEL) (Str : STRENGTH)  = struct
 
   let minimise (fsm : FSM.t) : FSM.t =
     extract_minimal (compute_bisimulation_quotient fsm) (get_edges fsm)
+
+  let remove_reflexive_taus (fsm : FSM.t) : FSM.t =
+    let e_fsm = fold_vertex (fun st fsm -> add_vertex fsm st) empty fsm in
+    let is_reflexive_tau e = E.src e = E.dst e && E.label e = Label.default in
+    fold_edges_e (fun e fsm -> if is_reflexive_tau e then fsm else add_edge_e fsm e) e_fsm fsm
+
+    let generate_minimal_dot fsm =
+      fsm |> minimise |> remove_reflexive_taus |> FSM.Dot.generate_dot
 end
 
 module Global = struct
@@ -610,6 +618,10 @@ module Global = struct
     st, minimise fsm |> minimise_state_numbers
 
   let generate_dot fsm = fsm |> Dot.generate_dot
+
+  let generate_minimal_dot fsm =
+    let module WB = Bisimulation (State) (Label) (struct let is_strong = false end) in
+    WB.generate_minimal_dot fsm
 end
 
 module Local = struct
@@ -855,6 +867,10 @@ module Local = struct
     pipe_fold well_behaved_role (Result.ok ()) lfsms
 
   let generate_dot fsm = fsm |> Dot.generate_dot
+
+  let generate_minimal_dot fsm =
+    let module WB = Bisimulation (State) (Label) (struct let is_strong = false end) in
+    WB.generate_minimal_dot fsm
 
   let generate_all_local protocol =
     let roles = protocol.roles in

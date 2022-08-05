@@ -32,6 +32,7 @@ module Global : sig
   val minimise : FSM.t -> FSM.t
 
   val generate_dot : FSM.t -> string
+  val generate_minimal_dot : FSM.t -> string
 end
 
 module Local :
@@ -53,6 +54,8 @@ module Local :
   val project : Syntax.role -> Global.FSM.t -> FSM.t
 
   val generate_dot : FSM.t -> string
+
+  val generate_minimal_dot : FSM.t -> string
 
   val generate_all_local : Syntax.global Syntax.protocol -> FSM.t
 
