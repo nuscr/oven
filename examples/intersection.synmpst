@@ -1,0 +1,35 @@
+(*
+  For loose intersection: loose intersection | loose | intersection
+
+  For tight intersection: tight intersection | tight
+
+*)
+
+
+global Intersection (role C, role S)
+{
+  PRE from C to S;
+  tight intersection {
+    HOLA from C to S;
+    HALLO from S to C;
+  } and {
+    HALLO from C to S;
+    HOLA from S to C;
+    CHAU from C to S;
+  }
+  POST from C to S;
+}
+
+global Intersection1 (role C, role S)
+{
+  PRE from C to S;
+  tight {
+    HOLA from C to S;
+    HALLO from S to C;
+  } and {
+    HALLO from C to S;
+    HOLA from S to C;
+    CHAU from C to S;
+  }
+  POST from C to S;
+}
