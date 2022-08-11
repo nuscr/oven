@@ -34,6 +34,8 @@ type global  (* consider renaming just global *)
   | Inf of global
   | Par of global list
   | Seq of global list
+  | LInt of global list
+  | TInt of global list
 
 type compilation_unit = global protocol list
 

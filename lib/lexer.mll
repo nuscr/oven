@@ -70,6 +70,9 @@ and token = parse
 | "fin" { FIN_KW }
 | "inf" { INF_KW }
 | "par" { PAR_KW }
+| "intersection" { INTERSECTION_KW }
+| "tight" { TIGHT_KW }
+| "loose" { LOOSE_KW }
 
 (* other *)
 | eof

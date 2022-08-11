@@ -37,6 +37,10 @@ let block_to_global = function
 %token INF_KW
 %token PAR_KW
 
+%token INTERSECTION_KW
+%token TIGHT_KW
+%token LOOSE_KW
+
 (* pragmas *)
 /* %token PRAGMA_START */
 /* %token PRAGMA_END */
@@ -98,7 +102,10 @@ let global_interaction ==
   | inf_composition
   | fin_composition
   | parallel_composition
+  | loose_intersection
+  | tight_intersection
   | global_protocol_block
+
 
 let global_protocol_block ==
   LCURLY ; ints = global_interaction* ; RCURLY ; { block_to_global ints }
@@ -113,6 +120,21 @@ let parallel_composition ==
   PAR_KW ;
   ~ = separated_nonempty_list(AND_KW, global_protocol_block) ;
   < Par >
+
+let loose_intersection_intro ==
+  | LOOSE_KW ; INTERSECTION_KW
+  | LOOSE_KW
+  | INTERSECTION_KW
+
+let loose_intersection ==
+  loose_intersection_intro ;
+  ~ = separated_nonempty_list(AND_KW, global_protocol_block) ;
+  < LInt >
+
+let tight_intersection ==
+  TIGHT_KW ; INTERSECTION_KW? ;
+  ~ = separated_nonempty_list(AND_KW, global_protocol_block) ;
+  < TInt >
 
 let global_choice ==
   CHOICE_KW ;

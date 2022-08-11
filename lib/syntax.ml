@@ -32,13 +32,15 @@ module Local = struct
 end
 
 
-type global  (* consider renaming just global *)
+type global
   = MessageTransfer of transition_label
   | Choice of global list
   | Fin of global
   | Inf of global
   | Par of global list
   | Seq of global list
+  | LInt of global list
+  | TInt of global list
 
 type compilation_unit = global protocol list
 
@@ -48,12 +50,15 @@ let rec validate_roles roles = function
     if List.mem sender roles && List.mem receiver roles then true
     else Error.UserError "Unknown role used in protocol." |> raise
   | Choice branches
+  | LInt branches
+  | TInt branches
   | Par branches
   | Seq branches ->
     List.for_all (validate_roles roles) branches
   | Fin g
   | Inf g ->
     validate_roles roles g
+
 
 
 let validate_global_protocol protocol =

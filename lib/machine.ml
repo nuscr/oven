@@ -603,6 +603,7 @@ module Global = struct
           let size = resfsm |> FSM.get_vertices |> List.length |> Int.to_string in
           "PAR size result: " ^ size |> Utils.log ;
           nexts, resfsm (* BUG after parallel compose nexts don't make any more sense *)
+      | LInt _ | TInt _ -> assert false
     in
     let end_st = State.fresh_end() in
     let next, fsm_final = tr FSM.empty g (start, end_st) [start] in
