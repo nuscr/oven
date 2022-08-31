@@ -225,14 +225,7 @@ module FSM (State : STATE) (Label : LABEL) = struct
     in
     copy fsm @@ copy fsm' empty
 
-  module type MACHINE_COMPOSITION = sig
-    (* relation between the combined and resulting fsms *)
-    type dict = ((vertex * vertex) * vertex) list (* ((s1, s2), s3) state s1 and s2 became s3 *)
-
-    val walker : t -> t -> (vertex * vertex -> edge list * edge list) -> dict * t
-  end
-
-  module MachineComposition : MACHINE_COMPOSITION =
+  module MachineComposition =
   struct
     (* Monadic interface commented out for now *)
     (* (\* monad for the edge selection *\) *)
