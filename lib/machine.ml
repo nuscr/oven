@@ -99,7 +99,7 @@ module FSM (State : STATE) (Label : LABEL) = struct
     try
       List.find State.is_start @@ get_vertices fsm
     with
-    |_ -> Error.Violation "FSM Must have a start state." |> raise
+    |_ -> Error.Violation "FSM must have a start state." |> raise
 
   (* states that can be reached in one step with label that is not tau a from st *)
   let _can_reach_with_labels edges st a =
@@ -225,8 +225,30 @@ module FSM (State : STATE) (Label : LABEL) = struct
     in
     copy fsm @@ copy fsm' empty
 
-  (* compose two machines allowing all their interleavings *)
-  let parallel_compose (assoc, fsm : State.t list * t) (assoc', fsm' : State.t list * t) :  State.t list * t =
+  module type MACHINE_COMPOSITION = sig
+    (* relation between the combined and resulting fsms *)
+    type dict = ((vertex * vertex) * vertex) list (* ((s1, s2), s3) state s1 and s2 became s3 *)
+
+    val walker : t -> t -> (vertex * vertex -> edge list * edge list) -> dict * t
+  end
+
+  module MachineComposition : MACHINE_COMPOSITION =
+  struct
+    (* Monadic interface commented out for now *)
+    (* (\* monad for the edge selection *\) *)
+    (* type ('a , 's) m = 's -> 's * 'a *)
+    (* let sbind (m1 : ('a, 's) m) (m2: 'a -> ('a, 's) m) : ('a, 's) m = *)
+    (*   fun s -> let a, s' = m1 s in m2 a s' *)
+
+    (* let run (initial_state : 's) (v : ('a, 's) m) : 'a = *)
+    (*   v initial_state |> snd *)
+
+    (* let (let*\) = sbind *)
+
+    (* relation between the combined and resulting fsms *)
+    type dict = ((vertex * vertex) * vertex) list (* ((s1, s2), s3) state s1 and s2 became s3 *)
+
+    (* generate product state space *)
     let generate_state_space fsm fsm' : 'a =
       let sts_fsm = get_vertices fsm in
       let sts_fsm' = get_vertices fsm' in
@@ -247,9 +269,106 @@ module FSM (State : STATE) (Label : LABEL) = struct
       let machine = List.fold_left (fun fsm (_, st) -> add_vertex fsm st) empty state_space
       in
       state_space, machine
-    in
 
-    let dict, jfsm = generate_state_space fsm fsm' in
+
+    let find_dest_state st st' (dict : dict) =
+      try
+        List.find_map
+          (fun ((st1, st1'), rst) -> if st = st1 && st' = st1' then Some rst else None)
+          dict |> Option.get
+      with
+      | _ -> Error.Violation "Joint FSM must contain this state." |> raise
+
+
+    let find_source_states st (dict : dict) =
+      try
+        List.find_map
+          (fun ((st1, st1'), rst) -> if st = rst then Some (st1, st1') else None)
+          dict |> Option.get
+      with
+      | _ -> Error.Violation "Joint FSM must contain this state (2)." |> raise
+
+    (* given a state of the first or second machine,
+       find all the states of the joint machine where it appears *)
+    let find_all_dest_states_with
+        (st_src : (vertex, vertex) Either.t)
+        (dict : dict) : vertex list =
+      let f1 s ((s', _), _) = s = s' in
+      let f2 s ((_, s'), _) = s = s' in
+      (match st_src with
+      | Either.Left st -> List.find_all (f1 st) dict
+      | Either.Right st -> List.find_all (f2 st) dict) |> List.map snd
+
+    let walker (fsm : t) (fsm' : t)
+        (f : vertex * vertex -> edge list * edge list)
+      : dict * t =
+      let dict, jfsm = generate_state_space fsm fsm' in
+      let rec walk
+          (sts : vertex * vertex)
+          (jfsm : t)
+          (k : t -> 'a) : 'a  =
+        let es, es' = f sts in
+        add_edges sts es es' jfsm k
+
+      and add_dest_edge
+          (src : vertex)
+          (lbl : Label.t)
+          (dsts : vertex list)
+          (jfsm : t)
+          (k : t -> 'a) =
+        match dsts with
+        | [] -> k jfsm
+        | dst::dsts' ->
+          let jfsm' = add_edge_e jfsm (E.create src lbl dst) in
+          let st, st' = find_source_states dst dict in
+          add_dest_edge src lbl dsts' jfsm'
+            (fun jfsm -> walk (st, st') jfsm k)
+
+      and add_source_edge
+          (e_src : (edge, edge) Either.t)
+          (st : vertex)
+          (jfsm : t)
+          (k : t -> 'a) : ' a =
+
+        match e_src with
+        | Either.Left e ->
+          let src = find_dest_state (E.src e) st dict in
+          let dsts = find_all_dest_states_with (Either.Left (E.dst e)) dict in
+          add_dest_edge src (E.label e) dsts jfsm k
+
+        | Either.Right e ->
+          let src = find_dest_state st (E.src e) dict in
+          let dsts = find_all_dest_states_with (Either.Right (E.dst e)) dict in
+          add_dest_edge src (E.label e) dsts jfsm k
+
+      and add_edges
+          (st, st' as sts : vertex * vertex)
+          (pending : edge list) (pending' : edge list)
+          (jfsm : t)
+          (k : t -> 'a) : ' a =
+        match pending, pending' with
+        | e::es, es' ->
+          add_source_edge (Either.Left e) st' jfsm (fun jfsm -> add_edges sts es es' jfsm k)
+
+        | es, e'::es' ->
+          add_source_edge (Either.Right e') st jfsm (fun jfsm -> add_edges sts es es' jfsm k)
+
+        | [], [] -> k jfsm
+
+      in
+      let initial_st = get_start_state fsm, get_start_state fsm' in
+
+      dict, walk initial_st jfsm (fun x -> x)
+  end
+
+  (* compose two machines allowing all their interleavings *)
+  let parallel_compose
+      (assoc, fsm : State.t list * t)
+      (assoc', fsm' : State.t list * t) :  State.t list * t =
+
+    let dict, jfsm =
+      (* f simply accepts all the edges *)
+      MachineComposition.walker fsm fsm' (fun (st, st') -> succ_e fsm st, succ_e fsm' st') in
 
     let assoc_space = List.fold_left (fun b a -> List.fold_left (fun b' a' -> (a, a')::b') b assoc') [] assoc in
     let res_assoc = List.map (fun stst' -> List.assoc stst' dict) assoc_space in
@@ -264,42 +383,7 @@ module FSM (State : STATE) (Label : LABEL) = struct
     "Size of fsm: " ^ string_of_int (nb_vertex fsm) |> Utils.log;
     "Size of fsm': " ^ string_of_int (nb_vertex fsm') |> Utils.log;
     "Size of space: " ^ string_of_int (List.length dict) |> Utils.log;
-
-    (* adds an edge many times to the product space *)
-    let add_edges from_first e fsm =
-      let src_sts = List.filter (fun ((st, st'), _) -> if from_first then st = E.src e else st' = E.src e) dict in
-
-      let find_end_state ( (s1, s2), _) e =
-        let s = E.src e in
-        let d = E.dst e in
-
-        if from_first && (s = s1) then
-          try
-            let _, d_res = List.find (fun ((x0, x1), _) -> x0 = d && x1 = s2) dict in
-            d_res
-          with
-          | _ -> failwith ("this: " ^ dict_to_string dict)
-
-        else if (not from_first) && s = s2 then
-          try
-            let _, d_res = List.find (fun ((x0, x1), _) -> x1 = d && x0 = s1) dict in
-            d_res
-          with
-          | _ -> failwith ("that: " ^ dict_to_string dict)
-
-        else
-          failwith "Violation: e is not related to s1, s2."
-
-      in
-
-      let coords = List.map
-          (fun ((_c_s_st, c_e_st), src_st) -> src_st, find_end_state ((_c_s_st, c_e_st), src_st) e)
-          src_sts
-      in
-      List.fold_left (fun fsm' (src, dst) -> add_edge_e fsm' (E.create src (E.label e) dst) ) fsm coords
-    in
-    let jfsm' = fold_edges_e (add_edges true) fsm jfsm in
-    res_assoc, fold_edges_e (add_edges false) fsm' jfsm'
+    res_assoc, jfsm
 
   let only_reachable_from st fsm =
     let add_state_and_successors n_fsm st =
@@ -373,11 +457,11 @@ module Bisimulation (State : STATE) (Label : LABEL) (Str : STRENGTH)  = struct
   type block = State.t list
 
   let blocks_as_string (bs : block list) : string =
-     List.map
-       (fun b ->
-          "["
-          ^ (List.map State.as_string b |> String.concat "; ")
-          ^ "]")  bs |> String.concat "\n"
+    List.map
+      (fun b ->
+         "["
+         ^ (List.map State.as_string b |> String.concat "; ")
+         ^ "]")  bs |> String.concat "\n"
 
   let compute_bisimulation_quotient (fsm : FSM.t) : block list =
     "Start computing bisimul quot." |> Utils.log;
@@ -405,7 +489,7 @@ module Bisimulation (State : STATE) (Label : LABEL) (Str : STRENGTH)  = struct
         else
           (* this makes it a weak bisimulation *)
           can_reach_with_weak_step fsm st a
-    in
+      in
       List.map (fun st -> find_state_in_blocks st bs) sts |> Utils.uniq
     in
 
@@ -501,8 +585,8 @@ module Bisimulation (State : STATE) (Label : LABEL) (Str : STRENGTH)  = struct
     let is_reflexive_tau e = E.src e = E.dst e && E.label e = Label.default in
     fold_edges_e (fun e fsm -> if is_reflexive_tau e then fsm else add_edge_e fsm e) e_fsm fsm
 
-    let generate_minimal_dot fsm =
-      fsm |> minimise |> remove_reflexive_taus |> FSM.Dot.generate_dot
+  let generate_minimal_dot fsm =
+    fsm |> minimise |> remove_reflexive_taus |> FSM.Dot.generate_dot
 end
 
 module Global = struct
@@ -747,16 +831,16 @@ module Local = struct
     then Result.ok ()
     else
       try
-      let st' = List.find (fun st' -> WB.are_states_bisimilar blocks st st' |> not) by_tau in
-      "For role: " ^ r ^ " states: " ^ State.as_string st ^ " and " ^ State.as_string st' ^ " are not bisimilar (C2 violation)." |> Result.error
+        let st' = List.find (fun st' -> WB.are_states_bisimilar blocks st st' |> not) by_tau in
+        "For role: " ^ r ^ " states: " ^ State.as_string st ^ " and " ^ State.as_string st' ^ " are not bisimilar (C2 violation)." |> Result.error
       with
-      _ -> Error.Violation "This is a bug. There must be a non bisimilar state."  |> raise
+        _ -> Error.Violation "This is a bug. There must be a non bisimilar state."  |> raise
 
-(* type local_transition_label = {sender: role ; receiver: role ; direction : direction ; label: message_label} *)
+  (* type local_transition_label = {sender: role ; receiver: role ; direction : direction ; label: message_label} *)
   and _c3 r blocks (st, fsm) : wb_res =
     let is_send = function
-        | Some l -> l.Syntax.Local.direction = Syntax.Local.Sending
-        | None -> false
+      | Some l -> l.Syntax.Local.direction = Syntax.Local.Sending
+      | None -> false
     in
     let by_tau = tau_reachable fsm st in
 
@@ -772,13 +856,13 @@ module Local = struct
       try
         List.find (fun e -> l = E.label e) (succ_e fsm st) |> E.dst |> Result.ok
       with
-        | Not_found ->
-          "For role: " ^ r ^
-          " state: " ^ State.as_string st
-          ^ " cannot take label: " ^ Label.as_string l
-          ^ " that reaches with tau state: " ^ State.as_string st_error
-          ^ " (C3 Violation)."
-          |> Result.error
+      | Not_found ->
+        "For role: " ^ r ^
+        " state: " ^ State.as_string st
+        ^ " cannot take label: " ^ Label.as_string l
+        ^ " that reaches with tau state: " ^ State.as_string st_error
+        ^ " (C3 Violation)."
+        |> Result.error
     in
 
     (* checks if the states are bisimilar after taking the step *)
@@ -799,8 +883,8 @@ module Local = struct
 
   and _c4 r blocks (st, fsm) : wb_res =
     let is_receive = function
-        | Some l -> l.Syntax.Local.direction = Syntax.Local.Receiving
-        | None -> false
+      | Some l -> l.Syntax.Local.direction = Syntax.Local.Receiving
+      | None -> false
     in
     let by_tau = st::tau_reachable fsm st in
     let weak_reductions =
@@ -851,10 +935,10 @@ module Local = struct
     | st::_ when List.mem st visited -> Result.ok ()
     | st::sts ->
       begin match wb r (st, fsm) with
-      | Result.Ok () ->
-        let to_visit' = Utils.minus ((succ fsm st) @ sts) visited in
-        c5 r fsm (st::visited) to_visit'
-      | Result.Error err -> Result.error err
+        | Result.Ok () ->
+          let to_visit' = Utils.minus ((succ fsm st) @ sts) visited in
+          c5 r fsm (st::visited) to_visit'
+        | Result.Error err -> Result.error err
       end
 
   let well_behaved_role (r, st, fsm : role  * State.t * t) : wb_res =
