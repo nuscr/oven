@@ -1,0 +1,41 @@
+(*
+  For loose intersection: loose intersection | loose | intersection
+
+  For tight intersection: tight intersection | tight
+
+*)
+
+
+global Priority (role A, role B, role S1, role S2)
+{
+  priorise {
+    loose {
+      M from A to B ;
+      M from B to S1;
+    } and {
+      M from A to B ;
+      M from B to S2 ;
+    }
+  } with high {
+    M from B to S1;
+  } and low {
+    M from B to S2;
+  }
+}
+
+
+global Priority2 (role A, role B, role S1, role S2)
+{
+  priorise {
+    M from A to B ;
+    par {
+      M from B to S1;
+    } and {
+      M from B to S2 ;
+    }
+  } with high {
+    M from B to S1;
+  } and low {
+    M from B to S2;
+  }
+}

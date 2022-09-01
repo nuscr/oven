@@ -5,6 +5,8 @@ examples/finfin.synmpst
 examples/nestedfin.synmpst
 examples/choice.synmpst
 examples/intersection.synmpst
+examples/loose.synmpst
+examples/priority.synmpst
 examples/convoluted.synmpst
 examples/AcquireUseRelease.synmpst
 examples/lics21/Example9.synmpst
