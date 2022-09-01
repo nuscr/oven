@@ -718,7 +718,6 @@ module Global = struct
 
   let generate_state_machine (g : global) : State.t * FSM.t =
     let st, fsm = generate_state_machine' g in
-    (* st, disjoint_merge fsm (minimise fsm) *)
     st, minimise fsm |> minimise_state_numbers
 
   let generate_dot fsm = fsm |> Dot.generate_dot
@@ -787,9 +786,7 @@ module Local = struct
         fsm
         with_vertices
     in
-    (* let module WB = Bisimulation (State) (Label) (struct let is_strong = false end) in *)
-    (* let minimise fsm = WB.minimise fsm in *)
-    with_edges |> complete (* |> minimise *)
+    with_edges |> complete
 
 
   type wb_res = (unit, string) Result.t
