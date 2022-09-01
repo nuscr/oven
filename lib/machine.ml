@@ -684,12 +684,15 @@ module Global = struct
         if List.length branches = 0 then next, fsm else
           combine_branches fsm (s_st, e_st) branches parallel_compose next
 
-      | LInt _ -> Error.Violation "Not yet implemented." |> raise
+      | LInt _ -> Error.Violation "Loose intersection not yet implemented." |> raise
 
       | TInt branches ->
         let branches = filter_degenerate_branches branches in
         if List.length branches = 0 then next, fsm else
           combine_branches fsm (s_st, e_st) branches tight_intersection_compose next
+
+      | Priorise _ -> Error.Violation "Priorise not yet implemented." |> raise
+
 
     and combine_branches fsm (s_st, e_st) branches f next =
       let m () =

@@ -41,6 +41,7 @@ type global
   | Seq of global list
   | LInt of global list
   | TInt of global list
+  | Priorise of global * global * global
 
 type compilation_unit = global protocol list
 
@@ -58,8 +59,10 @@ let rec validate_roles roles = function
   | Fin g
   | Inf g ->
     validate_roles roles g
-
-
+  | Priorise (g1, g2, g3) ->
+    validate_roles roles g1 &&
+    validate_roles roles g2 &&
+    validate_roles roles g3
 
 let validate_global_protocol protocol =
   validate_roles protocol.roles protocol.interactions

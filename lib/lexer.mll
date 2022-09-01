@@ -73,6 +73,10 @@ and token = parse
 | "intersection" { INTERSECTION_KW }
 | "tight" { TIGHT_KW }
 | "loose" { LOOSE_KW }
+| "priorise" { PRIORISE_KW }
+| "with" { WITH_KW }
+| "high" { HIGH_KW }
+| "low" { LOW_KW }
 
 (* other *)
 | eof

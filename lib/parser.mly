@@ -41,6 +41,12 @@ let block_to_global = function
 %token TIGHT_KW
 %token LOOSE_KW
 
+%token PRIORISE_KW
+%token WITH_KW
+%token HIGH_KW
+%token LOW_KW
+
+
 (* pragmas *)
 /* %token PRAGMA_START */
 /* %token PRAGMA_END */
@@ -104,6 +110,7 @@ let global_interaction ==
   | parallel_composition
   | loose_intersection
   | tight_intersection
+  | priority
   | global_protocol_block
 
 
@@ -135,6 +142,12 @@ let tight_intersection ==
   TIGHT_KW ; INTERSECTION_KW? ;
   ~ = separated_nonempty_list(AND_KW, global_protocol_block) ;
   < TInt >
+
+let priority ==
+  PRIORISE_KW ; p1 = global_protocol_block ;
+  WITH_KW ; HIGH_KW ; p2 = global_protocol_block ;
+  WITH_KW ; LOW_KW ; p3 = global_protocol_block ;
+  { Priorise (p1, p2, p3) }
 
 let global_choice ==
   CHOICE_KW ;
