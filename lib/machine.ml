@@ -292,7 +292,7 @@ module FSM (State : STATE) (Label : LABEL) = struct
        | Either.Left st -> List.find_all (f1 st) dict
        | Either.Right st -> List.find_all (f2 st) dict) |> List.map snd
 
-    let walker (fsm : t) (fsm' : t)
+    let walker (fsm : t) (fsm' : t) (initial_st : vertex * vertex)
         (f : 's -> vertex * vertex -> (edge * 's) list * (edge * 's) list)
         (init : 's)
       : dict * t =
@@ -362,20 +362,19 @@ module FSM (State : STATE) (Label : LABEL) = struct
         | [], [] -> k visited jfsm
 
       in
-      let initial_st = get_start_state fsm, get_start_state fsm' in
-
       dict, walk initial_st init [] jfsm (fun _ x -> x)
   end
 
   (* compose two machines allowing all their interleavings *)
   let parallel_compose
-      (assoc, fsm : State.t list * t)
-      (assoc', fsm' : State.t list * t) :  State.t list * t =
+    (s_st : vertex * vertex)
+    (assoc, fsm : State.t list * t)
+    (assoc', fsm' : State.t list * t) :  vertex * (State.t list * t) =
 
     let pair_with_unit = List.map (fun x -> x, ()) in
     let dict, jfsm =
       (* f simply accepts all the edges *)
-      MachineComposition.walker fsm fsm'
+      MachineComposition.walker fsm fsm' s_st
         (fun _ (st, st') -> succ_e fsm st |> pair_with_unit, succ_e fsm' st' |> pair_with_unit) () in
 
     let assoc_space = List.fold_left (fun b a -> List.fold_left (fun b' a' -> (a, a')::b') b assoc') [] assoc in
@@ -391,7 +390,7 @@ module FSM (State : STATE) (Label : LABEL) = struct
     "Size of fsm: " ^ string_of_int (nb_vertex fsm) |> Utils.log;
     "Size of fsm': " ^ string_of_int (nb_vertex fsm') |> Utils.log;
     "Size of space: " ^ string_of_int (List.length dict) |> Utils.log;
-    res_assoc, jfsm
+    MachineComposition.find_dest_state s_st dict, (res_assoc, jfsm)
 
   let only_reachable_from st fsm =
     let add_state_and_successors n_fsm st =
@@ -690,14 +689,19 @@ module Global = struct
       let m () =
         FSM.add_vertex (FSM.add_vertex FSM.empty s_st) e_st
       in
-      let next_fsms = List.map (fun g -> tr (m ()) g (s_st, e_st) next) branches in
-      List.iter (fun (_, fsm) -> "branch number of vertices: " ^ (FSM.nb_vertex fsm |> string_of_int) |> Utils.log) next_fsms;
+      let next_fsms = List.map (fun g -> s_st, tr (m ()) g (s_st, e_st) next) branches in
+      List.iter
+        (fun (_, stfsm) ->
+           "branch number of vertices: " ^
+           (FSM.nb_vertex (snd stfsm) |> string_of_int) |> Utils.log) next_fsms;
       let nexts, fsm' =
         match next_fsms with
         | [] -> [], m ()
-        | [next_fsm] -> next_fsm
-        | next_fsm::next_fsms' ->
-          List.fold_left f next_fsm next_fsms'
+        | [_, next_fsm] -> next_fsm
+        | s_st_next_fsm::next_fsms' ->
+          (List.fold_left
+             (fun (s_st, fsm) (s_st', fsm') ->
+                f (s_st, s_st') fsm fsm') s_st_next_fsm next_fsms') |> snd
       in
       let resfsm = merge fsm fsm' in
       let size = resfsm |> FSM.get_vertices |> List.length |> Int.to_string in
