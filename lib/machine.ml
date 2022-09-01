@@ -343,17 +343,16 @@ module FSM (State : STATE) (Label : LABEL) = struct
       dict, walk initial_st init [] jfsm (fun _ x -> x)
   end
 
-  (* compose two machines allowing all their interleavings *)
-  let parallel_compose
+  (* compose two machines with a function *)
+  let compose_with
     (s_st : vertex * vertex)
     (assoc, fsm : State.t list * t)
-    (assoc', fsm' : State.t list * t) :  vertex * (State.t list * t) =
+    (assoc', fsm' : State.t list * t)
+    f init :  vertex * (State.t list * t) =
 
-    let pair_with_unit = List.map (fun x -> x, ()) in
     let dict, jfsm =
       (* f simply accepts all the edges *)
-      MachineComposition.walker fsm fsm' s_st
-        (fun _ (st, st') -> succ_e fsm st |> pair_with_unit, succ_e fsm' st' |> pair_with_unit) () in
+      MachineComposition.walker fsm fsm' s_st f init in
 
     let assoc_space = List.fold_left (fun b a -> List.fold_left (fun b' a' -> (a, a')::b') b assoc') [] assoc in
     let res_assoc = List.map (fun stst' -> List.assoc stst' dict) assoc_space in
@@ -369,6 +368,32 @@ module FSM (State : STATE) (Label : LABEL) = struct
     "Size of fsm': " ^ string_of_int (nb_vertex fsm') |> Utils.log;
     "Size of space: " ^ string_of_int (List.length dict) |> Utils.log;
     MachineComposition.find_state_in_dest s_st dict, (res_assoc, jfsm)
+
+  (* compose two machines allowing all their interleavings *)
+  let parallel_compose
+    (s_st : vertex * vertex)
+    (assoc, fsm : State.t list * t)
+    (assoc', fsm' : State.t list * t) :  vertex * (State.t list * t) =
+    let pair_with_unit = List.map (fun x -> x, ()) in
+    compose_with s_st (assoc, fsm) (assoc', fsm')
+      (fun _ (st, st') -> succ_e fsm st |> pair_with_unit, succ_e fsm' st' |> pair_with_unit) ()
+
+  (* compose two machines allowing all their interleavings *)
+  let tight_intersection_compose
+    (s_st : vertex * vertex)
+    (assoc, fsm : State.t list * t)
+    (assoc', fsm' : State.t list * t) :  vertex * (State.t list * t) =
+    let pair_with_unit = List.map (fun x -> x, ()) in
+    compose_with s_st (assoc, fsm) (assoc', fsm')
+      (fun _ (st, st') ->
+         let l_es = succ_e fsm st in
+         let r_es = succ_e fsm' st' in
+         (* only if they appear in the other list *)
+         let l_es' = List.filter (fun e -> List.mem (E.label e) (List.map E.label r_es)) l_es in
+         let r_es' = List.filter (fun e -> List.mem (E.label e) (List.map E.label l_es)) r_es in
+
+         l_es' |> pair_with_unit, r_es' |> pair_with_unit) ()
+
 
   let only_reachable_from st fsm =
     let add_state_and_successors n_fsm st =
@@ -661,7 +686,10 @@ module Global = struct
 
       | LInt _ -> Error.Violation "Not yet implemented." |> raise
 
-      | TInt _ -> assert false
+      | TInt branches ->
+        let branches = filter_degenerate_branches branches in
+        if List.length branches = 0 then next, fsm else
+          combine_branches fsm (s_st, e_st) branches tight_intersection_compose next
 
     and combine_branches fsm (s_st, e_st) branches f next =
       let m () =
