@@ -264,7 +264,7 @@ module FSM (State : STATE) (Label : LABEL) = struct
       state_space, machine
 
 
-    let find_dest_state st st' (dict : dict) =
+    let find_dest_state (st, st') (dict : dict) =
       try
         List.find_map
           (fun ((st1, st1'), rst) -> if st = st1 && st' = st1' then Some rst else None)
@@ -298,60 +298,69 @@ module FSM (State : STATE) (Label : LABEL) = struct
       let dict, jfsm = generate_state_space fsm fsm' in
       let rec walk
           (sts : vertex * vertex)
+          (visited : vertex list)
           (jfsm : t)
-          (k : t -> 'a) : 'a  =
-        let es, es' = f sts in
-        add_edges sts es es' jfsm k
+          (k : vertex list -> t -> 'a) : 'a  =
+        let curr_st = find_dest_state sts dict in
+        if List.mem curr_st visited
+        then k visited jfsm
+        else
+          let es, es' = f sts in
+          add_edges sts es es' (curr_st::visited) jfsm k
 
       and add_dest_edge
           (src : vertex)
           (lbl : Label.t)
           (dsts : vertex list)
+          (visited : vertex list)
           (jfsm : t)
-          (k : t -> 'a) =
+          (k : vertex list -> t -> 'a) =
         match dsts with
-        | [] -> k jfsm
+        | [] -> k visited jfsm
         | dst::dsts' ->
           let jfsm' = add_edge_e jfsm (E.create src lbl dst) in
-          let st, st' = find_source_states dst dict in
-          add_dest_edge src lbl dsts' jfsm'
-            (fun jfsm -> walk (st, st') jfsm k)
+          let sts = find_source_states dst dict in
+          add_dest_edge src lbl dsts' visited jfsm'
+            (fun visited jfsm -> walk sts visited jfsm k)
 
       and add_source_edge
           (e_src : (edge, edge) Either.t)
           (st : vertex)
+          (visited : vertex list)
           (jfsm : t)
-          (k : t -> 'a) : ' a =
-
+          (k : vertex list -> t -> 'a) : ' a =
         match e_src with
         | Either.Left e ->
-          let src = find_dest_state (E.src e) st dict in
+          let src = find_dest_state (E.src e, st) dict in
           let dsts = find_all_dest_states_with (Either.Left (E.dst e)) dict in
-          add_dest_edge src (E.label e) dsts jfsm k
+          add_dest_edge src (E.label e) dsts visited jfsm k
 
         | Either.Right e ->
-          let src = find_dest_state st (E.src e) dict in
+          let src = find_dest_state (st, E.src e) dict in
           let dsts = find_all_dest_states_with (Either.Right (E.dst e)) dict in
-          add_dest_edge src (E.label e) dsts jfsm k
+          add_dest_edge src (E.label e) dsts visited jfsm k
 
       and add_edges
           (st, st' as sts : vertex * vertex)
           (pending : edge list) (pending' : edge list)
+          (visited : vertex list)
           (jfsm : t)
-          (k : t -> 'a) : ' a =
+          (k : vertex list -> t -> 'a) : ' a =
         match pending, pending' with
         | e::es, es' ->
-          add_source_edge (Either.Left e) st' jfsm (fun jfsm -> add_edges sts es es' jfsm k)
+          add_source_edge (Either.Left e) st' visited jfsm
+            (fun visited jfsm -> add_edges sts es es' visited jfsm k)
 
         | es, e'::es' ->
-          add_source_edge (Either.Right e') st jfsm (fun jfsm -> add_edges sts es es' jfsm k)
+          add_source_edge (Either.Right e') st visited jfsm
+            (fun visited jfsm -> add_edges sts es es' visited jfsm k)
 
-        | [], [] -> k jfsm
+        | [], [] -> k visited jfsm
 
       in
       let initial_st = get_start_state fsm, get_start_state fsm' in
 
-      dict, walk initial_st jfsm (fun x -> x)
+      dict, walk initial_st [] jfsm (fun _ x -> x)
   end
 
   (* compose two machines allowing all their interleavings *)
