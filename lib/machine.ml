@@ -289,8 +289,8 @@ module FSM (State : STATE) (Label : LABEL) = struct
       let f1 s ((s', _), _) = s = s' in
       let f2 s ((_, s'), _) = s = s' in
       (match st_src with
-      | Either.Left st -> List.find_all (f1 st) dict
-      | Either.Right st -> List.find_all (f2 st) dict) |> List.map snd
+       | Either.Left st -> List.find_all (f1 st) dict
+       | Either.Right st -> List.find_all (f2 st) dict) |> List.map snd
 
     let walker (fsm : t) (fsm' : t)
         (f : 's -> vertex * vertex -> (edge * 's) list * (edge * 's) list)
@@ -622,6 +622,7 @@ module Global = struct
 
   let generate_state_machine' (g : global) : State.t * FSM.t =
     let start = State.fresh_start () in
+
     (* tr does the recursive translation.
        s_st and e_st are the states that will bound the translated type
        next is a list of states that lead to the machine we are currently translating
@@ -679,25 +680,29 @@ module Global = struct
       | Par branches ->
         let branches = filter_degenerate_branches branches in
         if List.length branches = 0 then next, fsm else
-          let m () =
-            FSM.add_vertex (FSM.add_vertex FSM.empty s_st) e_st
-          in
-          let next_fsms = List.map (fun g -> tr (m ()) g (s_st, e_st) next) branches in
-          List.iter (fun (_, fsm) -> "branch number of vertices: " ^ (FSM.nb_vertex fsm |> string_of_int) |> Utils.log) next_fsms;
-          let nexts, fsm' =
-            match next_fsms with
-            | [] -> [], m ()
-            | [next_fsm] -> next_fsm
-            | next_fsm::next_fsms' ->
-              List.fold_left parallel_compose next_fsm next_fsms'
-          in
-          let resfsm = merge fsm fsm' in
-          let size = resfsm |> FSM.get_vertices |> List.length |> Int.to_string in
-          "PAR size result: " ^ size |> Utils.log ;
-          nexts, resfsm (* BUG after parallel compose nexts don't make any more sense *)
+          combine_branches fsm (s_st, e_st) branches parallel_compose next
+
       | LInt _ -> Error.Violation "Not yet implemented." |> raise
 
       | TInt _ -> assert false
+
+    and combine_branches fsm (s_st, e_st) branches f next =
+      let m () =
+        FSM.add_vertex (FSM.add_vertex FSM.empty s_st) e_st
+      in
+      let next_fsms = List.map (fun g -> tr (m ()) g (s_st, e_st) next) branches in
+      List.iter (fun (_, fsm) -> "branch number of vertices: " ^ (FSM.nb_vertex fsm |> string_of_int) |> Utils.log) next_fsms;
+      let nexts, fsm' =
+        match next_fsms with
+        | [] -> [], m ()
+        | [next_fsm] -> next_fsm
+        | next_fsm::next_fsms' ->
+          List.fold_left f next_fsm next_fsms'
+      in
+      let resfsm = merge fsm fsm' in
+      let size = resfsm |> FSM.get_vertices |> List.length |> Int.to_string in
+      "COMBINE size result: " ^ size |> Utils.log ;
+      nexts, resfsm
     in
     let end_st = State.fresh_end() in
     let next, fsm_final = tr FSM.empty g (start, end_st) [start] in
