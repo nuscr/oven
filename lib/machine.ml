@@ -263,8 +263,7 @@ module FSM (State : STATE) (Label : LABEL) = struct
       in
       state_space, machine
 
-
-    let find_dest_state (st, st') (dict : dict) =
+    let find_state_in_dest (st, st') (dict : dict) =
       try
         List.find_map
           (fun ((st1, st1'), rst) -> if st = st1 && st' = st1' then Some rst else None)
@@ -272,25 +271,17 @@ module FSM (State : STATE) (Label : LABEL) = struct
       with
       | _ -> Error.Violation "Joint FSM must contain this state." |> raise
 
+    (* find the destinations state that keeps the other component of the state constant *)
+    let find_corresponding_state
+        (st, st' : vertex * vertex)
+        (st_dst : (vertex, vertex) Either.t)
+        (dict : dict) =
+      match st_dst with
+      | Either.Left dst ->
+        List.find (fun ((dst', corr_st),_) -> dst = dst' && corr_st = st') dict |> snd
 
-    let find_source_states st (dict : dict) =
-      try
-        List.find_map
-          (fun ((st1, st1'), rst) -> if st = rst then Some (st1, st1') else None)
-          dict |> Option.get
-      with
-      | _ -> Error.Violation "Joint FSM must contain this state (2)." |> raise
-
-    (* given a state of the first or second machine,
-       find all the states of the joint machine where it appears *)
-    let find_all_dest_states_with
-        (st_src : (vertex, vertex) Either.t)
-        (dict : dict) : vertex list =
-      let f1 s ((s', _), _) = s = s' in
-      let f2 s ((_, s'), _) = s = s' in
-      (match st_src with
-       | Either.Left st -> List.find_all (f1 st) dict
-       | Either.Right st -> List.find_all (f2 st) dict) |> List.map snd
+      | Either.Right dst ->
+        List.find (fun ((corr_st, dst'),_) -> dst = dst' && corr_st = st) dict |> snd
 
     let walker (fsm : t) (fsm' : t) (initial_st : vertex * vertex)
         (f : 's -> vertex * vertex -> (edge * 's) list * (edge * 's) list)
@@ -303,30 +294,14 @@ module FSM (State : STATE) (Label : LABEL) = struct
           (visited : vertex list)
           (jfsm : t)
           (k : vertex list -> t -> 'a) : 'a  =
-        let curr_st = find_dest_state sts dict in
+        let curr_st = find_state_in_dest sts dict in
         if List.mem curr_st visited
         then k visited jfsm
         else
           let es, es' = f curr sts in
           add_edges sts es es' (curr_st::visited) jfsm k
 
-      and add_dest_edge
-          (src : vertex)
-          (lbl : Label.t)
-          (dsts : vertex list)
-          (curr : 's)
-          (visited : vertex list)
-          (jfsm : t)
-          (k : vertex list -> t -> 'a) =
-        match dsts with
-        | [] -> k visited jfsm
-        | dst::dsts' ->
-          let jfsm' = add_edge_e jfsm (E.create src lbl dst) in
-          let sts = find_source_states dst dict in
-          add_dest_edge src lbl dsts' curr visited jfsm'
-            (fun visited jfsm -> walk sts curr visited jfsm k)
-
-      and add_source_edge
+      and add_one_edge
           (e_src : (edge, edge) Either.t)
           (st : vertex)
           (curr : 's)
@@ -334,15 +309,18 @@ module FSM (State : STATE) (Label : LABEL) = struct
           (jfsm : t)
           (k : vertex list -> t -> 'a) : ' a =
         match e_src with
+
         | Either.Left e ->
-          let src = find_dest_state (E.src e, st) dict in
-          let dsts = find_all_dest_states_with (Either.Left (E.dst e)) dict in
-          add_dest_edge src (E.label e) dsts curr visited jfsm k
+          let src = find_state_in_dest (E.src e, st) dict in
+          let dst = find_corresponding_state (E.src e, st) (Either.Left (E.dst e)) dict in
+          let jfsm' = add_edge_e jfsm (E.create src (E.label e) dst) in
+          walk (E.dst e, st)  curr visited jfsm' k
 
         | Either.Right e ->
-          let src = find_dest_state (st, E.src e) dict in
-          let dsts = find_all_dest_states_with (Either.Right (E.dst e)) dict in
-          add_dest_edge src (E.label e) dsts curr visited jfsm k
+          let src = find_state_in_dest (st, E.src e) dict in
+          let dst = find_corresponding_state (st, E.src e) (Either.Right (E.dst e)) dict in
+          let jfsm' = add_edge_e jfsm (E.create src (E.label e) dst) in
+          walk (st, E.dst e)  curr visited jfsm' k
 
       and add_edges
           (st, st' as sts : vertex * vertex)
@@ -352,11 +330,11 @@ module FSM (State : STATE) (Label : LABEL) = struct
           (k : vertex list -> t -> 'a) : ' a =
         match pending, pending' with
         | (e, curr)::es, es' ->
-          add_source_edge (Either.Left e) st' curr visited jfsm
+          add_one_edge (Either.Left e) st' curr visited jfsm
             (fun visited jfsm -> add_edges sts es es' visited jfsm k)
 
         | es, (e', curr)::es' ->
-          add_source_edge (Either.Right e') st curr visited jfsm
+          add_one_edge (Either.Right e') st curr visited jfsm
             (fun visited jfsm -> add_edges sts es es' visited jfsm k)
 
         | [], [] -> k visited jfsm
@@ -390,7 +368,7 @@ module FSM (State : STATE) (Label : LABEL) = struct
     "Size of fsm: " ^ string_of_int (nb_vertex fsm) |> Utils.log;
     "Size of fsm': " ^ string_of_int (nb_vertex fsm') |> Utils.log;
     "Size of space: " ^ string_of_int (List.length dict) |> Utils.log;
-    MachineComposition.find_dest_state s_st dict, (res_assoc, jfsm)
+    MachineComposition.find_state_in_dest s_st dict, (res_assoc, jfsm)
 
   let only_reachable_from st fsm =
     let add_state_and_successors n_fsm st =
