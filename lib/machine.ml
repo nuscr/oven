@@ -378,7 +378,7 @@ module FSM (State : STATE) (Label : LABEL) = struct
     compose_with s_st (assoc, fsm) (assoc', fsm')
       (fun _ (st, st') -> succ_e fsm st |> pair_with_unit, succ_e fsm' st' |> pair_with_unit) ()
 
-  (* compose two machines allowing all their interleavings *)
+  (* compose two machines allowing only their common labels *)
   let tight_intersection_compose
     (s_st : vertex * vertex)
     (assoc, fsm : State.t list * t)
