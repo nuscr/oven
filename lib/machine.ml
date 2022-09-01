@@ -293,11 +293,13 @@ module FSM (State : STATE) (Label : LABEL) = struct
       | Either.Right st -> List.find_all (f2 st) dict) |> List.map snd
 
     let walker (fsm : t) (fsm' : t)
-        (f : vertex * vertex -> edge list * edge list)
+        (f : 's -> vertex * vertex -> (edge * 's) list * (edge * 's) list)
+        (init : 's)
       : dict * t =
       let dict, jfsm = generate_state_space fsm fsm' in
       let rec walk
           (sts : vertex * vertex)
+          (curr : 's)
           (visited : vertex list)
           (jfsm : t)
           (k : vertex list -> t -> 'a) : 'a  =
@@ -305,13 +307,14 @@ module FSM (State : STATE) (Label : LABEL) = struct
         if List.mem curr_st visited
         then k visited jfsm
         else
-          let es, es' = f sts in
+          let es, es' = f curr sts in
           add_edges sts es es' (curr_st::visited) jfsm k
 
       and add_dest_edge
           (src : vertex)
           (lbl : Label.t)
           (dsts : vertex list)
+          (curr : 's)
           (visited : vertex list)
           (jfsm : t)
           (k : vertex list -> t -> 'a) =
@@ -320,12 +323,13 @@ module FSM (State : STATE) (Label : LABEL) = struct
         | dst::dsts' ->
           let jfsm' = add_edge_e jfsm (E.create src lbl dst) in
           let sts = find_source_states dst dict in
-          add_dest_edge src lbl dsts' visited jfsm'
-            (fun visited jfsm -> walk sts visited jfsm k)
+          add_dest_edge src lbl dsts' curr visited jfsm'
+            (fun visited jfsm -> walk sts curr visited jfsm k)
 
       and add_source_edge
           (e_src : (edge, edge) Either.t)
           (st : vertex)
+          (curr : 's)
           (visited : vertex list)
           (jfsm : t)
           (k : vertex list -> t -> 'a) : ' a =
@@ -333,26 +337,26 @@ module FSM (State : STATE) (Label : LABEL) = struct
         | Either.Left e ->
           let src = find_dest_state (E.src e, st) dict in
           let dsts = find_all_dest_states_with (Either.Left (E.dst e)) dict in
-          add_dest_edge src (E.label e) dsts visited jfsm k
+          add_dest_edge src (E.label e) dsts curr visited jfsm k
 
         | Either.Right e ->
           let src = find_dest_state (st, E.src e) dict in
           let dsts = find_all_dest_states_with (Either.Right (E.dst e)) dict in
-          add_dest_edge src (E.label e) dsts visited jfsm k
+          add_dest_edge src (E.label e) dsts curr visited jfsm k
 
       and add_edges
           (st, st' as sts : vertex * vertex)
-          (pending : edge list) (pending' : edge list)
+          (pending : (edge * 's) list) (pending' : (edge *'s) list)
           (visited : vertex list)
           (jfsm : t)
           (k : vertex list -> t -> 'a) : ' a =
         match pending, pending' with
-        | e::es, es' ->
-          add_source_edge (Either.Left e) st' visited jfsm
+        | (e, curr)::es, es' ->
+          add_source_edge (Either.Left e) st' curr visited jfsm
             (fun visited jfsm -> add_edges sts es es' visited jfsm k)
 
-        | es, e'::es' ->
-          add_source_edge (Either.Right e') st visited jfsm
+        | es, (e', curr)::es' ->
+          add_source_edge (Either.Right e') st curr visited jfsm
             (fun visited jfsm -> add_edges sts es es' visited jfsm k)
 
         | [], [] -> k visited jfsm
@@ -360,7 +364,7 @@ module FSM (State : STATE) (Label : LABEL) = struct
       in
       let initial_st = get_start_state fsm, get_start_state fsm' in
 
-      dict, walk initial_st [] jfsm (fun _ x -> x)
+      dict, walk initial_st init [] jfsm (fun _ x -> x)
   end
 
   (* compose two machines allowing all their interleavings *)
@@ -368,9 +372,11 @@ module FSM (State : STATE) (Label : LABEL) = struct
       (assoc, fsm : State.t list * t)
       (assoc', fsm' : State.t list * t) :  State.t list * t =
 
+    let pair_with_unit = List.map (fun x -> x, ()) in
     let dict, jfsm =
       (* f simply accepts all the edges *)
-      MachineComposition.walker fsm fsm' (fun (st, st') -> succ_e fsm st, succ_e fsm' st') in
+      MachineComposition.walker fsm fsm'
+        (fun _ (st, st') -> succ_e fsm st |> pair_with_unit, succ_e fsm' st' |> pair_with_unit) () in
 
     let assoc_space = List.fold_left (fun b a -> List.fold_left (fun b' a' -> (a, a')::b') b assoc') [] assoc in
     let res_assoc = List.map (fun stst' -> List.assoc stst' dict) assoc_space in
