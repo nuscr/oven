@@ -147,7 +147,7 @@ let priority ==
   PRIORITISE_KW ; p1 = global_protocol_block ;
   WITH_KW ; HIGH_KW ; p2 = global_protocol_block ;
   WITH_KW ; LOW_KW ; p3 = global_protocol_block ;
-  { Priorise (p1, p2, p3) }
+  { Prioritise (p1, p2, p3) }
 
 let global_choice ==
   CHOICE_KW ;

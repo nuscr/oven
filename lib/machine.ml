@@ -691,7 +691,7 @@ module Global = struct
         if List.length branches = 0 then next, fsm else
           combine_branches fsm (s_st, e_st) branches tight_intersection_compose next
 
-      | Priorise _ -> Error.Violation "Priorise not yet implemented." |> raise
+      | Prioritise _ -> Error.Violation "Prioritise not yet implemented." |> raise
 
 
     and combine_branches fsm (s_st, e_st) branches f next =

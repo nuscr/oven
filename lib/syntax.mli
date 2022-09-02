@@ -36,7 +36,7 @@ type global  (* consider renaming just global *)
   | Seq of global list
   | LInt of global list
   | TInt of global list
-  | Priorise of global * global * global
+  | Prioritise of global * global * global
 
 type compilation_unit = global protocol list
 
