@@ -271,20 +271,35 @@ module FSM (State : STATE) (Label : LABEL) = struct
       with
       | _ -> Error.Violation "Joint FSM must contain this state." |> raise
 
-    (* find the destinations state that keeps the other component of the state constant *)
-    let find_corresponding_state
-        (st, st' : vertex * vertex)
-        (st_dst : (vertex, vertex) Either.t)
-        (dict : dict) =
-      match st_dst with
-      | Either.Left dst ->
-        List.find (fun ((dst', corr_st),_) -> dst = dst' && corr_st = st') dict |> snd
 
-      | Either.Right dst ->
-        List.find (fun ((corr_st, dst'),_) -> dst = dst' && corr_st = st) dict |> snd
+    type side = L | R
+
+    (* find the destinations state that keeps the other component of the state constant *)
+    (* let find_corresponding_state *)
+    (*     (st, st' : vertex * vertex) *)
+    (*     (st_dst : (vertex, vertex) Either.t) *)
+    (*     (dict : dict) = *)
+    (*   match st_dst with *)
+    (*   | Either.Left dst -> *)
+    (*     List.find (fun ((dst', corr_st),_) -> dst = dst' && corr_st = st') dict |> snd *)
+
+    (*   | Either.Right dst -> *)
+    (*     List.find (fun ((corr_st, dst'),_) -> dst = dst' && corr_st = st) dict |> snd *)
+
+    let build_joint_state (st, st') side st_tr =
+      match side with
+      | L -> (st_tr, st')
+      | R -> (st, st_tr)
+
+    let translate_state_to_joint_fsm sts side dict st_tr =
+      List.assoc (build_joint_state sts side st_tr) dict
+
+    let translate_edge_to_joint_fsm sts side dict e =
+      let coord = translate_state_to_joint_fsm sts side dict in
+      E.create (E.src e |> coord) (E.label e) (E.dst e |> coord)
 
     let walker (fsm : t) (fsm' : t) (initial_st : vertex * vertex)
-        (f : 's -> vertex * vertex -> (edge * 's) list * (edge * 's) list)
+        (f : dict -> 's -> vertex * vertex -> ((edge * (vertex * vertex) * 's)) list)
         (init : 's)
       : dict * t =
       let dict, jfsm = generate_state_space fsm fsm' in
@@ -298,46 +313,31 @@ module FSM (State : STATE) (Label : LABEL) = struct
         if List.mem curr_st visited
         then k visited jfsm
         else
-          let es, es' = f curr sts in
-          add_edges sts es es' (curr_st::visited) jfsm k
+          let jes = f dict curr sts in
+          add_edges jes (curr_st::visited) jfsm k
 
       and add_one_edge
-          (e_src : (edge, edge) Either.t)
-          (st : vertex)
+          (e : edge)
+          (next_st : vertex * vertex) (* next state *)
           (curr : 's)
           (visited : vertex list)
           (jfsm : t)
           (k : vertex list -> t -> 'a) : ' a =
-        match e_src with
 
-        | Either.Left e ->
-          let src = find_state_in_dest (E.src e, st) dict in
-          let dst = find_corresponding_state (E.src e, st) (Either.Left (E.dst e)) dict in
-          let jfsm' = add_edge_e jfsm (E.create src (E.label e) dst) in
-          walk (E.dst e, st)  curr visited jfsm' k
-
-        | Either.Right e ->
-          let src = find_state_in_dest (st, E.src e) dict in
-          let dst = find_corresponding_state (st, E.src e) (Either.Right (E.dst e)) dict in
-          let jfsm' = add_edge_e jfsm (E.create src (E.label e) dst) in
-          walk (st, E.dst e)  curr visited jfsm' k
+        let jfsm' = add_edge_e jfsm e in
+        walk next_st curr visited jfsm' k
 
       and add_edges
-          (st, st' as sts : vertex * vertex)
-          (pending : (edge * 's) list) (pending' : (edge *'s) list)
+          (pending : (edge * (vertex * vertex) * 's) list)
           (visited : vertex list)
           (jfsm : t)
           (k : vertex list -> t -> 'a) : ' a =
-        match pending, pending' with
-        | (e, curr)::es, es' ->
-          add_one_edge (Either.Left e) st' curr visited jfsm
-            (fun visited jfsm -> add_edges sts es es' visited jfsm k)
+        match pending with
+        | (je, next_sts, curr)::jes ->
+          add_one_edge je next_sts curr visited jfsm
+            (fun visited jfsm -> add_edges jes visited jfsm k)
 
-        | es, (e', curr)::es' ->
-          add_one_edge (Either.Right e') st curr visited jfsm
-            (fun visited jfsm -> add_edges sts es es' visited jfsm k)
-
-        | [], [] -> k visited jfsm
+        | [] -> k visited jfsm
 
       in
       dict, walk initial_st init [] jfsm (fun _ x -> x)
@@ -345,13 +345,12 @@ module FSM (State : STATE) (Label : LABEL) = struct
 
   (* compose two machines with a function *)
   let compose_with
-    (s_st : vertex * vertex)
-    (assoc, fsm : State.t list * t)
-    (assoc', fsm' : State.t list * t)
-    f init :  vertex * (State.t list * t) =
+      (s_st : vertex * vertex)
+      (assoc, fsm : State.t list * t)
+      (assoc', fsm' : State.t list * t)
+      f init :  vertex * (State.t list * t) =
 
     let dict, jfsm =
-      (* f simply accepts all the edges *)
       MachineComposition.walker fsm fsm' s_st f init in
 
     let assoc_space = List.fold_left (fun b a -> List.fold_left (fun b' a' -> (a, a')::b') b assoc') [] assoc in
@@ -371,29 +370,107 @@ module FSM (State : STATE) (Label : LABEL) = struct
 
   (* compose two machines allowing all their interleavings *)
   let parallel_compose
-    (s_st : vertex * vertex)
-    (assoc, fsm : State.t list * t)
-    (assoc', fsm' : State.t list * t) :  vertex * (State.t list * t) =
-    let pair_with_unit = List.map (fun x -> x, ()) in
-    compose_with s_st (assoc, fsm) (assoc', fsm')
-      (fun _ (st, st') -> succ_e fsm st |> pair_with_unit, succ_e fsm' st' |> pair_with_unit) ()
+      (sts : vertex * vertex)
+      (assoc, fsm : State.t list * t)
+      (assoc', fsm' : State.t list * t) :  vertex * (State.t list * t) =
+    let open MachineComposition in
+    compose_with sts (assoc, fsm) (assoc', fsm')
+      (fun dict _ (st, st') ->
+         let l_es = succ_e fsm st in
+         let r_es = succ_e fsm' st' in
+
+         let f side es =
+           List.map
+             (fun e ->
+                translate_edge_to_joint_fsm sts side dict e,
+                build_joint_state sts side (E.dst e),
+                ())
+             es
+         in
+         f L l_es @ f R r_es) ()
 
   (* compose two machines allowing only their common labels *)
   let tight_intersection_compose
-    (s_st : vertex * vertex)
+    (sts : vertex * vertex)
     (assoc, fsm : State.t list * t)
     (assoc', fsm' : State.t list * t) :  vertex * (State.t list * t) =
-    let pair_with_unit = List.map (fun x -> x, ()) in
-    compose_with s_st (assoc, fsm) (assoc', fsm')
-      (fun _ (st, st') ->
+    let open MachineComposition in
+    compose_with sts (assoc, fsm) (assoc', fsm')
+      (fun dict _ (st, st') ->
          let l_es = succ_e fsm st in
          let r_es = succ_e fsm' st' in
-         (* only if they appear in the other list *)
+
          let l_es' = List.filter (fun e -> List.mem (E.label e) (List.map E.label r_es)) l_es in
-         let r_es' = List.filter (fun e -> List.mem (E.label e) (List.map E.label l_es)) r_es in
 
-         l_es' |> pair_with_unit, r_es' |> pair_with_unit) ()
+         let f side es =
+           List.map
+             (fun e ->
+                translate_edge_to_joint_fsm sts side dict e,
+                build_joint_state sts side (E.dst e),
+                ())
+             es
+         in
+         f L l_es') ()
 
+    (* let pair_with_unit = List.map (fun x -> x, ()) in *)
+    (* compose_with sts (assoc, fsm) (assoc', fsm') *)
+    (*   (fun _ (st, st') -> *)
+    (*      let l_es = succ_e fsm st in *)
+    (*      let r_es = succ_e fsm' st' in *)
+    (*      let ts el = List.map E.label el |> List.map Label.as_string |> String.concat ", " in *)
+    (*      "Before intersection" |> Utils.log ; *)
+    (*      "Left: " ^ ts l_es |> Utils.log ; *)
+    (*      "Right: " ^ ts r_es |> Utils.log ; *)
+
+    (*      (\* only if they appear in the other list *\) *)
+    (*      let l_es' = List.filter (fun e -> List.mem (E.label e) (List.map E.label r_es)) l_es in *)
+    (*      let r_es' = List.filter (fun e -> List.mem (E.label e) (List.map E.label l_es)) r_es in *)
+    (*      "After intersection" |> Utils.log ; *)
+    (*      "Left: " ^ ts l_es' |> Utils.log ; *)
+    (*      "Right: " ^ ts r_es' |> Utils.log ; *)
+
+    (*      l_es' |> pair_with_unit, r_es' |> pair_with_unit) () *)
+
+
+  (* let _restricted : (vertex * Label.t * MachineComposition.side) list ref = ref [] *)
+
+  (* compose two machines allowing only their common labels *)
+  let loose_intersection_compose _ _ _ =
+    (* (sts : vertex * vertex) *)
+    (* (assoc, fsm : State.t list * t) *)
+    (* (assoc', fsm' : State.t list * t) :  vertex * (State.t list * t) = *)
+    (* let pair_with_unit = List.map (fun x -> x, ()) in *)
+    (* compose_with sts (assoc, fsm) (assoc', fsm') *)
+    (*   (fun _ (st, st') -> *)
+    (*      let l_es = succ_e fsm st in *)
+    (*      let r_es = succ_e fsm' st' in *)
+
+    (*      let get_restricted l1 l2 side = List.filter_map *)
+    (*          (fun e -> *)
+    (*             if List.mem (E.label e) (List.map E.label l2) *)
+    (*             then Some (E.src e, E.label e, side) *)
+    (*             else None) *)
+    (*          l1 *)
+    (*      in *)
+    (*      let is_restricted e side = *)
+    (*        List.exists (fun (st, l, side') -> E.src e = st && E.label e = l && side = side') !restricted *)
+    (*      in *)
+    (*      let l_es' = *)
+    (*        List.filter (fun e -> is_restricted e L |> not) l_es in *)
+
+    (*      let r_es' = *)
+    (*        List.filter (fun e -> is_restricted e R |> not) r_es in *)
+
+    (*      restricted := get_restricted l_es r_es L @ get_restricted r_es l_es R @ !restricted ; *)
+
+    (*      (\* only if they not appear in the other list, this is broken *\) *)
+    (*      let l_es' = List.filter (fun e -> not(List.mem (E.label e) (List.map E.label r_es))) l_es' in *)
+    (*      let ts el = List.map E.label el |> List.map Label.as_string |> String.concat ", " in *)
+    (*      "Loose intersection" |> Utils.log ; *)
+    (*      "Left: " ^ ts l_es' |> Utils.log ; *)
+    (*      "Right: " ^ ts r_es |> Utils.log ; *)
+    (*      l_es' |> pair_with_unit, r_es' |> pair_with_unit) () *)
+    assert false
 
   let only_reachable_from st fsm =
     let add_state_and_successors n_fsm st =
@@ -684,7 +761,10 @@ module Global = struct
         if List.length branches = 0 then next, fsm else
           combine_branches fsm (s_st, e_st) branches parallel_compose next
 
-      | LInt _ -> Error.Violation "Loose intersection not yet implemented." |> raise
+      | LInt branches ->
+        let branches = filter_degenerate_branches branches in
+        if List.length branches = 0 then next, fsm else
+          combine_branches fsm (s_st, e_st) branches loose_intersection_compose next
 
       | TInt branches ->
         let branches = filter_degenerate_branches branches in
