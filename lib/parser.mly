@@ -41,7 +41,7 @@ let block_to_global = function
 %token TIGHT_KW
 %token LOOSE_KW
 
-%token PRIORISE_KW
+%token PRIORITISE_KW
 %token WITH_KW
 %token HIGH_KW
 %token LOW_KW
@@ -144,7 +144,7 @@ let tight_intersection ==
   < TInt >
 
 let priority ==
-  PRIORISE_KW ; p1 = global_protocol_block ;
+  PRIORITISE_KW ; p1 = global_protocol_block ;
   WITH_KW ; HIGH_KW ; p2 = global_protocol_block ;
   WITH_KW ; LOW_KW ; p3 = global_protocol_block ;
   { Priorise (p1, p2, p3) }
