@@ -688,7 +688,11 @@ module Global = struct
        next is a list of states that lead to the machine we are currently translating
        and the first element of the returned value is the places where the execution will continue
     *)
-    let rec tr fsm g (s_st, e_st) next =
+    let rec tr
+        (fsm : t)
+        (g : global)
+        (s_st, e_st : vertex * vertex)
+        (next : vertex list) : vertex list *t =
       "s_st = " ^ State.as_string s_st |> Utils.log ;
       "e_st = " ^ State.as_string e_st |> Utils.log ;
       match g with
