@@ -313,15 +313,15 @@ module FSM (State : STATE) (Label : LABEL) = struct
         else
           (let jes = f dict curr sts in
 
-        "START WALK" |> Utils.log;
-        "Left: " ^ State.as_string (fst sts) |> Utils.log;
-        "Right: " ^ State.as_string (snd sts) |> Utils.log;
-        "Joint: " ^ State.as_string curr_st |> Utils.log;
-         let ts el = List.map (fun (e,_,_)->e) el |> List.map string_of_edge |> String.concat ", " in
-         "Edges: " ^ ts jes |> Utils.log;
-        "END WALK" |> Utils.log;
+           "START WALK" |> Utils.log;
+           "Left: " ^ State.as_string (fst sts) |> Utils.log;
+           "Right: " ^ State.as_string (snd sts) |> Utils.log;
+           "Joint: " ^ State.as_string curr_st |> Utils.log;
+           let ts el = List.map (fun (e,_,_)->e) el |> List.map string_of_edge |> String.concat ", " in
+           "Edges: " ^ ts jes |> Utils.log;
+           "END WALK" |> Utils.log;
 
-          add_edges jes (curr_st::visited) jfsm k)
+           add_edges jes (curr_st::visited) jfsm k)
 
       and add_edges
           (pending : (edge * (vertex * vertex) * 's) list)
@@ -390,9 +390,9 @@ module FSM (State : STATE) (Label : LABEL) = struct
 
   (* compose two machines allowing only their common labels *)
   let tight_intersection_compose
-    (sts : vertex * vertex)
-    (assoc, fsm : vertex list * t)
-    (assoc', fsm' : vertex list * t) :  vertex * (vertex list * t) =
+      (sts : vertex * vertex)
+      (assoc, fsm : vertex list * t)
+      (assoc', fsm' : vertex list * t) :  vertex * (vertex list * t) =
     let open MachineComposition in
     compose_with sts (assoc, fsm) (assoc', fsm')
       (fun dict _ (st, st') ->
@@ -453,27 +453,27 @@ module FSM (State : STATE) (Label : LABEL) = struct
 
   let only_reachable_from _ fsm = fsm
   (* let only_reachable_from st fsm =  *)
-    (* let add_state_and_successors n_fsm st = *)
-    (*   let next_sts = succ fsm st in *)
-    (*   let next_edges = succ_e fsm st in *)
+  (* let add_state_and_successors n_fsm st = *)
+  (*   let next_sts = succ fsm st in *)
+  (*   let next_edges = succ_e fsm st in *)
 
-    (*   let n_fsm' = List.fold_left (fun fsm st -> add_vertex fsm st ) (add_vertex n_fsm st) next_sts in *)
-    (*   List.fold_left (fun fsm e -> add_edge_e fsm e) n_fsm' next_edges *)
-    (* in *)
+  (*   let n_fsm' = List.fold_left (fun fsm st -> add_vertex fsm st ) (add_vertex n_fsm st) next_sts in *)
+  (*   List.fold_left (fun fsm e -> add_edge_e fsm e) n_fsm' next_edges *)
+  (* in *)
 
-    (* let rec f n_fsm visited to_visit = *)
-    (*   match to_visit with *)
-    (*   | [] -> n_fsm *)
-    (*   |  st::remaining -> *)
-    (*     (\* states reachable from st *\) *)
-    (*     let reachable = succ fsm st in *)
-    (*     let n_fsm' = add_state_and_successors n_fsm st in *)
+  (* let rec f n_fsm visited to_visit = *)
+  (*   match to_visit with *)
+  (*   | [] -> n_fsm *)
+  (*   |  st::remaining -> *)
+  (*     (\* states reachable from st *\) *)
+  (*     let reachable = succ fsm st in *)
+  (*     let n_fsm' = add_state_and_successors n_fsm st in *)
 
-    (*     let visited' = st::visited in *)
-    (*     let to_visit' = Utils.minus (reachable @ remaining) visited' in *)
-    (*     f n_fsm' visited' to_visit' *)
-    (* in *)
-    (* f empty [] [st] *)
+  (*     let visited' = st::visited in *)
+  (*     let to_visit' = Utils.minus (reachable @ remaining) visited' in *)
+  (*     f n_fsm' visited' to_visit' *)
+  (* in *)
+  (* f empty [] [st] *)
 
   module Dot = struct
     module Display = struct
