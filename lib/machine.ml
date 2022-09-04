@@ -109,7 +109,7 @@ module FSM (State : STATE) (Label : LABEL) = struct
   let _can_reach_with_labels edges st a =
     List.filter_map (fun e -> if E.src e = st && E.label e = a && not (E.label e = Label.default) then Some (E.dst e) else None) edges
 
-  let walk_collect_edges_with_predicate (fsm : t) (st : State.t) (step : State.t -> edge list) (p : edge -> bool) : edge list =
+  let walk_collect_edges_with_predicate (fsm : t) (st : vertex) (step : vertex -> edge list) (p : edge -> bool) : edge list =
     (* states from edges *)
     let sfe es =
       List.concat_map (fun e -> E.src e:: E.dst e::[]) es
@@ -128,7 +128,7 @@ module FSM (State : STATE) (Label : LABEL) = struct
     in
     f [] [] [st]
 
-  let walk_collect_vertices_with_predicate (fsm : t) (st : State.t) (step : State.t -> edge list) (p : edge -> bool) : vertex list =
+  let walk_collect_vertices_with_predicate (fsm : t) (st : vertex) (step : vertex -> edge list) (p : edge -> bool) : vertex list =
     (* states from edges *)
     let sfe es =
       List.concat_map (fun e -> E.src e:: E.dst e::[]) es
@@ -147,7 +147,7 @@ module FSM (State : STATE) (Label : LABEL) = struct
     in
     f [] [] [st]
 
-  let walk_with_predicate (st : State.t) (step : State.t -> edge list) (p : edge -> bool) : bool =
+  let walk_with_predicate (st : vertex) (step : vertex -> edge list) (p : edge -> bool) : bool =
     let rec f st visited =
       let edges_from_st = step st in
       (* if it can step then done *)
@@ -166,10 +166,10 @@ module FSM (State : STATE) (Label : LABEL) = struct
     in
     f st []
 
-  let only_with_tau (fsm : t) (st : State.t) : edge list =
+  let only_with_tau (fsm : t) (st : vertex) : edge list =
     succ_e fsm st |> List.filter (fun e -> E.label e = Label.default)
 
-  let with_any_transition (fsm : t) (st : State.t) : edge list =
+  let with_any_transition (fsm : t) (st : vertex) : edge list =
     succ_e fsm st
 
   (* return all the tau reachable states *)
@@ -345,9 +345,9 @@ module FSM (State : STATE) (Label : LABEL) = struct
   (* compose two machines with a function *)
   let compose_with
       (sts : vertex * vertex)
-      (assoc, fsm : State.t list * t)
-      (assoc', fsm' : State.t list * t)
-      f init :  vertex * (State.t list * t) =
+      (assoc, fsm : vertex list * t)
+      (assoc', fsm' : vertex list * t)
+      f init :  vertex * (vertex list * t) =
 
     let dict, jfsm =
       MachineComposition.walker fsm fsm' sts f init in
@@ -370,8 +370,8 @@ module FSM (State : STATE) (Label : LABEL) = struct
   (* compose two machines allowing all their interleavings *)
   let parallel_compose
       (sts : vertex * vertex)
-      (assoc, fsm : State.t list * t)
-      (assoc', fsm' : State.t list * t) :  vertex * (State.t list * t) =
+      (assoc, fsm : vertex list * t)
+      (assoc', fsm' : vertex list * t) :  vertex * (vertex list * t) =
     let open MachineComposition in
     compose_with sts (assoc, fsm) (assoc', fsm')
       (fun dict _ (st, st' as sts) ->
@@ -391,8 +391,8 @@ module FSM (State : STATE) (Label : LABEL) = struct
   (* compose two machines allowing only their common labels *)
   let tight_intersection_compose
     (sts : vertex * vertex)
-    (assoc, fsm : State.t list * t)
-    (assoc', fsm' : State.t list * t) :  vertex * (State.t list * t) =
+    (assoc, fsm : vertex list * t)
+    (assoc', fsm' : vertex list * t) :  vertex * (vertex list * t) =
     let open MachineComposition in
     compose_with sts (assoc, fsm) (assoc', fsm')
       (fun dict _ (st, st') ->
@@ -416,8 +416,8 @@ module FSM (State : STATE) (Label : LABEL) = struct
   (* compose two machines allowing only their common labels *)
   let loose_intersection_compose _ _ _ =
     (* (sts : vertex * vertex) *)
-    (* (assoc, fsm : State.t list * t) *)
-    (* (assoc', fsm' : State.t list * t) :  vertex * (State.t list * t) = *)
+    (* (assoc, fsm : vertex list * t) *)
+    (* (assoc', fsm' : vertex list * t) :  vertex * (vertex list * t) = *)
     (* let pair_with_unit = List.map (fun x -> x, ()) in *)
     (* compose_with sts (assoc, fsm) (assoc', fsm') *)
     (*   (fun _ (st, st') -> *)
@@ -521,7 +521,7 @@ module Bisimulation (State : STATE) (Label : LABEL) (Str : STRENGTH)  = struct
   module FSM = FSM (State) (Label)
   include FSM
 
-  type block = State.t list
+  type block = vertex list
 
   let blocks_as_string (bs : block list) : string =
     List.map
@@ -636,7 +636,7 @@ module Bisimulation (State : STATE) (Label : LABEL) (Str : STRENGTH)  = struct
     List.fold_left (fun fsm e -> FSM.add_edge_e fsm (FSM.E.create (FSM.E.src e |> lookup) (FSM.E.label e) (FSM.E.dst e |> lookup)) ) fsm es
 
   let are_states_bisimilar (blocks : block list) st1 st2 : bool =
-    let find_block (st : State.t) =
+    let find_block (st : vertex) =
       let find_in_block bl =
         List.mem st bl
       in
@@ -680,7 +680,7 @@ module Global = struct
   let filter_degenerate_branches branches =
     List.filter (function Seq [] -> false | _ -> true) branches
 
-  let generate_state_machine' (g : global) : State.t * FSM.t =
+  let generate_state_machine' (g : global) : vertex * FSM.t =
     let start = State.fresh_start () in
 
     (* tr does the recursive translation.
@@ -786,7 +786,7 @@ module Global = struct
   module B = Bisimulation (State) (Label) (struct let is_strong = true end)
   let minimise fsm = B.minimise fsm
 
-  let generate_state_machine (g : global) : State.t * FSM.t =
+  let generate_state_machine (g : global) : vertex * FSM.t =
     let st, fsm = generate_state_machine' g in
     st, minimise fsm |> minimise_state_numbers
 
@@ -814,11 +814,11 @@ module Local = struct
   include FSM
 
   (* if state can step with ANY transition, including tau *)
-  let state_can_step (fsm : FSM.t) (st : State.t) : bool =
+  let state_can_step (fsm : FSM.t) (st : vertex) : bool =
     FSM.succ fsm st |> Utils.is_empty|> not
 
   (* if the state can step with a non tau transition explore transitively *)
-  let _state_can_step_recursive (fsm : FSM.t) (st : State.t) : bool =
+  let _state_can_step_recursive (fsm : FSM.t) (st : vertex) : bool =
     walk_with_predicate st (with_any_transition fsm) (fun e -> FSM.E.label e |> Option.is_some)
 
   let _has_outgoing_transitions fsm st =
@@ -880,7 +880,7 @@ module Local = struct
     | x::xs ->
       pipe_fold f (let* _ = res in f x) xs
 
-  let rec wb r (st, fsm : State.t * t) : wb_res =
+  let rec wb r (st, fsm : vertex * t) : wb_res =
     let (let*) = special_bind in
     let _blocks = WB.compute_bisimulation_quotient fsm in
     let* _res = _c1 r (st, fsm) in
@@ -1025,7 +1025,7 @@ module Local = struct
         | Result.Error err -> Result.error err
       end
 
-  let well_behaved_role (r, st, fsm : role  * State.t * t) : wb_res =
+  let well_behaved_role (r, st, fsm : role  * vertex * t) : wb_res =
     c5 r fsm [] [st]
 
   let well_behaved_protocol (proto : global protocol) : wb_res =
