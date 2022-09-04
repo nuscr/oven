@@ -410,26 +410,6 @@ module FSM (State : STATE) (Label : LABEL) = struct
          in
          f L l_es') ()
 
-    (* let pair_with_unit = List.map (fun x -> x, ()) in *)
-    (* compose_with sts (assoc, fsm) (assoc', fsm') *)
-    (*   (fun _ (st, st') -> *)
-    (*      let l_es = succ_e fsm st in *)
-    (*      let r_es = succ_e fsm' st' in *)
-    (*      let ts el = List.map E.label el |> List.map Label.as_string |> String.concat ", " in *)
-    (*      "Before intersection" |> Utils.log ; *)
-    (*      "Left: " ^ ts l_es |> Utils.log ; *)
-    (*      "Right: " ^ ts r_es |> Utils.log ; *)
-
-    (*      (\* only if they appear in the other list *\) *)
-    (*      let l_es' = List.filter (fun e -> List.mem (E.label e) (List.map E.label r_es)) l_es in *)
-    (*      let r_es' = List.filter (fun e -> List.mem (E.label e) (List.map E.label l_es)) r_es in *)
-    (*      "After intersection" |> Utils.log ; *)
-    (*      "Left: " ^ ts l_es' |> Utils.log ; *)
-    (*      "Right: " ^ ts r_es' |> Utils.log ; *)
-
-    (*      l_es' |> pair_with_unit, r_es' |> pair_with_unit) () *)
-
-
   (* let _restricted : (vertex * Label.t * MachineComposition.side) list ref = ref [] *)
 
   (* compose two machines allowing only their common labels *)
