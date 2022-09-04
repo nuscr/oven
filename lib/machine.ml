@@ -671,7 +671,7 @@ module Bisimulation (State : STATE) (Label : LABEL) (Str : STRENGTH)  = struct
     fold_edges_e (fun e fsm -> if is_reflexive_tau e then fsm else add_edge_e fsm e) e_fsm fsm
 
   let generate_minimal_dot fsm =
-    fsm |> (* minimise |> *) remove_reflexive_taus |> FSM.Dot.generate_dot
+    fsm |> minimise |> remove_reflexive_taus |> FSM.Dot.generate_dot
 end
 
 module Global = struct
@@ -805,7 +805,7 @@ module Global = struct
 
   let generate_state_machine (g : global) : State.t * FSM.t =
     let st, fsm = generate_state_machine' g in
-    st, (* minimise *) fsm |> minimise_state_numbers
+    st, minimise fsm |> minimise_state_numbers
 
   let generate_dot fsm = fsm |> Dot.generate_dot
 
