@@ -1,0 +1,9 @@
+(*) just to test something
+
+global Looper(role C, role S)
+{
+  fin {
+    HELLO(int) from C to S;
+  }
+  BYE() from S to C;
+}

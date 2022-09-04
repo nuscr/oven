@@ -1,3 +1,4 @@
+examples/tc.synmpst
 examples/first.synmpst
 examples/second.synmpst
 examples/par.synmpst
