@@ -90,6 +90,10 @@ module FSM (State : STATE) (Label : LABEL) = struct
   let get_edges fsm =
     fold_edges_e (fun e l -> e::l) fsm []
 
+  let string_of_edge e =
+    "[" ^ (E.src e |> State.as_string) ^ "-|-"
+    ^ (E.label e |> Label.as_string) ^ "-|-" ^ (E.dst e |> State.as_string) ^ "]"
+
   let get_vertices (fsm : t) : V.t list =
     let l = fold_vertex (fun st l -> st::l) fsm [] in
     assert (List.length l = nb_vertex fsm) ;
@@ -271,25 +275,18 @@ module FSM (State : STATE) (Label : LABEL) = struct
       with
       | _ -> Error.Violation "Joint FSM must contain this state." |> raise
 
-
     type side = L | R
-
-    (* find the destinations state that keeps the other component of the state constant *)
-    (* let find_corresponding_state *)
-    (*     (st, st' : vertex * vertex) *)
-    (*     (st_dst : (vertex, vertex) Either.t) *)
-    (*     (dict : dict) = *)
-    (*   match st_dst with *)
-    (*   | Either.Left dst -> *)
-    (*     List.find (fun ((dst', corr_st),_) -> dst = dst' && corr_st = st') dict |> snd *)
-
-    (*   | Either.Right dst -> *)
-    (*     List.find (fun ((corr_st, dst'),_) -> dst = dst' && corr_st = st) dict |> snd *)
 
     let build_joint_state (st, st') side st_tr =
       match side with
       | L -> (st_tr, st')
       | R -> (st, st_tr)
+
+    let _get_states_with side dict st =
+      List.find_all
+        (fun (sts, _) -> match side with
+           | L -> st = fst sts | R -> st = snd sts)
+        dict |> List.map fst
 
     let translate_state_to_joint_fsm sts side dict st_tr =
       List.assoc (build_joint_state sts side st_tr) dict
@@ -313,19 +310,17 @@ module FSM (State : STATE) (Label : LABEL) = struct
         if List.mem curr_st visited
         then k visited jfsm
         else
-          let jes = f dict curr sts in
-          add_edges jes (curr_st::visited) jfsm k
+          (let jes = f dict curr sts in
 
-      and add_one_edge
-          (e : edge)
-          (next_st : vertex * vertex) (* next state *)
-          (curr : 's)
-          (visited : vertex list)
-          (jfsm : t)
-          (k : vertex list -> t -> 'a) : ' a =
+        "START WALK" |> Utils.log;
+        "Left: " ^ State.as_string (fst sts) |> Utils.log;
+        "Right: " ^ State.as_string (snd sts) |> Utils.log;
+        "Joint: " ^ State.as_string curr_st |> Utils.log;
+         let ts el = List.map (fun (e,_,_)->e) el |> List.map string_of_edge |> String.concat ", " in
+         "Edges: " ^ ts jes |> Utils.log;
+        "END WALK" |> Utils.log;
 
-        let jfsm' = add_edge_e jfsm e in
-        walk next_st curr visited jfsm' k
+          add_edges jes (curr_st::visited) jfsm k)
 
       and add_edges
           (pending : (edge * (vertex * vertex) * 's) list)
@@ -334,7 +329,10 @@ module FSM (State : STATE) (Label : LABEL) = struct
           (k : vertex list -> t -> 'a) : ' a =
         match pending with
         | (je, next_sts, curr)::jes ->
-          add_one_edge je next_sts curr visited jfsm
+          let jfsm = add_edge_e jfsm je in
+          "ADDING: " ^ (string_of_edge je) |> Utils.log ;
+
+          walk next_sts curr visited jfsm
             (fun visited jfsm -> add_edges jes visited jfsm k)
 
         | [] -> k visited jfsm
@@ -345,13 +343,13 @@ module FSM (State : STATE) (Label : LABEL) = struct
 
   (* compose two machines with a function *)
   let compose_with
-      (s_st : vertex * vertex)
+      (sts : vertex * vertex)
       (assoc, fsm : State.t list * t)
       (assoc', fsm' : State.t list * t)
       f init :  vertex * (State.t list * t) =
 
     let dict, jfsm =
-      MachineComposition.walker fsm fsm' s_st f init in
+      MachineComposition.walker fsm fsm' sts f init in
 
     let assoc_space = List.fold_left (fun b a -> List.fold_left (fun b' a' -> (a, a')::b') b assoc') [] assoc in
     let res_assoc = List.map (fun stst' -> List.assoc stst' dict) assoc_space in
@@ -366,7 +364,7 @@ module FSM (State : STATE) (Label : LABEL) = struct
     "Size of fsm: " ^ string_of_int (nb_vertex fsm) |> Utils.log;
     "Size of fsm': " ^ string_of_int (nb_vertex fsm') |> Utils.log;
     "Size of space: " ^ string_of_int (List.length dict) |> Utils.log;
-    MachineComposition.find_state_in_dest s_st dict, (res_assoc, jfsm)
+    MachineComposition.find_state_in_dest sts dict, (res_assoc, jfsm)
 
   (* compose two machines allowing all their interleavings *)
   let parallel_compose
@@ -375,7 +373,7 @@ module FSM (State : STATE) (Label : LABEL) = struct
       (assoc', fsm' : State.t list * t) :  vertex * (State.t list * t) =
     let open MachineComposition in
     compose_with sts (assoc, fsm) (assoc', fsm')
-      (fun dict _ (st, st') ->
+      (fun dict _ (st, st' as sts) ->
          let l_es = succ_e fsm st in
          let r_es = succ_e fsm' st' in
 
