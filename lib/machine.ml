@@ -189,18 +189,17 @@ module FSM (State : STATE) (Label : LABEL) = struct
     (* add the set of tau reacheable states from the destination of the edge *)
     List.concat_map (fun e -> let dst = E.dst e in if E.label e = a then dst::(tau_reachable fsm dst) else []) weak_edges
 
-  let minimise_state_numbers fsm = fsm
-  (* let minimise_state_numbers fsm = *)
-  (*   let vertices = get_vertices fsm |> List.mapi (fun n st -> (st, State.renumber_state n st)) in *)
+  let minimise_state_numbers fsm =
+    let vertices = get_vertices fsm |> List.mapi (fun n st -> (st, State.renumber_state n st)) in
 
-  (*   let fsm' = List.fold_left (fun fsm (_, st) -> add_vertex fsm st ) empty vertices in *)
-  (*   let update e = *)
-  (*     let tr st = *)
-  (*       List.assoc st vertices *)
-  (*     in *)
-  (*     E.create (E.src e |> tr) (E.label e) (E.dst e |> tr) *)
-  (*   in *)
-  (*   fold_edges_e (fun e fsm -> add_edge_e fsm (update e)) fsm fsm' *)
+    let fsm' = List.fold_left (fun fsm (_, st) -> add_vertex fsm st ) empty vertices in
+    let update e =
+      let tr st =
+        List.assoc st vertices
+      in
+      E.create (E.src e |> tr) (E.label e) (E.dst e |> tr)
+    in
+    fold_edges_e (fun e fsm -> add_edge_e fsm (update e)) fsm fsm'
 
   (* simple merge two state machines *)
   let merge (fsm : t) (fsm' : t) : t =
@@ -451,29 +450,28 @@ module FSM (State : STATE) (Label : LABEL) = struct
     (*      l_es' |> pair_with_unit, r_es' |> pair_with_unit) () *)
     assert false
 
-  let only_reachable_from _ fsm = fsm
-  (* let only_reachable_from st fsm =  *)
-  (* let add_state_and_successors n_fsm st = *)
-  (*   let next_sts = succ fsm st in *)
-  (*   let next_edges = succ_e fsm st in *)
+  let only_reachable_from st fsm =
+    let add_state_and_successors n_fsm st =
+      let next_sts = succ fsm st in
+      let next_edges = succ_e fsm st in
 
-  (*   let n_fsm' = List.fold_left (fun fsm st -> add_vertex fsm st ) (add_vertex n_fsm st) next_sts in *)
-  (*   List.fold_left (fun fsm e -> add_edge_e fsm e) n_fsm' next_edges *)
-  (* in *)
+      let n_fsm' = List.fold_left (fun fsm st -> add_vertex fsm st ) (add_vertex n_fsm st) next_sts in
+      List.fold_left (fun fsm e -> add_edge_e fsm e) n_fsm' next_edges
+    in
 
-  (* let rec f n_fsm visited to_visit = *)
-  (*   match to_visit with *)
-  (*   | [] -> n_fsm *)
-  (*   |  st::remaining -> *)
-  (*     (\* states reachable from st *\) *)
-  (*     let reachable = succ fsm st in *)
-  (*     let n_fsm' = add_state_and_successors n_fsm st in *)
+    let rec f n_fsm visited to_visit =
+      match to_visit with
+      | [] -> n_fsm
+      |  st::remaining ->
+        (* states reachable from st *)
+        let reachable = succ fsm st in
+        let n_fsm' = add_state_and_successors n_fsm st in
 
-  (*     let visited' = st::visited in *)
-  (*     let to_visit' = Utils.minus (reachable @ remaining) visited' in *)
-  (*     f n_fsm' visited' to_visit' *)
-  (* in *)
-  (* f empty [] [st] *)
+        let visited' = st::visited in
+        let to_visit' = Utils.minus (reachable @ remaining) visited' in
+        f n_fsm' visited' to_visit'
+    in
+    f empty [] [st]
 
   module Dot = struct
     module Display = struct
@@ -612,7 +610,7 @@ module Bisimulation (State : STATE) (Label : LABEL) (Str : STRENGTH)  = struct
   let dict_as_string dict =
     List.map (fun (a, b) -> "(" ^ State.list_as_string a ^ " |-> " ^ State.as_string b ^ ")") dict |> String.concat "\n\t"
 
-  let _extract_minimal (bs : block list) (es : FSM.edge list) : FSM.t =
+  let extract_minimal (bs : block list) (es : FSM.edge list) : FSM.t =
     let new_state_from_block b =
       let st = State.fresh() in
       let st = if List.exists State.is_start b then State.mark_as_start st else st in
@@ -644,9 +642,8 @@ module Bisimulation (State : STATE) (Label : LABEL) (Str : STRENGTH)  = struct
     in
     find_block st1 = find_block st2
 
-  (* let minimise (fsm : FSM.t) : FSM.t = *)
-  (*   _extract_minimal (compute_bisimulation_quotient fsm) (get_edges fsm) *)
-  let minimise (fsm : FSM.t) : FSM.t = fsm
+  let minimise (fsm : FSM.t) : FSM.t =
+    extract_minimal (compute_bisimulation_quotient fsm) (get_edges fsm)
 
   let remove_reflexive_taus (fsm : FSM.t) : FSM.t =
     let e_fsm = fold_vertex (fun st fsm -> add_vertex fsm st) empty fsm in
