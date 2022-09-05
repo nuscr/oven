@@ -695,7 +695,9 @@ module Global = struct
     in
     let sub_st st =
       try
-        List.assoc st subs
+        let st' = List.assoc st subs in
+        let st' = if State.is_start st then State.mark_as_start st' else st' in
+        st'
       with
       | Not_found -> st
     in
