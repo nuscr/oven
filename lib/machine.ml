@@ -845,30 +845,6 @@ module Global = struct
 
       | Prioritise _ -> Error.Violation "Prioritise not yet implemented." |> raise
 
-    (* and combine_branches fsm branches f next = *)
-    (*   let next_fsms = List.map (fun g -> tr fsm g next) branches in *)
-    (*   List.iter *)
-    (*     (fun stfsm -> *)
-    (*        "branch number of vertices: " ^ *)
-    (*        (FSM.nb_vertex (snd stfsm) |> string_of_int) |> Utils.log) next_fsms; *)
-    (*   let nexts, fsm' = *)
-    (*     match next_fsms with *)
-    (*     | [] -> [], fsm *)
-    (*     | [_, next_fsm] -> next_fsm *)
-    (*     | s_st_next_fsm::next_fsms' -> *)
-    (*       (List.fold_left *)
-    (*          (fun (s_st, fsm) (s_st', fsm') -> *)
-    (*             f (s_st, s_st') fsm fsm') s_st_next_fsm next_fsms') |> snd *)
-    (*   in *)
-    (*   let resfsm = merge fsm fsm' in *)
-    (*   let size = resfsm |> FSM.get_vertices |> List.length |> Int.to_string in *)
-    (*   "COMBINE size result: " ^ size |> Utils.log ; *)
-    (*   nexts, resfsm *)
-    (* in *)
-    (* let next, fsm_final = tr FSM.empty g [start] in *)
-    (* List.iter (fun st -> let _ = State.mark_as_end st in ()) next ; *)
-    (* (start, fsm_final |> only_reachable_from start) *)
-
     and combine_branches fsm s_st branches f next =
       let m () =
        FSM.add_vertex FSM.empty s_st
@@ -948,7 +924,7 @@ module Local = struct
   let _has_outgoing_transitions fsm st =
     succ_e fsm st |> Utils.is_empty |> not
 
-  let _has_strong_outgoing_transitions fsm st =
+  let has_strong_outgoing_transitions fsm st =
     succ_e fsm st |> List.filter (fun e -> E.label e = Label.default |> not) |> Utils.is_empty |> not
 
 
@@ -1014,9 +990,7 @@ module Local = struct
     _res |> Result.ok
 
   and _c1_alt r (st, fsm) : wb_res =
-    (* if _state_can_step_recursive fsm st then *)
-    (* if _has_outgoing_transitions fsm st then *)
-    if _has_strong_outgoing_transitions fsm st then
+    if has_strong_outgoing_transitions fsm st then
       let weak_sts = st::tau_reachable fsm st in
       if List.exists State.is_end weak_sts then
         "For role: " ^ r ^ " state: " ^ State.as_string st ^ " may terminate or continue (C1 violation)." |> Result.error
@@ -1025,7 +999,7 @@ module Local = struct
     else Result.ok ()
 
   and _c1 r (st, fsm) : wb_res =
-    if _has_strong_outgoing_transitions fsm st then
+    if has_strong_outgoing_transitions fsm st then
       if State.is_end st then
         "For role: " ^ r ^ " state: " ^ State.as_string st ^ " may terminate or continue (C1 violation)." |> Result.error
       else
@@ -1044,7 +1018,6 @@ module Local = struct
       with
         _ -> Error.Violation "This is a bug. There must be a non bisimilar state."  |> raise
 
-  (* type local_transition_label = {sender: role ; receiver: role ; direction : direction ; label: message_label} *)
   and _c3 r blocks (st, fsm) : wb_res =
     let is_send = function
       | Some l -> l.Syntax.Local.direction = Syntax.Local.Sending
@@ -1175,5 +1148,9 @@ module Local = struct
       project r gfsm
     in
 
-    List.fold_left (fun fsm r -> let lfsm = local_machine protocol.interactions r in disjoint_merge lfsm fsm) FSM.empty roles
+    List.fold_left
+      (fun fsm r ->
+         let lfsm = local_machine protocol.interactions r in
+         disjoint_merge lfsm fsm)
+      FSM.empty roles
 end
