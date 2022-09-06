@@ -81,6 +81,8 @@ module type LABEL = sig
   val compare : t -> t -> int
 
   val as_string : t -> string
+
+  val is_default : t -> bool
 end
 
 module FSM (State : STATE) (Label : LABEL) = struct
@@ -229,6 +231,17 @@ module FSM (State : STATE) (Label : LABEL) = struct
     in
     copy fsm @@ copy fsm' empty
 
+  let remove_reflexive_taus (fsm : t) : t =
+    let e_fsm = fold_vertex (fun st fsm -> add_vertex fsm st) fsm empty in
+    let is_reflexive_tau e =
+      if (E.src e = E.dst e && E.label e |> Label.is_default)
+      then true
+      else
+        ("----------  Keeping edge: " ^ string_of_edge e |> Utils.log ;
+        false)
+    in
+    fold_edges_e (fun e fsm -> if is_reflexive_tau e then fsm else add_edge_e fsm e) fsm e_fsm
+
   module MachineComposition =
   struct
     (* Monadic interface commented out for now *)
@@ -339,6 +352,8 @@ module FSM (State : STATE) (Label : LABEL) = struct
 
       in
       dict, walk initial_st init [] jfsm (fun _ x -> x)
+
+
   end
 
   (* compose two machines with a function *)
@@ -645,13 +660,8 @@ module Bisimulation (State : STATE) (Label : LABEL) (Str : STRENGTH)  = struct
   let minimise (fsm : FSM.t) : FSM.t =
     extract_minimal (compute_bisimulation_quotient fsm) (get_edges fsm)
 
-  let remove_reflexive_taus (fsm : FSM.t) : FSM.t =
-    let e_fsm = fold_vertex (fun st fsm -> add_vertex fsm st) empty fsm in
-    let is_reflexive_tau e = E.src e = E.dst e && E.label e = Label.default in
-    fold_edges_e (fun e fsm -> if is_reflexive_tau e then fsm else add_edge_e fsm e) e_fsm fsm
-
   let generate_minimal_dot fsm =
-    fsm |> minimise |> remove_reflexive_taus |> FSM.Dot.generate_dot
+    fsm |> minimise |> FSM.remove_reflexive_taus |> FSM.Dot.generate_dot
 end
 
 module Global = struct
@@ -669,6 +679,10 @@ module Global = struct
     let as_string = function
       | None -> "τ"
       | Some l -> string_of_transition_label l
+
+    let is_default = function
+      | None -> true
+      | Some _ -> false
   end
 
   module FSM = FSM (State) (Label)
@@ -887,7 +901,14 @@ module Global = struct
 
   let generate_state_machine (g : global) : vertex * FSM.t =
     let st, fsm = generate_state_machine' g in
-    st, postproces_taus fsm |> minimise |> minimise_state_numbers
+    let fsm' =
+      postproces_taus fsm
+      |> minimise
+      |> FSM.remove_reflexive_taus
+      |> minimise_state_numbers
+    in
+    "GLOBAL GENERATION COMPLETE!!!!!!" |> Utils.log ;
+    st, fsm'
 
   let generate_dot fsm = fsm |> Dot.generate_dot
 
@@ -907,9 +928,13 @@ module Local = struct
     let as_string = function
       | None -> "τ"
       | Some l -> Syntax.Local.string_of_local_transition_label l
+
+    let is_default = function
+      | None -> true
+      | Some _ -> false
   end
 
-  module FSM = FSM (State) ( Label)
+  module FSM = FSM (State) (Label)
   include FSM
 
   (* if state can step with ANY transition, including tau *)
