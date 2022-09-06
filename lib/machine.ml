@@ -358,8 +358,8 @@ module FSM (State : STATE) (Label : LABEL) = struct
       (sts : vertex * vertex)
       (assoc, fsm : vertex list * t)
       (assoc', fsm' : vertex list * t)
-      f
-      :  vertex * (vertex list * t) =
+      (f : MachineComposition.dict -> vertex * vertex -> (edge * (vertex * vertex)) list)
+    :  vertex * (vertex list * t) =
 
     let dict, jfsm =
       MachineComposition.walker fsm fsm' sts f in
