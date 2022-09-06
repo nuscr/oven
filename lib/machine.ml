@@ -259,7 +259,7 @@ module FSM (State : STATE) (Label : LABEL) = struct
     type dict = ((vertex * vertex) * vertex) list (* ((s1, s2), s3) state s1 and s2 became s3 *)
 
     (* generate product state space *)
-    let generate_state_space fsm fsm' : 'a =
+    let generate_state_space fsm fsm' =
       let sts_fsm = get_vertices fsm in
       let sts_fsm' = get_vertices fsm' in
       "Size of sts_fsm: " ^ string_of_int (List.length sts_fsm) ^ " -- "  ^ (State.list_as_string sts_fsm) |> Utils.log;
@@ -309,13 +309,11 @@ module FSM (State : STATE) (Label : LABEL) = struct
       E.create (E.src e |> coord) (E.label e) (E.dst e |> coord)
 
     let walker (fsm : t) (fsm' : t) (initial_st : vertex * vertex)
-        (f : dict -> 's -> vertex * vertex -> ((edge * (vertex * vertex) * 's)) list)
-        (init : 's)
+        (f : dict -> vertex * vertex -> ((edge * (vertex * vertex))) list)
       : dict * t =
       let dict, jfsm = generate_state_space fsm fsm' in
       let rec walk
           (sts : vertex * vertex)
-          (curr : 's)
           (visited : vertex list)
           (jfsm : t)
           (k : vertex list -> t -> 'a) : 'a  =
@@ -323,35 +321,34 @@ module FSM (State : STATE) (Label : LABEL) = struct
         if List.mem curr_st visited
         then k visited jfsm
         else
-          (let jes = f dict curr sts in
+          (let jes = f dict sts in
 
            "START WALK" |> Utils.log;
            "Left: " ^ State.as_string (fst sts) |> Utils.log;
            "Right: " ^ State.as_string (snd sts) |> Utils.log;
            "Joint: " ^ State.as_string curr_st |> Utils.log;
-           let ts el = List.map (fun (e,_,_)->e) el |> List.map string_of_edge |> String.concat ", " in
+           let ts el = List.map (fun (e,_)->e) el |> List.map string_of_edge |> String.concat ", " in
            "Edges: " ^ ts jes |> Utils.log;
            "END WALK" |> Utils.log;
 
            add_edges jes (curr_st::visited) jfsm k)
 
       and add_edges
-          (pending : (edge * (vertex * vertex) * 's) list)
+          (pending : (edge * (vertex * vertex)) list)
           (visited : vertex list)
           (jfsm : t)
           (k : vertex list -> t -> 'a) : ' a =
         match pending with
-        | (je, next_sts, curr)::jes ->
+        | (je, next_sts)::jes ->
           let jfsm = add_edge_e jfsm je in
           "ADDING: " ^ (string_of_edge je) |> Utils.log ;
-
-          walk next_sts curr visited jfsm
+          walk next_sts visited jfsm
             (fun visited jfsm -> add_edges jes visited jfsm k)
 
         | [] -> k visited jfsm
 
       in
-      dict, walk initial_st init [] jfsm (fun _ x -> x)
+      dict, walk initial_st [] jfsm (fun _ x -> x)
 
 
   end
@@ -361,10 +358,11 @@ module FSM (State : STATE) (Label : LABEL) = struct
       (sts : vertex * vertex)
       (assoc, fsm : vertex list * t)
       (assoc', fsm' : vertex list * t)
-      f init :  vertex * (vertex list * t) =
+      f
+      :  vertex * (vertex list * t) =
 
     let dict, jfsm =
-      MachineComposition.walker fsm fsm' sts f init in
+      MachineComposition.walker fsm fsm' sts f in
 
     let assoc_space = List.fold_left (fun b a -> List.fold_left (fun b' a' -> (a, a')::b') b assoc') [] assoc in
     let res_assoc = List.map (fun stst' -> List.assoc stst' dict) assoc_space in
@@ -388,7 +386,7 @@ module FSM (State : STATE) (Label : LABEL) = struct
       (assoc', fsm' : vertex list * t) :  vertex * (vertex list * t) =
     let open MachineComposition in
     compose_with sts (assoc, fsm) (assoc', fsm')
-      (fun dict _ (st, st' as sts) ->
+      (fun dict (st, st' as sts) ->
          let l_es = succ_e fsm st in
          let r_es = succ_e fsm' st' in
 
@@ -396,11 +394,10 @@ module FSM (State : STATE) (Label : LABEL) = struct
            List.map
              (fun e ->
                 translate_edge_to_joint_fsm sts side dict e,
-                build_joint_state sts side (E.dst e),
-                ())
+                build_joint_state sts side (E.dst e))
              es
          in
-         f L l_es @ f R r_es) ()
+         f L l_es @ f R r_es)
 
   (* compose two machines allowing only their common labels *)
   let tight_intersection_compose
@@ -409,7 +406,7 @@ module FSM (State : STATE) (Label : LABEL) = struct
       (assoc', fsm' : vertex list * t) :  vertex * (vertex list * t) =
     let open MachineComposition in
     compose_with sts (assoc, fsm) (assoc', fsm')
-      (fun dict _ (st, st') ->
+      (fun dict (st, st') ->
          let l_es = succ_e fsm st in
          let r_es = succ_e fsm' st' in
 
@@ -419,11 +416,10 @@ module FSM (State : STATE) (Label : LABEL) = struct
            List.map
              (fun e ->
                 translate_edge_to_joint_fsm sts side dict e,
-                build_joint_state sts side (E.dst e),
-                ())
+                build_joint_state sts side (E.dst e))
              es
          in
-         f L l_es') ()
+         f L l_es')
 
   (* let _restricted : (vertex * Label.t * MachineComposition.side) list ref = ref [] *)
 
