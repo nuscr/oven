@@ -349,8 +349,6 @@ module FSM (State : STATE) (Label : LABEL) = struct
 
       in
       dict, walk initial_st [] jfsm (fun _ x -> x)
-
-
   end
 
   (* compose two machines with a function *)
@@ -358,6 +356,7 @@ module FSM (State : STATE) (Label : LABEL) = struct
       (sts : vertex * vertex)
       (assoc, fsm : vertex list * t)
       (assoc', fsm' : vertex list * t)
+      (* from the dict and the current state, produce a list of edges and the one next state per edge *)
       (f : MachineComposition.dict -> vertex * vertex -> (edge * (vertex * vertex)) list)
     :  vertex * (vertex list * t) =
 
