@@ -465,6 +465,7 @@ module FSM (State : STATE) (Label : LABEL) = struct
     (*      l_es' |> pair_with_unit, r_es' |> pair_with_unit) () *)
     assert false
 
+  (* let only_reachable_from _ fsm = fsm *)
   let only_reachable_from st fsm =
     let add_state_and_successors n_fsm st =
       let next_sts = succ fsm st in
@@ -829,39 +830,39 @@ module Global = struct
         let branches = filter_degenerate_branches branches in
         if List.length branches = 0 then next, fsm else
           let st, fsm = gather_next fsm next in
-          combine_branches fsm st branches parallel_compose [st]
+          combine_branches fsm st branches parallel_compose
 
       | LInt branches ->
         let branches = filter_degenerate_branches branches in
         if List.length branches = 0 then next, fsm else
           let st, fsm = gather_next fsm next in
-          combine_branches fsm st branches loose_intersection_compose [st]
+          combine_branches fsm st branches loose_intersection_compose
 
       | TInt branches ->
         let branches = filter_degenerate_branches branches in
         if List.length branches = 0 then next, fsm else
           let st, fsm = gather_next fsm next in
-          combine_branches fsm st branches tight_intersection_compose [st]
+          combine_branches fsm st branches tight_intersection_compose
 
       | Prioritise _ -> Error.Violation "Prioritise not yet implemented." |> raise
 
-    and combine_branches fsm s_st branches f next =
+    and combine_branches fsm s_st branches combine_fun =
       let m () =
-       FSM.add_vertex FSM.empty s_st
+        FSM.add_vertex FSM.empty s_st
       in
-      let next_fsms = List.map (fun g -> s_st, tr (m ()) g next) branches in
+      let next_fsms = List.map (fun g -> s_st, tr (m ()) g [s_st]) branches in
       List.iter
         (fun (_, stfsm) ->
            "branch number of vertices: " ^
            (FSM.nb_vertex (snd stfsm) |> string_of_int) |> Utils.log) next_fsms;
       let nexts, fsm' =
         match next_fsms with
-        | [] -> [], m ()
+        | [] -> [s_st], m ()
         | [_, next_fsm] -> next_fsm
         | s_st_next_fsm::next_fsms' ->
           (List.fold_left
              (fun (s_st, fsm) (s_st', fsm') ->
-                f (s_st, s_st') fsm fsm') s_st_next_fsm next_fsms') |> snd
+                combine_fun (s_st, s_st') fsm fsm') s_st_next_fsm next_fsms') |> snd
       in
       let resfsm = merge fsm fsm' in
       let size = resfsm |> FSM.get_vertices |> List.length |> Int.to_string in
@@ -1145,7 +1146,7 @@ module Local = struct
 
     let local_machine (g : global) (r : role) =
       let _, gfsm = Global.generate_state_machine g in
-      project r gfsm
+      project r gfsm |> minimise_state_numbers
     in
 
     List.fold_left
