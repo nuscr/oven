@@ -310,16 +310,18 @@ module FSM (State : STATE) (Label : LABEL) = struct
 
     let walker (fsm : t) (fsm' : t) (initial_st : vertex * vertex)
         (f : dict -> vertex * vertex -> ((edge * (vertex * vertex))) list)
-      : dict * t =
+      : dict * (vertex list * t) =
       let dict, jfsm = generate_state_space fsm fsm' in
       let rec walk
           (sts : vertex * vertex)
           (visited : vertex list)
           (jfsm : t)
-          (k : vertex list -> t -> 'a) : 'a  =
+          (next : vertex list)
+          (* the continuation takes the visited next and fsm *)
+          (k : vertex list -> vertex list -> t -> 'a) : 'a  =
         let curr_st = find_state_in_dest sts dict in
         if List.mem curr_st visited
-        then k visited jfsm
+        then k visited next jfsm
         else
           (let jes = f dict sts in
 
@@ -327,44 +329,42 @@ module FSM (State : STATE) (Label : LABEL) = struct
            "Left: " ^ State.as_string (fst sts) |> Utils.log;
            "Right: " ^ State.as_string (snd sts) |> Utils.log;
            "Joint: " ^ State.as_string curr_st |> Utils.log;
-           let ts el = List.map (fun (e,_)->e) el |> List.map string_of_edge |> String.concat ", " in
+           let ts el = List.map (fun x -> fst x |> string_of_edge) el |> String.concat ", " in
            "Edges: " ^ ts jes |> Utils.log;
            "END WALK" |> Utils.log;
 
-           add_edges jes (curr_st::visited) jfsm k)
+           add_edges jes (curr_st::visited) jfsm next k)
 
       and add_edges
           (pending : (edge * (vertex * vertex)) list)
           (visited : vertex list)
           (jfsm : t)
-          (k : vertex list -> t -> 'a) : ' a =
+          (next : vertex list)
+          (k : vertex list -> vertex list -> t -> 'a) : ' a =
         match pending with
         | (je, next_sts)::jes ->
           let jfsm = add_edge_e jfsm je in
           "ADDING: " ^ (string_of_edge je) |> Utils.log ;
-          walk next_sts visited jfsm
-            (fun visited jfsm -> add_edges jes visited jfsm k)
+          walk next_sts visited jfsm next
+            (fun visited _ jfsm -> add_edges jes visited jfsm next k)
 
-        | [] -> k visited jfsm
+        | [] -> k visited next jfsm
 
       in
-      dict, walk initial_st [] jfsm (fun _ x -> x)
+      dict, walk initial_st [] jfsm [] (fun _ next fsm -> next, fsm)
   end
 
   (* compose two machines with a function *)
   let compose_with
       (sts : vertex * vertex)
-      (assoc, fsm : vertex list * t)
-      (assoc', fsm' : vertex list * t)
+      (fsm : t)
+      (fsm' : t)
       (* from the dict and the current state, produce a list of edges and the one next state per edge *)
       (f : MachineComposition.dict -> vertex * vertex -> (edge * (vertex * vertex)) list)
     :  vertex * (vertex list * t) =
 
-    let dict, jfsm =
+    let dict, next_jfsm =
       MachineComposition.walker fsm fsm' sts f in
-
-    let assoc_space = List.fold_left (fun b a -> List.fold_left (fun b' a' -> (a, a')::b') b assoc') [] assoc in
-    let res_assoc = List.map (fun stst' -> List.assoc stst' dict) assoc_space in
 
     let rec dict_to_string = function
       | [] -> "[]"
@@ -376,15 +376,15 @@ module FSM (State : STATE) (Label : LABEL) = struct
     "Size of fsm: " ^ string_of_int (nb_vertex fsm) |> Utils.log;
     "Size of fsm': " ^ string_of_int (nb_vertex fsm') |> Utils.log;
     "Size of space: " ^ string_of_int (List.length dict) |> Utils.log;
-    MachineComposition.find_state_in_dest sts dict, (res_assoc, jfsm)
+    MachineComposition.find_state_in_dest sts dict, next_jfsm
 
   (* compose two machines allowing all their interleavings *)
   let parallel_compose
       (sts : vertex * vertex)
-      (assoc, fsm : vertex list * t)
-      (assoc', fsm' : vertex list * t) :  vertex * (vertex list * t) =
+      (fsm : t)
+      (fsm' : t) :  vertex * (vertex list * t) =
     let open MachineComposition in
-    compose_with sts (assoc, fsm) (assoc', fsm')
+    compose_with sts fsm fsm'
       (fun dict (st, st' as sts) ->
          let l_es = succ_e fsm st in
          let r_es = succ_e fsm' st' in
@@ -401,10 +401,10 @@ module FSM (State : STATE) (Label : LABEL) = struct
   (* compose two machines allowing only their common labels *)
   let tight_intersection_compose
       (sts : vertex * vertex)
-      (assoc, fsm : vertex list * t)
-      (assoc', fsm' : vertex list * t) :  vertex * (vertex list * t) =
+      (fsm : t)
+      (fsm' : t) :  vertex * (vertex list * t) =
     let open MachineComposition in
-    compose_with sts (assoc, fsm) (assoc', fsm')
+    compose_with sts fsm fsm'
       (fun dict (st, st') ->
          let l_es = succ_e fsm st in
          let r_es = succ_e fsm' st' in
@@ -841,23 +841,26 @@ module Global = struct
 
       | Prioritise _ -> Error.Violation "Prioritise not yet implemented." |> raise
 
-    and combine_branches fsm s_st branches combine_fun =
+    and combine_branches fsm s_st branches
+        (combine_fun : vertex * vertex -> t -> t -> vertex * (vertex list * t)) =
       let m () =
         FSM.add_vertex FSM.empty s_st
       in
-      let next_fsms = List.map (fun g -> s_st, tr (m ()) g [s_st]) branches in
+      let st_next_fsms = List.map (fun g -> s_st, tr (m ()) g [s_st]) branches in
       List.iter
         (fun (_, stfsm) ->
            "branch number of vertices: " ^
-           (FSM.nb_vertex (snd stfsm) |> string_of_int) |> Utils.log) next_fsms;
-      let nexts, fsm' =
-        match next_fsms with
-        | [] -> [s_st], m ()
-        | [_, next_fsm] -> next_fsm
+           (FSM.nb_vertex (snd stfsm) |> string_of_int) |> Utils.log) st_next_fsms;
+      let (nexts : vertex list), (fsm' : t) =
+        match st_next_fsms with
+        | [] -> ([s_st], m ())
+        | [next_fsm] -> next_fsm |> snd
         | s_st_next_fsm::next_fsms' ->
           (List.fold_left
-             (fun (s_st, fsm) (s_st', fsm') ->
-                combine_fun (s_st, s_st') fsm fsm') s_st_next_fsm next_fsms') |> snd
+            (fun (s_st, (_, fsm)) (s_st', (_, fsm')) ->
+               combine_fun (s_st, s_st') fsm fsm')
+            s_st_next_fsm
+            next_fsms') |> snd
       in
       let resfsm = merge fsm fsm' in
       let size = resfsm |> FSM.get_vertices |> List.length |> Int.to_string in
