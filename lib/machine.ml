@@ -746,7 +746,6 @@ module Global = struct
         (fsm : t)
         (g : global)
         (next : vertex list) : vertex list *t =
-      "Continue from = [" ^ (List.map State.as_string next |> String.concat "; ") ^ "]" |> Utils.log ;
       match g with
       | MessageTransfer lbl ->
         let e x y = FSM.E.create x (Some lbl) y in
@@ -847,10 +846,6 @@ module Global = struct
         FSM.add_vertex FSM.empty s_st
       in
       let st_next_fsms = List.map (fun g -> s_st, tr (m ()) g [s_st]) branches in
-      List.iter
-        (fun (_, stfsm) ->
-           "branch number of vertices: " ^
-           (FSM.nb_vertex (snd stfsm) |> string_of_int) |> Utils.log) st_next_fsms;
       let (nexts : vertex list), (fsm' : t) =
         match st_next_fsms with
         | [] -> ([s_st], m ())
@@ -863,8 +858,6 @@ module Global = struct
             next_fsms') |> snd
       in
       let resfsm = merge fsm fsm' in
-      let size = resfsm |> FSM.get_vertices |> List.length |> Int.to_string in
-      "COMBINE size result: " ^ size |> Utils.log ;
       nexts, resfsm
     in
     let next, fsm_final = tr FSM.empty g [start] in
