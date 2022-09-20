@@ -309,22 +309,21 @@ module FSM (State : STATE) (Label : LABEL) = struct
       E.create (E.src e |> coord) (E.label e) (E.dst e |> coord)
 
     let walker (fsm : t) (fsm' : t) (initial_st : vertex * vertex)
-        (f : dict -> vertex * vertex -> ((edge * (vertex * vertex))) list)
+        (walk_fun : dict -> vertex * vertex -> ((edge * (vertex * vertex))) list)
       : dict * (vertex list * t) =
       let dict, jfsm = generate_state_space fsm fsm' in
       let rec walk
           (sts : vertex * vertex)
           (visited : vertex list)
           (jfsm : t)
-          (next : vertex list)
-          (* the continuation takes the visited next and fsm *)
+          (next : vertex list) (* TODO: NO ONE EVER MODIFIES NEXT *)
+          (* the continuation takes the visited, next, and fsm *)
           (k : vertex list -> vertex list -> t -> 'a) : 'a  =
         let curr_st = find_state_in_dest sts dict in
         if List.mem curr_st visited
         then k visited next jfsm
         else
-          (let jes = f dict sts in
-
+          (let jes = walk_fun dict sts in
            "START WALK" |> Utils.log;
            "Left: " ^ State.as_string (fst sts) |> Utils.log;
            "Right: " ^ State.as_string (snd sts) |> Utils.log;
@@ -332,7 +331,8 @@ module FSM (State : STATE) (Label : LABEL) = struct
            let ts el = List.map (fun x -> fst x |> string_of_edge) el |> String.concat ", " in
            "Edges: " ^ ts jes |> Utils.log;
            "END WALK" |> Utils.log;
-
+           (* the next states are the ones that follow from this state with the selected things. Not really? *)
+           let next = List.map (fun (_,(v, _)) ->  v) jes in
            add_edges jes (curr_st::visited) jfsm next k)
 
       and add_edges
@@ -376,6 +376,7 @@ module FSM (State : STATE) (Label : LABEL) = struct
     "Size of fsm: " ^ string_of_int (nb_vertex fsm) |> Utils.log;
     "Size of fsm': " ^ string_of_int (nb_vertex fsm') |> Utils.log;
     "Size of space: " ^ string_of_int (List.length dict) |> Utils.log;
+    "Next after compose_with: " ^ State.list_as_string (fst next_jfsm) |> Utils.log;
     MachineComposition.find_state_in_dest sts dict, next_jfsm
 
   (* compose two machines allowing all their interleavings *)
@@ -419,7 +420,6 @@ module FSM (State : STATE) (Label : LABEL) = struct
              es
          in
          f L l_es')
-
   (* let _restricted : (vertex * Label.t * MachineComposition.side) list ref = ref [] *)
 
   (* compose two machines allowing only their common labels *)
@@ -460,29 +460,29 @@ module FSM (State : STATE) (Label : LABEL) = struct
     (*      l_es' |> pair_with_unit, r_es' |> pair_with_unit) () *)
     assert false
 
-  (* let only_reachable_from _ fsm = fsm *)
-  let only_reachable_from st fsm =
-    let add_state_and_successors n_fsm st =
-      let next_sts = succ fsm st in
-      let next_edges = succ_e fsm st in
+  let only_reachable_from _ fsm = fsm
+  (* let only_reachable_from st fsm = *)
+  (*   let add_state_and_successors n_fsm st = *)
+  (*     let next_sts = succ fsm st in *)
+  (*     let next_edges = succ_e fsm st in *)
 
-      let n_fsm' = List.fold_left (fun fsm st -> add_vertex fsm st ) (add_vertex n_fsm st) next_sts in
-      List.fold_left (fun fsm e -> add_edge_e fsm e) n_fsm' next_edges
-    in
+  (*     let n_fsm' = List.fold_left (fun fsm st -> add_vertex fsm st ) (add_vertex n_fsm st) next_sts in *)
+  (*     List.fold_left (fun fsm e -> add_edge_e fsm e) n_fsm' next_edges *)
+  (*   in *)
 
-    let rec f n_fsm visited to_visit =
-      match to_visit with
-      | [] -> n_fsm
-      |  st::remaining ->
-        (* states reachable from st *)
-        let reachable = succ fsm st in
-        let n_fsm' = add_state_and_successors n_fsm st in
+  (*   let rec f n_fsm visited to_visit = *)
+  (*     match to_visit with *)
+  (*     | [] -> n_fsm *)
+  (*     |  st::remaining -> *)
+  (*       (\* states reachable from st *\) *)
+  (*       let reachable = succ fsm st in *)
+  (*       let n_fsm' = add_state_and_successors n_fsm st in *)
 
-        let visited' = st::visited in
-        let to_visit' = Utils.minus (reachable @ remaining) visited' in
-        f n_fsm' visited' to_visit'
-    in
-    f empty [] [st]
+  (*       let visited' = st::visited in *)
+  (*       let to_visit' = Utils.minus (reachable @ remaining) visited' in *)
+  (*       f n_fsm' visited' to_visit' *)
+  (*   in *)
+  (*   f empty [] [st] *)
 
   module Dot = struct
     module Display = struct
@@ -621,7 +621,7 @@ module Bisimulation (State : STATE) (Label : LABEL) (Str : STRENGTH)  = struct
   let dict_as_string dict =
     List.map (fun (a, b) -> "(" ^ State.list_as_string a ^ " |-> " ^ State.as_string b ^ ")") dict |> String.concat "\n\t"
 
-  let extract_minimal (bs : block list) (es : FSM.edge list) : FSM.t =
+  let _extract_minimal (bs : block list) (es : FSM.edge list) : FSM.t =
     let new_state_from_block b =
       let st = State.fresh() in
       let st = if List.exists State.is_start b then State.mark_as_start st else st in
@@ -653,8 +653,9 @@ module Bisimulation (State : STATE) (Label : LABEL) (Str : STRENGTH)  = struct
     in
     find_block st1 = find_block st2
 
-  let minimise (fsm : FSM.t) : FSM.t =
-    extract_minimal (compute_bisimulation_quotient fsm) (get_edges fsm)
+  let minimise (fsm : FSM.t) : FSM.t = fsm
+  (* let minimise (fsm : FSM.t) : FSM.t = *)
+  (*   _extract_minimal (compute_bisimulation_quotient fsm) (get_edges fsm) *)
 
   let generate_minimal_dot fsm =
     fsm |> minimise |> FSM.remove_reflexive_taus |> FSM.Dot.generate_dot
@@ -684,7 +685,7 @@ module Global = struct
   module FSM = FSM (State) (Label)
   include FSM
 
-  let postproces_taus (fsm : FSM.t) =
+  let _postproces_taus (fsm : FSM.t) =
     let apply (st, st') sub =
       let apply_to_one (st, st') (st1, st2) =
         let f st_this = if st = st_this then st' else st_this in
@@ -869,14 +870,14 @@ module Global = struct
 
   let generate_state_machine (g : global) : vertex * FSM.t =
     let st, fsm = generate_state_machine' g in
-    let fsm' =
-      postproces_taus fsm
-      |> minimise
-      |> FSM.remove_reflexive_taus
-      |> minimise_state_numbers
-    in
+    (* let fsm = *)
+      (* _postproces_taus fsm *)
+      (* |> minimise *)
+      (* |> FSM.remove_reflexive_taus *)
+      (* |> minimise_state_numbers *)
+    (* in *)
     "GLOBAL GENERATION COMPLETE!!!!!!" |> Utils.log ;
-    st, fsm'
+    st, fsm
 
   let generate_dot fsm = fsm |> Dot.generate_dot
 
