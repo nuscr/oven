@@ -251,6 +251,51 @@ module FSM (State : STATE) (Label : LABEL) = struct
     in
     fold_edges_e (fun e fsm -> if is_reflexive_tau e then fsm else add_edge_e fsm e) fsm e_fsm
 
+  module StateEquivalenceClasess =
+  struct
+
+    (* a list whre each element is a list of the equivalent states *)
+    type state_equivalence_class = vertex list list
+
+    let compute_from_pair_list (vss : (vertex * vertex) list) : state_equivalence_class =
+      let rec add
+          (eq_sts : state_equivalence_class)
+          ((v1, v2 as vs) : vertex * vertex)
+        : state_equivalence_class =
+        match eq_sts with
+        | [] -> [[v1 ; v2]]
+        | eqst::eqsts when List.mem v1 eqst -> (v2::eqst)::eqsts
+        | eqst::eqsts when List.mem v2 eqst -> (v1::eqst)::eqsts
+        | eqst::eqsts -> eqst::(add eqsts vs)
+      in
+      List.fold_left add [] vss
+
+    let translate (eqsts : state_equivalence_class) (fsm : t) : t =
+            (* get the canonical representative for each vertex *)
+      let translate_st st =
+        try
+          List.find (fun sts -> List.mem st sts) eqsts |> List.hd
+        with
+        | Failure _ -> Error.Violation "Equivalence class cannot be empty." |> raise
+        | Not_found -> st (* if it is not in an equivalence class it's on its own one *)
+
+      in
+      let translate_edge e =
+        if E.label e |> Label.is_default
+        then None
+        else Some (E.create
+                     (E.src e |> translate_st)
+                     (E.label e)
+                     (E.dst e |> translate_st))
+      in
+      fold_edges_e
+        (fun e fsm ->
+           match translate_edge e with
+           | None -> fsm
+           | Some e' -> add_edge_e fsm e')
+        fsm empty
+  end
+
   module MachineComposition =
   struct
     (* Monadic interface commented out for now *)
@@ -600,7 +645,7 @@ module Bisimulation (State : STATE) (Label : LABEL) (Str : STRENGTH)  = struct
         b1, b2 (* TODO remove the let *)
     in
 
-    let compute (bs : block list) : 'a =
+    let compute (bs : block list) : bool * block list =
       let rec for_each_edge (b : block) : FSM.edge list -> bool * block list = function
         | [] -> false, [b]
         | e::es ->
@@ -705,16 +750,6 @@ module Global = struct
   let postproces_taus (fsm : FSM.t) =
     if Debug.post_process_taus_off None then fsm
     else
-      let rec add
-          (eq_sts : FSM.vertex list list)
-          ((v1, v2 as vs) : FSM.vertex * FSM.vertex)
-        : FSM.vertex list list =
-        match eq_sts with
-        | [] -> [[v1 ; v2]]
-        | eqst::eqsts when List.mem v1 eqst -> (v2::eqst)::eqsts
-        | eqst::eqsts when List.mem v2 eqst -> (v1::eqst)::eqsts
-        | eqst::eqsts -> eqst::(add eqsts vs)
-      in
       let tau_pairs =
         FSM.fold_edges_e
           (fun e l ->
@@ -724,30 +759,8 @@ module Global = struct
           fsm []
       in
       (* lists of equivalent states *)
-      let eqsts = List.fold_left add [] tau_pairs in
-      (* get the canonical representative for each vertex *)
-      let translate_st st =
-        try
-          List.find (fun sts -> List.mem st sts) eqsts |> List.hd
-        with
-        | Failure _ -> Error.Violation "Equivalence class cannot be empty." |> raise
-        | Not_found -> st (* if it is not in an equivalence class it's on its own one *)
-
-      in
-      let translate_edge e =
-        if FSM.E.label e |> Label.is_default
-        then None
-        else Some (FSM.E.create
-                     (FSM.E.src e |> translate_st)
-                     (FSM.E.label e)
-                     (FSM.E.dst e |> translate_st))
-      in
-      FSM.fold_edges_e
-        (fun e fsm ->
-           match translate_edge e with
-           | None -> fsm
-           | Some e' -> FSM.add_edge_e fsm e')
-        fsm FSM.empty
+      let eqsts = StateEquivalenceClasess.compute_from_pair_list tau_pairs in
+      StateEquivalenceClasess.translate eqsts fsm
 
   let filter_degenerate_branches branches =
     List.filter (function Seq [] -> false | _ -> true) branches
