@@ -5,7 +5,7 @@ let _debug =
   (* let _ = Debug.set_all_debug_flags() in *)
   (* let _ = Debug.keep_only_reacheable_off (Some true) in *)
   (* let _ = Debug.project_to_empty (Some true) in *)
-  (* let _ = Debug.post_process_taus_off (Some true) in *)
+  (* let _ = Debug.post_process_taus_off (Some false) in *)
   (* let _ = Debug.minimise_off (Some true) in *)
   (* let _ = Debug.minimise_state_numbers_off (Some true) in *)
   ()
@@ -257,6 +257,9 @@ module FSM (State : STATE) (Label : LABEL) = struct
     (* a list whre each element is a list of the equivalent states *)
     type state_equivalence_class = vertex list list
 
+    let _string_of_state_equivalence_class sec =
+      List.map (fun l -> List.map State.as_string l |> String.concat "; ") sec |> String.concat " || "
+
     let canonicalise_start_end eq_sts =
       let make_head_start l =
         try
@@ -278,35 +281,34 @@ module FSM (State : STATE) (Label : LABEL) = struct
       List.map canonicalise eq_sts
 
     let compute_from_pair_list (vss : (vertex * vertex) list) : state_equivalence_class =
-
-      (* merges classes that share elements *)
-      (* TODO this is SO inefficient *)
-      let merge_equivalent (eq_sts : state_equivalence_class) : state_equivalence_class =
-        let elems = List.concat eq_sts |> Utils.sorted_uniq State.compare in
-        let rec build = function
-          | [] -> []
-          | e::es ->
-            let eq_e =
-              List.find_all (List.mem e) eq_sts
-              |> List.concat
-              |> Utils.sorted_uniq State.compare
-            in
-            eq_e::build es |> Utils.sorted_uniq compare
-        in
-        build elems
+      let find_list_and_rest v eq_sts =
+        let have, rest = List.partition (List.mem v) eq_sts in
+        match have with
+        | [] -> [], rest
+        | [have] -> have, rest
+        | _::_ -> Error.Violation "Invariant: each vertex appears only once." |> raise
       in
 
-      let rec add
-          (eq_sts : state_equivalence_class)
-          ((v1, v2 as vs) : vertex * vertex)
-        : state_equivalence_class =
-        match eq_sts with
-        | [] -> [[v1 ; v2]]
-        | eqst::eqsts when List.mem v1 eqst -> (v2::eqst)::eqsts
-        | eqst::eqsts when List.mem v2 eqst -> (v1::eqst)::eqsts
-        | eqst::eqsts -> eqst::(add eqsts vs)
+      let merge (eq_sts : state_equivalence_class)
+          ((v1, v2) : vertex * vertex) : state_equivalence_class =
+
+        let add_if_not_there v l = if List.mem v l then l else v::l in
+
+        let has_v1, rest =  find_list_and_rest v1 eq_sts in
+        if List.mem v2 has_v1 then eq_sts (* we are done *)
+
+        else if Utils.is_empty has_v1
+        then
+          let has_v2, rest = find_list_and_rest v2 eq_sts in
+          (add_if_not_there v2 (add_if_not_there v1 has_v2))::rest
+        else
+          (* has_v1 is not empty and it does not contain v2 *)
+          (* rest may contain v2 *)
+          let has_v2, rest = find_list_and_rest v2 rest in
+
+          (has_v1 @ (add_if_not_there v2 has_v2))::rest
       in
-      List.fold_left add [] vss |> merge_equivalent
+      List.fold_left merge [] vss
 
     let translate (eqsts : state_equivalence_class) (fsm : t) : t =
       let eqsts = canonicalise_start_end eqsts in
