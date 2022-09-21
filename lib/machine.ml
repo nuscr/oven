@@ -238,7 +238,7 @@ module FSM (State : STATE) (Label : LABEL) = struct
       then true
       else
         ("----------  Keeping edge: " ^ string_of_edge e |> Utils.log ;
-        false)
+         false)
     in
     fold_edges_e (fun e fsm -> if is_reflexive_tau e then fsm else add_edge_e fsm e) fsm e_fsm
 
@@ -308,6 +308,16 @@ module FSM (State : STATE) (Label : LABEL) = struct
       let coord = translate_state_to_joint_fsm sts side dict in
       E.create (E.src e |> coord) (E.label e) (E.dst e |> coord)
 
+
+    let get_final_states (fsm : t) : vertex list =
+      let has_no_successor st =
+        succ fsm st |> Utils.is_empty
+      in
+      let has_predecessor st =
+        pred fsm st |> Utils.is_empty |> not
+      in
+      get_vertices fsm |> List.filter (fun st -> has_no_successor st && has_predecessor st)
+
     let walker (fsm : t) (fsm' : t) (initial_st : vertex * vertex)
         (walk_fun : dict -> vertex * vertex -> ((edge * (vertex * vertex))) list)
       : dict * (vertex list * t) =
@@ -316,42 +326,37 @@ module FSM (State : STATE) (Label : LABEL) = struct
           (sts : vertex * vertex)
           (visited : vertex list)
           (jfsm : t)
-          (next : vertex list) (* TODO: NO ONE EVER MODIFIES NEXT *)
-          (* the continuation takes the visited, next, and fsm *)
-          (k : vertex list -> vertex list -> t -> 'a) : 'a  =
+          (k : t -> 'a) : 'a  =
         let curr_st = find_state_in_dest sts dict in
         if List.mem curr_st visited
-        then k visited next jfsm
+        then k jfsm
         else
-          (let jes = walk_fun dict sts in
-           "START WALK" |> Utils.log;
-           "Left: " ^ State.as_string (fst sts) |> Utils.log;
-           "Right: " ^ State.as_string (snd sts) |> Utils.log;
-           "Joint: " ^ State.as_string curr_st |> Utils.log;
-           let ts el = List.map (fun x -> fst x |> string_of_edge) el |> String.concat ", " in
-           "Edges: " ^ ts jes |> Utils.log;
-           "END WALK" |> Utils.log;
-           (* the next states are the ones that follow from this state with the selected things. Not really? *)
-           let next = List.map (fun (_,(v, _)) ->  v) jes in
-           add_edges jes (curr_st::visited) jfsm next k)
+          let jes = walk_fun dict sts in
+          "START WALK" |> Utils.log;
+          "Left: " ^ State.as_string (fst sts) |> Utils.log;
+          "Right: " ^ State.as_string (snd sts) |> Utils.log;
+          "Joint: " ^ State.as_string curr_st |> Utils.log;
+          let ts el = List.map (fun x -> fst x |> string_of_edge) el |> String.concat ", " in
+          "Edges: " ^ ts jes |> Utils.log;
+          "END WALK" |> Utils.log;
+          add_edges jes (curr_st::visited) jfsm k
 
       and add_edges
           (pending : (edge * (vertex * vertex)) list)
           (visited : vertex list)
           (jfsm : t)
-          (next : vertex list)
-          (k : vertex list -> vertex list -> t -> 'a) : ' a =
+          (k : t -> 'a) : ' a =
         match pending with
         | (je, next_sts)::jes ->
           let jfsm = add_edge_e jfsm je in
           "ADDING: " ^ (string_of_edge je) |> Utils.log ;
-          walk next_sts visited jfsm next
-            (fun visited _ jfsm -> add_edges jes visited jfsm next k)
+          walk next_sts visited jfsm
+            (fun jfsm -> add_edges jes visited jfsm k)
 
-        | [] -> k visited next jfsm
+        | [] -> k jfsm
 
       in
-      dict, walk initial_st [] jfsm [] (fun _ next fsm -> next, fsm)
+      walk initial_st [] jfsm (fun fsm -> dict, (get_final_states fsm, fsm))
   end
 
   (* compose two machines with a function *)
@@ -713,9 +718,9 @@ module Global = struct
       | Not_found -> st
     in
     "Substitutions: " ^ (List.map
-       (fun (st, st') ->
-         "(" ^ State.as_string st ^ ", " ^ State.as_string st' ^ ")")
-       subs |> String.concat "; ")
+                           (fun (st, st') ->
+                              "(" ^ State.as_string st ^ ", " ^ State.as_string st' ^ ")")
+                           subs |> String.concat "; ")
     |> Utils.log;
     let sub_edge e =
       FSM.E.create (FSM.E.src e |> sub_st) (FSM.E.label e) (FSM.E.dst e |> sub_st)
@@ -853,10 +858,10 @@ module Global = struct
         | [next_fsm] -> next_fsm |> snd
         | s_st_next_fsm::next_fsms' ->
           (List.fold_left
-            (fun (s_st, (_, fsm)) (s_st', (_, fsm')) ->
-               combine_fun (s_st, s_st') fsm fsm')
-            s_st_next_fsm
-            next_fsms') |> snd
+             (fun (s_st, (_, fsm)) (s_st', (_, fsm')) ->
+                combine_fun (s_st, s_st') fsm fsm')
+             s_st_next_fsm
+             next_fsms') |> snd
       in
       let resfsm = merge fsm fsm' in
       nexts, resfsm
@@ -871,10 +876,10 @@ module Global = struct
   let generate_state_machine (g : global) : vertex * FSM.t =
     let st, fsm = generate_state_machine' g in
     (* let fsm = *)
-      (* _postproces_taus fsm *)
-      (* |> minimise *)
-      (* |> FSM.remove_reflexive_taus *)
-      (* |> minimise_state_numbers *)
+    (* _postproces_taus fsm *)
+    (* |> minimise *)
+    (* |> FSM.remove_reflexive_taus *)
+    (* |> minimise_state_numbers *)
     (* in *)
     "GLOBAL GENERATION COMPLETE!!!!!!" |> Utils.log ;
     st, fsm
