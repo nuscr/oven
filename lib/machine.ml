@@ -5,7 +5,7 @@ let _debug =
   (* let _ = Debug.set_all_debug_flags() in *)
   (* let _ = Debug.keep_only_reacheable_off (Some false) in *)
   (* let _ = Debug.project_to_empty (Some true) in *)
-  (* let _ = Debug.post_process_taus_off (Some false) in *)
+  (* let _ = Debug.post_process_taus_off (Some true) in *)
   (* let _ = Debug.minimise_off (Some false) in *)
   (* let _ = Debug.minimise_state_numbers_off (Some false) in *)
   ()
@@ -257,6 +257,26 @@ module FSM (State : STATE) (Label : LABEL) = struct
     (* a list whre each element is a list of the equivalent states *)
     type state_equivalence_class = vertex list list
 
+    let canonicalise_start_end eq_sts =
+      let make_head_start l =
+        try
+          let _ = List.hd l |> State.mark_as_start in ()
+        with
+        | Failure _ -> Error.Violation "The equivalence class needs a canonical element." |> raise
+      in
+      let make_head_end l =
+        try
+          let _ = List.hd l |> State.mark_as_end in ()
+        with
+        | Failure _ -> Error.Violation "The equivalence class needs a canonical element." |> raise
+      in
+      let canonicalise eq_st =
+        if List.exists State.is_start eq_st then make_head_start eq_st ;
+        if List.exists State.is_end eq_st then make_head_end eq_st ;
+        eq_st
+      in
+      List.map canonicalise eq_sts
+
     let compute_from_pair_list (vss : (vertex * vertex) list) : state_equivalence_class =
       let rec add
           (eq_sts : state_equivalence_class)
@@ -271,6 +291,7 @@ module FSM (State : STATE) (Label : LABEL) = struct
       List.fold_left add [] vss
 
     let translate (eqsts : state_equivalence_class) (fsm : t) : t =
+      let eqsts = canonicalise_start_end eqsts in
             (* get the canonical representative for each vertex *)
       let translate_st st =
         try
