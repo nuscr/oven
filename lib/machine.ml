@@ -326,10 +326,10 @@ module FSM (State : STATE) (Label : LABEL) = struct
           (sts : vertex * vertex)
           (visited : vertex list)
           (jfsm : t)
-          (k : t -> 'a) : 'a  =
+          (k : vertex list -> t -> 'a) : 'a  =
         let curr_st = find_state_in_dest sts dict in
         if List.mem curr_st visited
-        then k jfsm
+        then k visited jfsm
         else
           let jes = walk_fun dict sts in
           "START WALK" |> Utils.log;
@@ -345,18 +345,18 @@ module FSM (State : STATE) (Label : LABEL) = struct
           (pending : (edge * (vertex * vertex)) list)
           (visited : vertex list)
           (jfsm : t)
-          (k : t -> 'a) : ' a =
+          (k : vertex list -> t -> 'a) : ' a =
         match pending with
         | (je, next_sts)::jes ->
           let jfsm = add_edge_e jfsm je in
           "ADDING: " ^ (string_of_edge je) |> Utils.log ;
           walk next_sts visited jfsm
-            (fun jfsm -> add_edges jes visited jfsm k)
+            (fun visited jfsm -> add_edges jes visited jfsm k)
 
-        | [] -> k jfsm
+        | [] -> k visited jfsm
 
       in
-      walk initial_st [] jfsm (fun fsm -> dict, (get_final_states fsm, fsm))
+      walk initial_st [] jfsm (fun _visited fsm -> dict, (get_final_states fsm, fsm))
   end
 
   (* compose two machines with a function *)
