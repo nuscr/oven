@@ -489,7 +489,7 @@ module FSM (State : STATE) (Label : LABEL) = struct
         f n_fsm' visited' to_visit'
     in
 
-    if Debug.keep_only_reacheable_off ()
+    if Debug.keep_only_reacheable_off None
     then fsm
     else f empty [] [st]
 
@@ -902,7 +902,7 @@ module Global = struct
 
   let generate_state_machine (g : global) : vertex * FSM.t =
     let st, fsm = generate_state_machine' g in
-    let fsm = if Debug.simplify_machine_off()
+    let fsm = if Debug.simplify_machine_off None
       then fsm
       else
         postproces_taus fsm
@@ -956,35 +956,37 @@ module Local = struct
 
 
   let project (r : Syntax.role) (fsm : Global.FSM.t) : FSM.t =
-    "Projecting role: " ^  r |> Utils.log ;
-    (* add the \tau transitions induced by L-Rev *)
-    let complete fsm : FSM.t =
-      let tau_edges = FSM.fold_edges_e (fun e l -> if FSM.E.label e |> Option.is_none then e::l else l) fsm []  in
+    if Debug.project_to_empty None then FSM.empty
+    else begin
+      "Projecting role: " ^  r |> Utils.log ;
+      (* add the \tau transitions induced by L-Rev *)
+      let complete fsm : FSM.t =
+        let tau_edges = FSM.fold_edges_e (fun e l -> if FSM.E.label e |> Option.is_none then e::l else l) fsm []  in
 
-      let reverse_edge e =
-        FSM.E.create (FSM.E.dst e) (FSM.E.label e) (FSM.E.src e)
+        let reverse_edge e =
+          FSM.E.create (FSM.E.dst e) (FSM.E.label e) (FSM.E.src e)
+        in
+
+        let new_tau_edges = List.filter_map (fun e -> if state_can_step fsm (FSM.E.dst e) then Some (reverse_edge e) else None) tau_edges in
+
+        List.fold_left FSM.add_edge_e fsm new_tau_edges
       in
 
-      let new_tau_edges = List.filter_map (fun e -> if state_can_step fsm (FSM.E.dst e) then Some (reverse_edge e) else None) tau_edges in
-
-      List.fold_left FSM.add_edge_e fsm new_tau_edges
-    in
-
-    let project_edge e =
-      FSM.E.create
-        (Global.FSM.E.src e)
-        (Global.Label.project r (Global.FSM.E.label e))
-        (Global.FSM.E.dst e)
-    in
-    let with_vertices = Global.FSM.fold_vertex (fun s f -> FSM.add_vertex f s) fsm FSM.empty in
-    let with_edges =
-      Global.FSM.fold_edges_e
-        (fun e f -> FSM.add_edge_e f (project_edge e))
-        fsm
-        with_vertices
-    in
-    with_edges |> complete
-
+      let project_edge e =
+        FSM.E.create
+          (Global.FSM.E.src e)
+          (Global.Label.project r (Global.FSM.E.label e))
+          (Global.FSM.E.dst e)
+      in
+      let with_vertices = Global.FSM.fold_vertex (fun s f -> FSM.add_vertex f s) fsm FSM.empty in
+      let with_edges =
+        Global.FSM.fold_edges_e
+          (fun e f -> FSM.add_edge_e f (project_edge e))
+          fsm
+          with_vertices
+      in
+      with_edges |> complete
+    end
 
   type wb_res = (unit, string) Result.t
 
