@@ -207,9 +207,7 @@ module FSM (State : STATE) (Label : LABEL) = struct
 
       let fsm' = List.fold_left (fun fsm (_, st) -> add_vertex fsm st ) empty vertices in
       let update e =
-        let tr st =
-        List.assoc st vertices
-        in
+        let tr st = List.assoc st vertices in
         E.create (E.src e |> tr) (E.label e) (E.dst e |> tr)
       in
       fold_edges_e (fun e fsm -> add_edge_e fsm (update e)) fsm fsm'
