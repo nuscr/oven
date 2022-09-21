@@ -705,48 +705,49 @@ module Global = struct
   let postproces_taus (fsm : FSM.t) =
     if Debug.post_process_taus_off None then fsm
     else
-    let apply (st, st') sub =
-      let apply_to_one (st, st') (st1, st2) =
-        let f st_this = if st = st_this then st' else st_this in
-        (f st1, f st2)
+      let rec add
+          (eq_sts : FSM.vertex list list)
+          ((v1, v2 as vs) : FSM.vertex * FSM.vertex)
+        : FSM.vertex list list =
+        match eq_sts with
+        | [] -> [[v1 ; v2]]
+        | eqst::eqsts when List.mem v1 eqst -> (v2::eqst)::eqsts
+        | eqst::eqsts when List.mem v2 eqst -> (v1::eqst)::eqsts
+        | eqst::eqsts -> eqst::(add eqsts vs)
       in
-      List.map (apply_to_one (st, st')) sub
-    in
+      let tau_pairs =
+        FSM.fold_edges_e
+          (fun e l ->
+             if FSM.E.label e |> Label.is_default
+             then  (FSM.E.src e, FSM.E. dst e)::l
+             else l)
+          fsm []
+      in
+      (* lists of equivalent states *)
+      let eqsts = List.fold_left add [] tau_pairs in
+      (* get the canonical representative for each vertex *)
+      let translate_st st =
+        try
+          List.find (fun sts -> List.mem st sts) eqsts |> List.hd
+        with
+        | Failure _ -> Error.Violation "Equivalence class cannot be empty." |> raise
+        | Not_found -> st (* if it is not in an equivalence class it's on its own one *)
 
-    let rec normalise = function
-      | [] -> []
-      | (st, st')::subs -> let subs' = (st, st')::(apply (st, st') subs |> normalise) in
-        subs'
-    in
-
-    let subs = FSM.fold_edges_e
-        (fun e l -> if FSM.E.label e = Label.default then (E.src e, E.dst e)::l else l) fsm []
-               |> normalise
-    in
-    let sub_st st =
-      try
-        let st' = List.assoc st subs in
-        let st' = if State.is_start st then State.mark_as_start st' else st' in
-        st'
-      with
-      | Not_found -> st
-    in
-    "Substitutions: " ^ (List.map
-                           (fun (st, st') ->
-                              "(" ^ State.as_string st ^ ", " ^ State.as_string st' ^ ")")
-                           subs |> String.concat "; ")
-    |> Utils.log;
-    let sub_edge e =
-      FSM.E.create (FSM.E.src e |> sub_st) (FSM.E.label e) (FSM.E.dst e |> sub_st)
-    in
-    let add_edge e fsm =
-      let e = sub_edge e in
-      if (FSM.E.src e = FSM.E.dst e) && (FSM.E.label e = Label.default)
-      then fsm
-      else FSM.add_edge_e fsm e
-    in
-    (* we don't add the states because they are added as needed *)
-    FSM.fold_edges_e add_edge fsm FSM.empty
+      in
+      let translate_edge e =
+        if FSM.E.label e |> Label.is_default
+        then None
+        else Some (FSM.E.create
+                     (FSM.E.src e |> translate_st)
+                     (FSM.E.label e)
+                     (FSM.E.dst e |> translate_st))
+      in
+      FSM.fold_edges_e
+        (fun e fsm ->
+           match translate_edge e with
+           | None -> fsm
+           | Some e' -> FSM.add_edge_e fsm e')
+        fsm FSM.empty
 
   let filter_degenerate_branches branches =
     List.filter (function Seq [] -> false | _ -> true) branches
