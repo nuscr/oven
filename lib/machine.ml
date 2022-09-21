@@ -995,15 +995,6 @@ module Local = struct
     let* _res = _c4 r _blocks (st, fsm) in
     _res |> Result.ok
 
-  and _c1_alt r (st, fsm) : wb_res =
-    if has_strong_outgoing_transitions fsm st then
-      let weak_sts = st::tau_reachable fsm st in
-      if List.exists State.is_end weak_sts then
-        "For role: " ^ r ^ " state: " ^ State.as_string st ^ " may terminate or continue (C1 violation)." |> Result.error
-      else
-        Result.ok ()
-    else Result.ok ()
-
   and _c1 r (st, fsm) : wb_res =
     if has_strong_outgoing_transitions fsm st then
       if State.is_end st then
@@ -1011,7 +1002,6 @@ module Local = struct
       else
         Result.ok ()
     else Result.ok ()
-
 
   and _c2 r blocks (st, fsm) : wb_res =
     let by_tau = tau_reachable fsm st in
