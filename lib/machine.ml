@@ -664,7 +664,8 @@ module Bisimulation (State : STATE) (Label : LABEL) (Str : STRENGTH)  = struct
 
   (* let minimise (fsm : FSM.t) : FSM.t = fsm *)
   let minimise (fsm : FSM.t) : FSM.t =
-    extract_minimal (compute_bisimulation_quotient fsm) (get_edges fsm)
+    if Debug.minimise_off None then fsm
+    else extract_minimal (compute_bisimulation_quotient fsm) (get_edges fsm)
 
   let generate_minimal_dot fsm =
     fsm |> minimise |> FSM.remove_reflexive_taus |> FSM.Dot.generate_dot
