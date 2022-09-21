@@ -834,29 +834,29 @@ module Global = struct
         let branches = filter_degenerate_branches branches in
         if List.length branches = 0 then next, fsm else
           let st, fsm = gather_next fsm next in
-          combine_branches fsm st branches parallel_compose
+          combine_branches fsm next st branches parallel_compose
 
       | LInt branches ->
         let branches = filter_degenerate_branches branches in
         if List.length branches = 0 then next, fsm else
           let st, fsm = gather_next fsm next in
-          combine_branches fsm st branches loose_intersection_compose
+          combine_branches fsm next st branches loose_intersection_compose
 
       | TInt branches ->
         let branches = filter_degenerate_branches branches in
         if List.length branches = 0 then next, fsm else
           let st, fsm = gather_next fsm next in
-          combine_branches fsm st branches tight_intersection_compose
+          combine_branches fsm next st branches tight_intersection_compose
 
       | Prioritise _ -> Error.Violation "Prioritise not yet implemented." |> raise
 
-    and combine_branches fsm s_st branches
+    and combine_branches fsm next s_st branches
         (combine_fun : vertex * vertex -> t -> t -> vertex * (vertex list * t)) =
       let m () =
         FSM.add_vertex FSM.empty s_st
       in
       let st_next_fsms = List.map (fun g -> s_st, tr (m ()) g [s_st]) branches in
-      let (nexts : vertex list), (fsm' : t) =
+      let (merged_next : vertex list), (fsm' : t) =
         match st_next_fsms with
         | [] -> ([s_st], m ())
         | [next_fsm] -> next_fsm |> snd
@@ -868,7 +868,8 @@ module Global = struct
              next_fsms') |> snd
       in
       let resfsm = merge fsm fsm' in
-      nexts, resfsm
+      let next = if Utils.is_empty merged_next then next else merged_next in
+      next, resfsm
     in
     let next, fsm_final = tr FSM.empty g [start] in
     List.iter (fun st -> let _ = State.mark_as_end st in ()) next ;
