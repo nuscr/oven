@@ -194,16 +194,18 @@ module FSM (State : STATE) (Label : LABEL) = struct
     List.concat_map (fun e -> let dst = E.dst e in if E.label e = a then dst::(tau_reachable fsm dst) else []) weak_edges
 
   let minimise_state_numbers fsm =
-    let vertices = get_vertices fsm |> List.mapi (fun n st -> (st, State.renumber_state n st)) in
+    if Debug.minimise_state_numbers_off None then fsm
+    else
+      let vertices = get_vertices fsm |> List.mapi (fun n st -> (st, State.renumber_state n st)) in
 
-    let fsm' = List.fold_left (fun fsm (_, st) -> add_vertex fsm st ) empty vertices in
-    let update e =
-      let tr st =
+      let fsm' = List.fold_left (fun fsm (_, st) -> add_vertex fsm st ) empty vertices in
+      let update e =
+        let tr st =
         List.assoc st vertices
+        in
+        E.create (E.src e |> tr) (E.label e) (E.dst e |> tr)
       in
-      E.create (E.src e |> tr) (E.label e) (E.dst e |> tr)
-    in
-    fold_edges_e (fun e fsm -> add_edge_e fsm (update e)) fsm fsm'
+      fold_edges_e (fun e fsm -> add_edge_e fsm (update e)) fsm fsm'
 
   (* simple merge two state machines *)
   let merge (fsm : t) (fsm' : t) : t =
