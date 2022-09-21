@@ -124,7 +124,7 @@ let analyse' () =
     (* W.(set_children (get "result") [(labels_html :> Dom.node Js.t)]) *)
   with
   | SynMPSTlib__.Error.UserError msg -> Interface.Error.display_exn (msg)
-  | e -> Interface.Error.display_exn ("Error:" ^ Printexc.to_string e)
+  | e -> Interface.Error.display_exn ("Error: " ^ Printexc.to_string e)
 
 
 let analyse () =
