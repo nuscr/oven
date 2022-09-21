@@ -1,7 +1,14 @@
 open Syntax
 open Graph
 
-let _ = Debug.set_all_debug_flags()
+let _debug =
+  (* let _ = Debug.set_all_debug_flags() in *)
+  (* let _ = Debug.keep_only_reacheable_off (Some false) in *)
+  (* let _ = Debug.project_to_empty (Some true) in *)
+  (* let _ = Debug.post_process_taus_off (Some false) in *)
+  (* let _ = Debug.minimise_off (Some false) in *)
+  (* let _ = Debug.minimise_state_numbers_off (Some false) in *)
+  ()
 
 module State = struct
   type t = { id : int
