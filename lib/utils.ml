@@ -10,6 +10,15 @@ let rec uniq x =
   | h::t -> h::(helper (uniq t) h)
 
 
+let sorted_uniq compare l =
+  let rec rem_dup l acc = function
+    | [] -> acc
+    | x::xs when Some x = l -> rem_dup l acc xs
+    | x::xs -> rem_dup (Some x) (x::acc) xs
+  in
+  List.sort compare l |> rem_dup None []
+
+
 let is_empty = function
   | [] -> true
   | _ -> false

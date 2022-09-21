@@ -3,11 +3,11 @@ open Graph
 
 let _debug =
   (* let _ = Debug.set_all_debug_flags() in *)
-  (* let _ = Debug.keep_only_reacheable_off (Some false) in *)
+  (* let _ = Debug.keep_only_reacheable_off (Some true) in *)
   (* let _ = Debug.project_to_empty (Some true) in *)
   (* let _ = Debug.post_process_taus_off (Some true) in *)
-  (* let _ = Debug.minimise_off (Some false) in *)
-  (* let _ = Debug.minimise_state_numbers_off (Some false) in *)
+  (* let _ = Debug.minimise_off (Some true) in *)
+  (* let _ = Debug.minimise_state_numbers_off (Some true) in *)
   ()
 
 module State = struct
@@ -278,6 +278,24 @@ module FSM (State : STATE) (Label : LABEL) = struct
       List.map canonicalise eq_sts
 
     let compute_from_pair_list (vss : (vertex * vertex) list) : state_equivalence_class =
+
+      (* merges classes that share elements *)
+      (* TODO this is SO inefficient *)
+      let merge_equivalent (eq_sts : state_equivalence_class) : state_equivalence_class =
+        let elems = List.concat eq_sts |> Utils.sorted_uniq State.compare in
+        let rec build = function
+          | [] -> []
+          | e::es ->
+            let eq_e =
+              List.find_all (List.mem e) eq_sts
+              |> List.concat
+              |> Utils.sorted_uniq State.compare
+            in
+            eq_e::build es |> Utils.sorted_uniq compare
+        in
+        build elems
+      in
+
       let rec add
           (eq_sts : state_equivalence_class)
           ((v1, v2 as vs) : vertex * vertex)
@@ -288,7 +306,7 @@ module FSM (State : STATE) (Label : LABEL) = struct
         | eqst::eqsts when List.mem v2 eqst -> (v1::eqst)::eqsts
         | eqst::eqsts -> eqst::(add eqsts vs)
       in
-      List.fold_left add [] vss
+      List.fold_left add [] vss |> merge_equivalent
 
     let translate (eqsts : state_equivalence_class) (fsm : t) : t =
       let eqsts = canonicalise_start_end eqsts in

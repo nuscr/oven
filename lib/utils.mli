@@ -1,6 +1,7 @@
 
 (* functions on lists *)
 val uniq : 'a list -> 'a list
+val sorted_uniq : ('a -> 'a -> int) -> 'a list -> 'a list
 val is_empty : 'a list -> bool
 val is_non_empty : 'a list -> bool
 val rem : 'a -> 'a list -> 'a list
