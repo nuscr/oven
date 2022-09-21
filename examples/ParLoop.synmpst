@@ -1,0 +1,16 @@
+(* Two loops in parallel *)
+
+global ParLoop(role C, role S)
+{
+  PRE() from S to C;
+  par {
+    fin {
+      A(int) from C to S;
+    }
+  } and {
+    fin {
+      B(int) from C to S;
+    }
+  }
+  POST() from S to C;
+}

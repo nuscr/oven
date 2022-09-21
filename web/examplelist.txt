@@ -2,6 +2,7 @@ examples/tc.synmpst
 examples/first.synmpst
 examples/second.synmpst
 examples/par.synmpst
+examples/ParLoop.synmpst
 examples/finfin.synmpst
 examples/nestedfin.synmpst
 examples/choice.synmpst
