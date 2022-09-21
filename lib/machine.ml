@@ -814,33 +814,18 @@ module Global = struct
         in
 
         let first_st = State.fresh () in (* state to start *)
+        let end_first_st = State.fresh () in (* state to finish before start *)
         let loop_st = State.fresh () in (* state to loop *)
         let end_st = State.fresh () in (* state to finish after one or more loops *)
 
+        let fsm = FSM.add_edge fsm first_st end_first_st in
         let fsm = connect_to fsm next first_st in (* gather in first *)
         let fsm = tr_from_to fsm g' first_st loop_st in (* one ste before looping *)
         let fsm = tr_from_to fsm g' loop_st loop_st in (* do the loop *)
 
         let fsm = FSM.add_edge fsm loop_st end_st in
 
-        [first_st ; end_st], fsm
-
-      (* | Fin g' -> *)
-      (*   (\* one step before looping *\) *)
-      (*   let next', fsm = tr fsm g' next in *)
-      (*   let loop_st = State.fresh () in (\* new loop state *\) *)
-      (*   (\* connect all the nexts to the loop st *\) *)
-      (*   let fsm = *)
-      (*     List.fold_left (fun fsm st -> FSM.add_edge fsm st loop_st) (FSM.add_vertex fsm loop_st) next' *)
-      (*   in *)
-      (*   (\* do the actions from the loop_st *\) *)
-      (*   let next'', fsm = tr fsm g' [loop_st] in *)
-      (*   (\* and connect the loop *\) *)
-      (*   let fsm = *)
-      (*     List.fold_left (fun fsm st -> FSM.add_edge fsm st loop_st) fsm next'' *)
-      (*   in *)
-      (*   (\* return the result, and combine the nexts to stop the recursion at any point *\) *)
-      (*   next @ next' @ next'' |> Utils.uniq, fsm *)
+        [end_first_st ; end_st], fsm
 
       | Inf g' ->
         let next, fsm = tr fsm g' next in
