@@ -591,20 +591,15 @@ module Bisimulation (State : STATE) (Label : LABEL) (Str : STRENGTH)  = struct
   module FSM = FSM (State) (Label)
   include FSM
 
+  open StateEquivalenceClasess
+
   type block = vertex list
 
-  let blocks_as_string (bs : block list) : string =
-    List.map
-      (fun b ->
-         "["
-         ^ (List.map State.as_string b |> String.concat "; ")
-         ^ "]")  bs |> String.concat "\n"
-
-  let compute_bisimulation_quotient (fsm : FSM.t) : block list =
+  let compute_bisimulation_quotient (fsm : FSM.t) : state_equivalence_class =
     "Start computing bisimul quot." |> Utils.log;
-    let initial () : block list * FSM.edge list =
+    let initial () : state_equivalence_class * FSM.edge list =
       (* a singleton block with all the states to be refined *)
-      let bs : block list = [FSM.fold_vertex (fun st l -> st :: l) fsm []] in
+      let bs : state_equivalence_class = [FSM.fold_vertex (fun st l -> st :: l) fsm []] in
       let edges = get_edges fsm in
       bs, edges
     in
@@ -630,7 +625,7 @@ module Bisimulation (State : STATE) (Label : LABEL) (Str : STRENGTH)  = struct
       List.map (fun st -> find_state_in_blocks st bs) sts |> Utils.uniq
     in
 
-    let split (b : block) (a : Label.t) (bs : block list) : block * block =
+    let split (b : block) (a : Label.t) (bs : state_equivalence_class) : block * block =
       match b with
       | [] -> [], []
       | st::_ -> (* choose some state in the block *)
@@ -645,7 +640,7 @@ module Bisimulation (State : STATE) (Label : LABEL) (Str : STRENGTH)  = struct
         b1, b2 (* TODO remove the let *)
     in
 
-    let compute (bs : block list) : bool * block list =
+    let compute (bs : block list) : bool * state_equivalence_class =
       let rec for_each_edge (b : block) : FSM.edge list -> bool * block list = function
         | [] -> false, [b]
         | e::es ->
@@ -675,35 +670,7 @@ module Bisimulation (State : STATE) (Label : LABEL) (Str : STRENGTH)  = struct
         bs'
 
     in
-    let bs' = compute_while_changes bs in
-    "Blocks are:\n" ^ blocks_as_string bs' |> Utils.log ;
-    bs'
-
-  let dict_as_string dict =
-    List.map (fun (a, b) -> "(" ^ State.list_as_string a ^ " |-> " ^ State.as_string b ^ ")") dict |> String.concat "\n\t"
-
-  let extract_minimal (bs : block list) (es : FSM.edge list) : FSM.t =
-    let new_state_from_block b =
-      let st = State.fresh() in
-      let st = if List.exists State.is_start b then State.mark_as_start st else st in
-      let st = if List.exists State.is_end b then State.mark_as_end st else st in
-      st
-    in
-    let st_dict = List.map (fun b -> b, new_state_from_block b) bs in
-    "Translation dictionary is :" ^ dict_as_string st_dict |> Utils.log ;
-    let lookup st =
-      let rec l = function
-        | [] -> Error.Violation "State not found, this is a bug!" |> raise
-        | (b, st')::_ when List.mem st b -> st'
-        | _::dict -> l dict
-      in
-      l st_dict
-    in
-
-    (* add states *)
-    let fsm = List.fold_left (fun fsm (_, st) -> FSM.add_vertex fsm st) FSM.empty st_dict in
-    (* add edges *)
-    List.fold_left (fun fsm e -> FSM.add_edge_e fsm (FSM.E.create (FSM.E.src e |> lookup) (FSM.E.label e) (FSM.E.dst e |> lookup)) ) fsm es
+    compute_while_changes bs
 
   let are_states_bisimilar (blocks : block list) st1 st2 : bool =
     let find_block (st : vertex) =
@@ -714,10 +681,11 @@ module Bisimulation (State : STATE) (Label : LABEL) (Str : STRENGTH)  = struct
     in
     find_block st1 = find_block st2
 
-  (* let minimise (fsm : FSM.t) : FSM.t = fsm *)
   let minimise (fsm : FSM.t) : FSM.t =
     if Debug.minimise_off None then fsm
-    else extract_minimal (compute_bisimulation_quotient fsm) (get_edges fsm)
+    else
+      let eqsts = compute_bisimulation_quotient fsm in
+      StateEquivalenceClasess.translate eqsts fsm
 
   let generate_minimal_dot fsm =
     fsm |> minimise |> FSM.remove_reflexive_taus |> FSM.Dot.generate_dot
