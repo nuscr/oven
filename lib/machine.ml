@@ -695,6 +695,8 @@ module Global = struct
   include FSM
 
   let postproces_taus (fsm : FSM.t) =
+    if Debug.post_process_taus_off None then fsm
+    else
     let apply (st, st') sub =
       let apply_to_one (st, st') (st1, st2) =
         let f st_this = if st = st_this then st' else st_this in
