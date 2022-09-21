@@ -1,6 +1,8 @@
 open Syntax
 open Graph
 
+let _ = Debug.set_all_debug_flags()
+
 module State = struct
   type t = { id : int
            ; is_start : bool ref
@@ -465,29 +467,31 @@ module FSM (State : STATE) (Label : LABEL) = struct
     (*      l_es' |> pair_with_unit, r_es' |> pair_with_unit) () *)
     assert false
 
-  let only_reachable_from _ fsm = fsm
-  (* let only_reachable_from st fsm = *)
-  (*   let add_state_and_successors n_fsm st = *)
-  (*     let next_sts = succ fsm st in *)
-  (*     let next_edges = succ_e fsm st in *)
+  let only_reachable_from st fsm =
+    let add_state_and_successors n_fsm st =
+      let next_sts = succ fsm st in
+      let next_edges = succ_e fsm st in
 
-  (*     let n_fsm' = List.fold_left (fun fsm st -> add_vertex fsm st ) (add_vertex n_fsm st) next_sts in *)
-  (*     List.fold_left (fun fsm e -> add_edge_e fsm e) n_fsm' next_edges *)
-  (*   in *)
+      let n_fsm' = List.fold_left (fun fsm st -> add_vertex fsm st ) (add_vertex n_fsm st) next_sts in
+      List.fold_left (fun fsm e -> add_edge_e fsm e) n_fsm' next_edges
+    in
 
-  (*   let rec f n_fsm visited to_visit = *)
-  (*     match to_visit with *)
-  (*     | [] -> n_fsm *)
-  (*     |  st::remaining -> *)
-  (*       (\* states reachable from st *\) *)
-  (*       let reachable = succ fsm st in *)
-  (*       let n_fsm' = add_state_and_successors n_fsm st in *)
+    let rec f n_fsm visited to_visit =
+      match to_visit with
+      | [] -> n_fsm
+      |  st::remaining ->
+        (* states reachable from st *)
+        let reachable = succ fsm st in
+        let n_fsm' = add_state_and_successors n_fsm st in
 
-  (*       let visited' = st::visited in *)
-  (*       let to_visit' = Utils.minus (reachable @ remaining) visited' in *)
-  (*       f n_fsm' visited' to_visit' *)
-  (*   in *)
-  (*   f empty [] [st] *)
+        let visited' = st::visited in
+        let to_visit' = Utils.minus (reachable @ remaining) visited' in
+        f n_fsm' visited' to_visit'
+    in
+
+    if Debug.keep_only_reacheable_off ()
+    then fsm
+    else f empty [] [st]
 
   module Dot = struct
     module Display = struct
@@ -626,7 +630,7 @@ module Bisimulation (State : STATE) (Label : LABEL) (Str : STRENGTH)  = struct
   let dict_as_string dict =
     List.map (fun (a, b) -> "(" ^ State.list_as_string a ^ " |-> " ^ State.as_string b ^ ")") dict |> String.concat "\n\t"
 
-  let _extract_minimal (bs : block list) (es : FSM.edge list) : FSM.t =
+  let extract_minimal (bs : block list) (es : FSM.edge list) : FSM.t =
     let new_state_from_block b =
       let st = State.fresh() in
       let st = if List.exists State.is_start b then State.mark_as_start st else st in
@@ -658,9 +662,9 @@ module Bisimulation (State : STATE) (Label : LABEL) (Str : STRENGTH)  = struct
     in
     find_block st1 = find_block st2
 
-  let minimise (fsm : FSM.t) : FSM.t = fsm
-  (* let minimise (fsm : FSM.t) : FSM.t = *)
-  (*   _extract_minimal (compute_bisimulation_quotient fsm) (get_edges fsm) *)
+  (* let minimise (fsm : FSM.t) : FSM.t = fsm *)
+  let minimise (fsm : FSM.t) : FSM.t =
+    extract_minimal (compute_bisimulation_quotient fsm) (get_edges fsm)
 
   let generate_minimal_dot fsm =
     fsm |> minimise |> FSM.remove_reflexive_taus |> FSM.Dot.generate_dot
@@ -690,7 +694,7 @@ module Global = struct
   module FSM = FSM (State) (Label)
   include FSM
 
-  let _postproces_taus (fsm : FSM.t) =
+  let postproces_taus (fsm : FSM.t) =
     let apply (st, st') sub =
       let apply_to_one (st, st') (st1, st2) =
         let f st_this = if st = st_this then st' else st_this in
@@ -898,12 +902,14 @@ module Global = struct
 
   let generate_state_machine (g : global) : vertex * FSM.t =
     let st, fsm = generate_state_machine' g in
-    (* let fsm = *)
-    (* _postproces_taus fsm *)
-    (* |> minimise *)
-    (* |> FSM.remove_reflexive_taus *)
-    (* |> minimise_state_numbers *)
-    (* in *)
+    let fsm = if Debug.simplify_machine_off()
+      then fsm
+      else
+        postproces_taus fsm
+        |> minimise
+        |> FSM.remove_reflexive_taus
+        |> minimise_state_numbers
+    in
     "GLOBAL GENERATION COMPLETE!!!!!!" |> Utils.log ;
     st, fsm
 
