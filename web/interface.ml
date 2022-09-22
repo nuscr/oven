@@ -64,6 +64,13 @@ module GraphLocal = struct
   let set id (svg : Dom.node Js.t) =
     Webutils.set_children (Webutils.get id) [svg]
 
+  let set_divs id string =
+      let e = Webutils.get id in
+      Webutils.(
+        set_inner_html e "%s" string ;
+        set_display e "block")
+
+
   let set_dot id (dot : string) =
     let dot = Js.string dot in
     let viz = Js.Unsafe.global##._Viz in

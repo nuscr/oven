@@ -98,6 +98,21 @@ let display_label (protocol, label) =
 let display_labels (lbls : (string * SynMPSTlib__.Syntax.transition_label) list) =
   To_dom.of_element @@ T.(ul (List.map display_label lbls))
 
+let set_local fsms =
+  let set (r, _fsm) =
+    "<div class='localFSM'> <h3> Role: " ^ r ^ "</h3>" ^
+    "<div id = local_" ^ r  ^ " > </div> </div>"
+  in
+  let divs = List.map set fsms |> String.concat "\n" in
+
+  Interface.GraphLocal.set_divs "local" divs ;
+
+  let set_graph (r, fsm) =
+    Interface.GraphLocal.set_dot ("local_" ^ r) (SynMPSTlib.dot_of_local_machine fsm)
+  in
+
+  List.iter set_graph fsms
+
 
 let analyse' () =
   try
@@ -112,8 +127,9 @@ let analyse' () =
       let _, fsm = SynMPSTlib.generate_global_state_machine prot.interactions in
       SynMPSTlib.dot_of_global_machine fsm |> Interface.GraphEFSM.set_dot ;
 
-      let fsm = SynMPSTlib.generate_all_local_machines prot in
-      SynMPSTlib.dot_of_local_machine fsm |> Interface.GraphLocal.set_dot "local" ;
+      let fsms = SynMPSTlib.generate_all_local_machines prot in
+      (* SynMPSTlib.dot_of_local_machine fsm |> Interface.GraphLocal.set_dot "local" ; *)
+      set_local fsms ;
 
       SynMPSTlib.well_behaved_protocol prot
 

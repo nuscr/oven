@@ -45,7 +45,7 @@ module Toplevel = struct
 
   let minimal_dot_of_local_machine = Machine.Local.generate_minimal_dot
 
-  let generate_all_local_machines : Syntax.global Syntax.protocol -> Machine.Local.FSM.t =
+  let generate_all_local_machines =
     Machine.Local.generate_all_local
 
   let dot_of_local_machine = Machine.Local.generate_dot

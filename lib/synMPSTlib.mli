@@ -19,7 +19,7 @@ val minimal_dot_of_local_machine : Machine.Local.FSM.t -> string
 
 val get_log : unit -> string
 
-val generate_all_local_machines : Syntax.global Syntax.protocol -> Machine.Local.FSM.t
+val generate_all_local_machines : Syntax.global Syntax.protocol -> (Syntax.role * Machine.Local.FSM.t) list
 
 val well_behaved_protocol : Syntax.global Syntax.protocol -> unit
 

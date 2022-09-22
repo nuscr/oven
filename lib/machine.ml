@@ -224,22 +224,6 @@ module FSM (State : STATE) (Label : LABEL) = struct
   let merge_all (fsms : t list) : t =
     List.fold_left merge empty fsms
 
-  (* this function appears twice, move them to a generic module *)
-  let disjoint_merge fsm fsm' =
-    let copy src dst  =
-      let vertices = get_vertices src |> List.map (fun st -> (st, State.freshen st)) in
-
-      let dst' = List.fold_left (fun fsm (_, st) -> add_vertex fsm st ) dst vertices in
-      let update e =
-        let tr st =
-          List.assoc st vertices
-        in
-        E.create (E.src e |> tr) (E.label e) (E.dst e |> tr)
-      in
-      fold_edges_e (fun e fsm -> add_edge_e fsm (update e)) src dst'
-    in
-    copy fsm @@ copy fsm' empty
-
   let remove_reflexive_taus (fsm : t) : t =
     let e_fsm = fold_vertex (fun st fsm -> add_vertex fsm st) fsm empty in
     let is_reflexive_tau e =
@@ -1183,12 +1167,8 @@ module Local = struct
 
     let local_machine (g : global) (r : role) =
       let _, gfsm = Global.generate_state_machine g in
-      project r gfsm |> minimise_state_numbers
+      r, project r gfsm |> minimise_state_numbers
     in
 
-    List.fold_left
-      (fun fsm r ->
-         let lfsm = local_machine protocol.interactions r in
-         disjoint_merge lfsm fsm)
-      FSM.empty roles
+    List.map (local_machine protocol.interactions) roles
 end
