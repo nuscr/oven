@@ -101,11 +101,11 @@ let display_labels (lbls : (string * SynMPSTlib__.Syntax.transition_label) list)
 let set_local fsms =
   let set (r, _fsm) =
     "<div class='localFSM'> <h3> Role: " ^ r ^ "</h3>" ^
-    "<div id = local_" ^ r  ^ " > </div> </div>"
+    "<div id = local_" ^ r  ^ " style=\"overflow: scroll;\" > </div> </div>"
   in
   let divs = List.map set fsms |> String.concat "\n" in
 
-  Interface.GraphLocal.set_divs "local" divs ;
+  Interface.GraphLocal.set_div "local" divs ;
 
   let set_graph (r, fsm) =
     Interface.GraphLocal.set_dot ("local_" ^ r) (SynMPSTlib.dot_of_local_machine fsm)
@@ -159,6 +159,25 @@ let analyse () =
 (*         let roles_html = display_roles ast @@ enumerate ast in *)
 (*         W.(set_children (get "roles") [(roles_html :> Dom.node Js.t)]) ) *)
 
+let quick_parse () =
+  Interface.GraphLocal.set_div "output" "";
+  let src = Interface.Code.get () in
+  let names nms =
+    let l = List.map (fun n -> "<li> " ^ n ^ " </li>") nms |> String.concat "\n" in
+    Interface.GraphLocal.set_div "output" @@ "<h2> Protocols: </h2><ul>\n" ^ l ^ "\n</ul>"
+  in
+  match SynMPSTlib.quick_parse_string src with
+  | Result.Ok prots -> names prots
+  | Result.Error err -> Interface.GraphLocal.set_div "output" err
+
+let _ =
+  let open Js_of_ocaml in
+  Js.export "synMPST"
+    (object%js
+       method parse () =
+         quick_parse ()
+     end)
+
 let init _ =
   let button =
     ( Js.Unsafe.coerce (Dom_html.getElementById "button")
@@ -167,7 +186,7 @@ let init _ =
   button##.onclick := Dom_html.handler (fun _ -> analyse () ; Js._false) ;
   W.make_combobox "examples"
     (List.map
-       (fun (name, value) -> (name, fun () -> Interface.Code.set value))
+       (fun (name, value) -> (name, fun () -> Interface.Code.set value ; quick_parse ()))
        Examples.list ) ;
   Js._false
 

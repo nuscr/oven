@@ -1,4 +1,5 @@
 val parse_string : string -> Syntax.compilation_unit
+val quick_parse_string : string -> (string list, string) result
 val translate_and_validate : Syntax.compilation_unit -> Syntax.compilation_unit
 
 val get_transitions : Syntax.compilation_unit -> (string * Syntax.transition_label) list

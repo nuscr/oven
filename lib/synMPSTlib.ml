@@ -19,6 +19,12 @@ module Toplevel = struct
 
   let parse_string string : Syntax.compilation_unit = parse_from_lexbuf @@ Lexing.from_string string
 
+  let quick_parse_string s : (string list, string) result =
+    try
+      parse_string s |> List.map (fun cu -> cu.Syntax.protocol_name) |> Result.ok
+    with
+      Error.UserError s -> Result.error s
+
   let translate_and_validate (cu : Syntax.compilation_unit) : Syntax.compilation_unit =
     if Syntax.validate_compilation_unit cu then
       cu

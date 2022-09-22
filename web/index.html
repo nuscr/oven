@@ -40,12 +40,15 @@
           <div rows="30" id="protocol-textarea" default="Enter text..."></div>
           <script>
             // use selector
-//            const iblize = new Iblize("#protocol-textarea");
             const iblize = new Iblize("#protocol-textarea", {
                 language: "html",
                 lineNumber: true,
                 theme: "iblize-light",
                 // etc
+            });
+
+            iblize.onUpdate((value) => {
+                synMPST.parse(1);
             });
           </script>
           <br />
@@ -54,12 +57,14 @@
           </select>
           <button class="ui button" id="button">Analyse</button>
         </div>
-        <div class="eight wide column">
+        <div class="eight wide column" id="output">
+        </div>
+        <div class="sixteen wide column">
           <h2>Result: Global Machine </h2>
           <!-- remove the unused ones -->
           <div id="result"></div>
           <pre id="projected"/></pre>
-          <div id="efsm"></div>
+          <div id="efsm" style="overflow: scroll;"></div>
         </div>
         <div class = "sixteen wide column">
           <h2>Result: Local Projections </h2>
