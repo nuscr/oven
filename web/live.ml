@@ -113,7 +113,7 @@ let analyse' () =
       SynMPSTlib.dot_of_global_machine fsm |> Interface.GraphEFSM.set_dot ;
 
       let fsm = SynMPSTlib.generate_all_local_machines prot in
-      SynMPSTlib.dot_of_local_machine fsm |> Interface.GraphLocal.set_dot ;
+      SynMPSTlib.dot_of_local_machine fsm |> Interface.GraphLocal.set_dot "local" ;
 
       SynMPSTlib.well_behaved_protocol prot
 

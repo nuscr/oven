@@ -59,14 +59,12 @@ module GraphEFSM = struct
 end
 
 module GraphLocal = struct
-  let id = "local"
+  let clear id = Webutils.set_children (Webutils.get id) []
 
-  let clear () = Webutils.set_children (Webutils.get id) []
-
-  let set (svg : Dom.node Js.t) =
+  let set id (svg : Dom.node Js.t) =
     Webutils.set_children (Webutils.get id) [svg]
 
-  let set_dot (dot : string) =
+  let set_dot id (dot : string) =
     let dot = Js.string dot in
     let viz = Js.Unsafe.global##._Viz in
     let viz = Js.Unsafe.new_obj viz [||] in
@@ -74,7 +72,7 @@ module GraphLocal = struct
       Js.Unsafe.meth_call viz "renderSVGElement" [|Js.Unsafe.inject dot|]
     in
     let _promise =
-      Js.Unsafe.meth_call promise "then" [|Js.Unsafe.inject set|]
+      Js.Unsafe.meth_call promise "then" [|Js.Unsafe.inject (set id) |]
     in
     ()
 end
