@@ -46,9 +46,14 @@
                 theme: "iblize-light",
                 // etc
             });
+            to = undefined;
 
             iblize.onUpdate((value) => {
+                synMPST.clear(1);
                 synMPST.parse(1);
+                window.clearTimeout(to);
+                to = window.setTimeout(()=> synMPST.render(1), 1000);
+
             });
           </script>
           <br />

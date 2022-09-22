@@ -170,12 +170,24 @@ let quick_parse () =
   | Result.Ok prots -> names prots
   | Result.Error err -> Interface.GraphLocal.set_div "output" err
 
+
+let quick_render () =
+  let code = Interface.Code.get() in
+  match SynMPSTlib.quick_parse_string code with
+  | Result.Ok _ -> analyse ()
+  | Result.Error _ -> ()
+
 let _ =
   let open Js_of_ocaml in
   Js.export "synMPST"
     (object%js
        method parse () =
          quick_parse ()
+       method clear () =
+         Interface.GraphLocal.clear "efsm" ;
+         Interface.GraphLocal.clear "local" ;
+       method render () =
+         quick_render ()
      end)
 
 let init _ =
@@ -186,7 +198,7 @@ let init _ =
   button##.onclick := Dom_html.handler (fun _ -> analyse () ; Js._false) ;
   W.make_combobox "examples"
     (List.map
-       (fun (name, value) -> (name, fun () -> Interface.Code.set value ; quick_parse ()))
+       (fun (name, value) -> (name, fun () -> Interface.Code.set value ; quick_parse (); quick_render()))
        Examples.list ) ;
   Js._false
 
