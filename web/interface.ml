@@ -4,9 +4,18 @@ open Js_of_ocaml
 module Code = struct
   let id = "protocol-textarea"
 
-  let get () = Js.(to_string (Webutils.get_textarea id)##.value)
+  let _get () = Js.(to_string (Webutils.get_textarea id)##.value)
 
-  let set s = (Webutils.get_textarea id)##.value := Js.string s
+  let get () =
+    let res = Js.Unsafe.eval_string ("iblize.getValue();") in
+    Js.to_string res
+
+  let _set s = (Webutils.get_textarea id)##.value := Js.string s
+
+  let set s =
+    let s = String.escaped s in
+    let _ = Js.Unsafe.eval_string ("iblize.setValue(\"" ^ s ^ "\");") in
+    ()
 end
 
 module Error = struct

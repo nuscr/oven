@@ -14,3 +14,5 @@ textarea {
 pre {
     font-family: 'Fira Code';
 }
+
+#protocol-textarea { width: 100%; height: 400px }

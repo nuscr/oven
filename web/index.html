@@ -9,6 +9,7 @@
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/tonsky/FiraCode@1.207/distr/fira_code.css">
     <link rel="stylesheet" href="style.css" />
     <title>SynMPST live</title>
+    <script src="https://cdn.jsdelivr.net/npm/iblize/dist/iblize.min.js"></script>
   </head>
   <body>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/viz.js/2.1.2/viz.js" integrity="sha256-8RHyK+AFzq9iXwbFo2unqidwPbwHU5FFWe3RwkcVtuU=" crossorigin="anonymous"></script>
@@ -36,7 +37,17 @@
       <div class="ui grid">
         <div class="eight wide column">
           <h2>Global protocol</h2>
-          <textarea rows="30" id="protocol-textarea" default="Enter text..."></textarea>
+          <div rows="30" id="protocol-textarea" default="Enter text..."></div>
+          <script>
+            // use selector
+//            const iblize = new Iblize("#protocol-textarea");
+            const iblize = new Iblize("#protocol-textarea", {
+                language: "html",
+                lineNumber: true,
+                theme: "iblize-light",
+                // etc
+            });
+          </script>
           <br />
           <select required class="ui dropdown" id="examples">
             <option value="" disabled selected hidden>Load an example</option>
