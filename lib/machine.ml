@@ -90,6 +90,7 @@ module type LABEL = sig
   val compare : t -> t -> int
 
   val as_string : t -> string
+  val list_as_string : t list -> string
 
   val is_default : t -> bool
 end
@@ -706,6 +707,9 @@ module Global = struct
       | None -> "τ"
       | Some l -> string_of_transition_label l
 
+    let list_as_string l =
+      List.map as_string l |> String.concat ", "
+
     let is_default = function
       | None -> true
       | Some _ -> false
@@ -906,6 +910,10 @@ module Local = struct
     let as_string = function
       | None -> "τ"
       | Some l -> Syntax.Local.string_of_local_transition_label l
+
+
+    let list_as_string l =
+      List.map as_string l |> String.concat ", "
 
     let is_default = function
       | None -> true
