@@ -180,7 +180,8 @@ let quick_render () =
 
 let quick_clear() =
   Interface.GraphLocal.clear "efsm" ;
-  Interface.GraphLocal.clear "local"
+  Interface.GraphLocal.clear "local" ;
+  Interface.GraphLocal.clear "errorbox"
 
 
 let _ =
