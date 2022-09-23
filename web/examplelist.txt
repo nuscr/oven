@@ -1,4 +1,3 @@
-examples/tc.synmpst
 examples/first.synmpst
 examples/second.synmpst
 examples/par.synmpst
@@ -20,3 +19,5 @@ examples/notwb/c1.synmpst
 examples/notwb/c2.synmpst
 examples/notwb/c3.synmpst
 examples/notwb/c4.synmpst
+examples/tc.synmpst
+examples/tc2.synmpst

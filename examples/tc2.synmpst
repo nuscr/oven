@@ -1,0 +1,14 @@
+(*) just to test something
+
+global Test (role C, role S)
+{
+  PRE from C to S;
+  par {
+    inf{
+      HOLA from C to S;
+    }
+  } and {
+    CIAO from S to C;
+  }
+  POST from C to S;
+}
