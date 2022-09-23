@@ -99,6 +99,11 @@ module FSM (State : STATE) (Label : LABEL) = struct
   module G = Persistent.Digraph.ConcreteLabeled (State) (Label)
   include G
 
+  let _string_of_edge e =
+    (E.src e |> State.as_string)
+    ^ "--" ^ (E.label e |> Label.as_string) ^ "->"
+    ^ (E.dst e |> State.as_string)
+
   let get_edges fsm =
     fold_edges_e (fun e l -> e::l) fsm []
 
@@ -155,30 +160,45 @@ module FSM (State : STATE) (Label : LABEL) = struct
     in
     f [] [] [st]
 
-  let walk_with_predicate (st : vertex) (step : vertex -> edge list) (p : edge -> bool) : bool =
-    let rec f st visited =
-      let edges_from_st = step st in
+  let walk_with_function (st : vertex) (step : vertex -> edge list) (p : edge -> 'a) : 'a list =
+    let rec f st visited res (k : 'a list -> 'b) =
       (* if it can step then done *)
-      if List.exists p edges_from_st then true
+      if List.mem st visited then k res
       else
-        let rec check = function
-          | [] -> false
-          | e::es ->
-            let dst = E.dst e in
-            if List.mem dst visited then
-              check es
-            else
-              f dst (st::visited) || check es
-        in
-        check edges_from_st
+        let sts, res' = step st |> List.map (fun e -> E.dst e, p e) |> List.split in
+        fs sts  (st::visited) (res' @ res) k
+
+    and fs sts visited res (k : 'a list -> 'b) =
+      match sts with
+      | [] -> k res
+      | st::sts ->
+        f st visited res (fun res -> fs sts visited res k)
     in
-    f st []
+    f st [] [] (fun x -> x)
+
+  let walk_with_any_predicate (st : vertex) (step : vertex -> edge list) (p : edge -> bool) : bool =
+    walk_with_function st step p |> List.exists ((=) true)
 
   let only_with_tau (fsm : t) (st : vertex) : edge list =
     succ_e fsm st |> List.filter (fun e -> E.label e = Label.default)
 
   let with_any_transition (fsm : t) (st : vertex) : edge list =
     succ_e fsm st
+
+  (* if state can step with ANY transition, including tau *)
+  let state_can_step (fsm : t) (st : vertex) : bool =
+   succ fsm st |> Utils.is_empty|> not
+
+  let get_reachable_labels (fsm : t) (st : vertex) : Label.t list  =
+    walk_with_function st (with_any_transition fsm) (fun e -> E.label e)
+
+  (* if the state can step with a non tau transition explore transitively *)
+  let _state_can_step_recursive (fsm : t) (st : vertex) : bool =
+    walk_with_any_predicate st (with_any_transition fsm) (fun e -> E.label e |> Label.is_default |> not)
+
+  let has_strong_outgoing_transitions fsm st =
+    succ_e fsm st |> List.filter (fun e -> E.label e = Label.default |> not) |> Utils.is_empty |> not
+
 
   (* return all the tau reachable states *)
   let tau_reachable fsm st =
@@ -381,7 +401,6 @@ module FSM (State : STATE) (Label : LABEL) = struct
       let coord = translate_state_to_joint_fsm sts side dict in
       E.create (E.src e |> coord) (E.label e) (E.dst e |> coord)
 
-
     let get_final_states (fsm : t) : vertex list =
       let has_no_successor st =
         succ fsm st |> Utils.is_empty
@@ -481,45 +500,58 @@ module FSM (State : STATE) (Label : LABEL) = struct
              es
          in
          f L l_es')
-  (* let _restricted : (vertex * Label.t * MachineComposition.side) list ref = ref [] *)
 
   (* compose two machines allowing only their common labels *)
-  let loose_intersection_compose _ _ _ =
-    (* (sts : vertex * vertex) *)
-    (* (assoc, fsm : vertex list * t) *)
-    (* (assoc', fsm' : vertex list * t) :  vertex * (vertex list * t) = *)
-    (* let pair_with_unit = List.map (fun x -> x, ()) in *)
-    (* compose_with sts (assoc, fsm) (assoc', fsm') *)
-    (*   (fun _ (st, st') -> *)
-    (*      let l_es = succ_e fsm st in *)
-    (*      let r_es = succ_e fsm' st' in *)
+  let loose_intersection_compose
+    (sts : vertex * vertex)
+    (fsm : t)
+    (fsm' : t) :  vertex * (vertex list * t) =
+    let open MachineComposition in
+    compose_with sts fsm fsm'
+      (fun dict (st, st' as sts) ->
+         let l_es = succ_e fsm st in
+         let r_es = succ_e fsm' st' in
 
-    (*      let get_restricted l1 l2 side = List.filter_map *)
-    (*          (fun e -> *)
-    (*             if List.mem (E.label e) (List.map E.label l2) *)
-    (*             then Some (E.src e, E.label e, side) *)
-    (*             else None) *)
-    (*          l1 *)
-    (*      in *)
-    (*      let is_restricted e side = *)
-    (*        List.exists (fun (st, l, side') -> E.src e = st && E.label e = l && side = side') !restricted *)
-    (*      in *)
-    (*      let l_es' = *)
-    (*        List.filter (fun e -> is_restricted e L |> not) l_es in *)
+         (* if the transition is enabled in both, then it's ok *)
+         let l_both = List.filter (fun e -> List.mem (E.label e) (List.map E.label r_es)) l_es in
 
-    (*      let r_es' = *)
-    (*        List.filter (fun e -> is_restricted e R |> not) r_es in *)
+         let left_labels = get_reachable_labels fsm st in
+         let right_labels = get_reachable_labels fsm' st' in
 
-    (*      restricted := get_restricted l_es r_es L @ get_restricted r_es l_es R @ !restricted ; *)
+         (* edges on the left, that are never on the right *)
+         let l_es' = List.filter (fun e -> List.mem (E.label e) right_labels |> not)  l_es in
+         (* edges on the right, that are never on the left *)
+         let r_es' = List.filter (fun e -> List.mem (E.label e) left_labels |> not)  r_es in
 
-    (*      (\* only if they not appear in the other list, this is broken *\) *)
-    (*      let l_es' = List.filter (fun e -> not(List.mem (E.label e) (List.map E.label r_es))) l_es' in *)
-    (*      let ts el = List.map E.label el |> List.map Label.as_string |> String.concat ", " in *)
-    (*      "Loose intersection" |> Utils.log ; *)
-    (*      "Left: " ^ ts l_es' |> Utils.log ; *)
-    (*      "Right: " ^ ts r_es |> Utils.log ; *)
-    (*      l_es' |> pair_with_unit, r_es' |> pair_with_unit) () *)
-    assert false
+         let get_edge_with_label es l =
+           List.find (fun e -> E.label e = l) es
+         in
+
+         let f_both es =
+           let lbls = List.map E.label es in
+
+           List.map (fun l ->
+               let jsrc = List.assoc (st, st') dict in
+
+               let dst = get_edge_with_label l_es l |> E.dst in
+               let dst' = get_edge_with_label r_es l |> E.dst in
+
+               let jdst = List.assoc (dst, dst') dict in
+
+               E.create jsrc l jdst, (dst, dst')
+             )
+             lbls
+         in
+         let f_sided side es =
+           List.map
+             (fun e ->
+                translate_edge_to_joint_fsm sts side dict e,
+                build_joint_state sts side (E.dst e))
+             es
+         in
+
+         f_both l_both @ f_sided L l_es' @ f_sided R r_es'
+      )
 
   let only_reachable_from st fsm =
     let add_state_and_successors n_fsm st =
@@ -922,21 +954,6 @@ module Local = struct
 
   module FSM = FSM (State) (Label)
   include FSM
-
-  (* if state can step with ANY transition, including tau *)
-  let state_can_step (fsm : FSM.t) (st : vertex) : bool =
-    FSM.succ fsm st |> Utils.is_empty|> not
-
-  (* if the state can step with a non tau transition explore transitively *)
-  let _state_can_step_recursive (fsm : FSM.t) (st : vertex) : bool =
-    walk_with_predicate st (with_any_transition fsm) (fun e -> FSM.E.label e |> Option.is_some)
-
-  let _has_outgoing_transitions fsm st =
-    succ_e fsm st |> Utils.is_empty |> not
-
-  let has_strong_outgoing_transitions fsm st =
-    succ_e fsm st |> List.filter (fun e -> E.label e = Label.default |> not) |> Utils.is_empty |> not
-
 
   let project (r : Syntax.role) (fsm : Global.FSM.t) : FSM.t =
     if Debug.project_to_empty None then FSM.empty
