@@ -230,8 +230,7 @@ module FSM (State : STATE) (Label : LABEL) = struct
       if (E.src e = E.dst e && E.label e |> Label.is_default)
       then true
       else
-        ("----------  Keeping edge: " ^ string_of_edge e |> Utils.log ;
-         false)
+         false
     in
     fold_edges_e (fun e fsm -> if is_reflexive_tau e then fsm else add_edge_e fsm e) fsm e_fsm
 
@@ -341,8 +340,6 @@ module FSM (State : STATE) (Label : LABEL) = struct
     let generate_state_space fsm fsm' =
       let sts_fsm = get_vertices fsm in
       let sts_fsm' = get_vertices fsm' in
-      "Size of sts_fsm: " ^ string_of_int (List.length sts_fsm) ^ " -- "  ^ (State.list_as_string sts_fsm) |> Utils.log;
-      "Size of sts_fsm': " ^ string_of_int (List.length sts_fsm') ^ " -- "  ^ (State.list_as_string sts_fsm') |> Utils.log;
       (* new combined_state *)
       let ncs st st' =
         let new_st () =
@@ -415,13 +412,6 @@ module FSM (State : STATE) (Label : LABEL) = struct
         then k visited jfsm
         else
           let jes = walk_fun dict sts in
-          "START WALK" |> Utils.log;
-          "Left: " ^ State.as_string (fst sts) |> Utils.log;
-          "Right: " ^ State.as_string (snd sts) |> Utils.log;
-          "Joint: " ^ State.as_string curr_st |> Utils.log;
-          let ts el = List.map (fun x -> fst x |> string_of_edge) el |> String.concat ", " in
-          "Edges: " ^ ts jes |> Utils.log;
-          "END WALK" |> Utils.log;
           add_edges jes (curr_st::visited) jfsm k
 
       and add_edges
@@ -432,7 +422,6 @@ module FSM (State : STATE) (Label : LABEL) = struct
         match pending with
         | (je, next_sts)::jes ->
           let jfsm = add_edge_e jfsm je in
-          "ADDING: " ^ (string_of_edge je) |> Utils.log ;
           walk next_sts visited jfsm
             (fun visited jfsm -> add_edges jes visited jfsm k)
 
@@ -451,20 +440,7 @@ module FSM (State : STATE) (Label : LABEL) = struct
       (f : MachineComposition.dict -> vertex * vertex -> (edge * (vertex * vertex)) list)
     :  vertex * (vertex list * t) =
 
-    let dict, next_jfsm =
-      MachineComposition.walker fsm fsm' sts f in
-
-    let rec dict_to_string = function
-      | [] -> "[]"
-      | ((s1, s2), s3)::dict ->
-        "(" ^ State.as_string s1 ^ ", " ^  State.as_string s2 ^ "), " ^  State.as_string s3 ^ ")::" ^ dict_to_string dict
-    in
-
-    Utils.log @@ dict_to_string dict ;
-    "Size of fsm: " ^ string_of_int (nb_vertex fsm) |> Utils.log;
-    "Size of fsm': " ^ string_of_int (nb_vertex fsm') |> Utils.log;
-    "Size of space: " ^ string_of_int (List.length dict) |> Utils.log;
-    "Next after compose_with: " ^ State.list_as_string (fst next_jfsm) |> Utils.log;
+    let dict, next_jfsm = MachineComposition.walker fsm fsm' sts f in
     MachineComposition.find_state_in_dest sts dict, next_jfsm
 
   (* compose two machines allowing all their interleavings *)
@@ -625,7 +601,6 @@ module Bisimulation (State : STATE) (Label : LABEL) (Str : STRENGTH)  = struct
   type block = vertex list
 
   let compute_bisimulation_quotient (fsm : FSM.t) : state_equivalence_class =
-    "Start computing bisimul quot." |> Utils.log;
     let initial () : state_equivalence_class * FSM.edge list =
       (* a singleton block with all the states to be refined *)
       let bs : state_equivalence_class = [FSM.fold_vertex (fun st l -> st :: l) fsm []] in
@@ -634,7 +609,6 @@ module Bisimulation (State : STATE) (Label : LABEL) (Str : STRENGTH)  = struct
     in
 
     let bs, edges = initial() in
-    "States: " ^ State.list_as_string (List.hd bs) |> Utils.log ;
     (* Performance: this is quite naive, as we compare lots of blocks for identity, so many
        very slow comparisons of lists. If we run into performance probles,
        this is a thing to improve. It should not be hard once the system is working. *)
@@ -797,7 +771,6 @@ module Global = struct
 
           | [] ->
             let st = State.fresh_start () |> State.mark_as_end in
-            "Empty sequence state:" ^ State.as_string st |> Utils.log;
             st::next, FSM.add_vertex FSM.empty st
 
         in
