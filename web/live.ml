@@ -178,6 +178,11 @@ let quick_render () =
   | Result.Ok _ -> analyse ()
   | Result.Error _ -> ()
 
+let quick_clear() =
+  Interface.GraphLocal.clear "efsm" ;
+  Interface.GraphLocal.clear "local"
+
+
 let _ =
   let open Js_of_ocaml in
   Js.export "synMPST"
@@ -185,8 +190,7 @@ let _ =
        method parse () =
          quick_parse ()
        method clear () =
-         Interface.GraphLocal.clear "efsm" ;
-         Interface.GraphLocal.clear "local" ;
+         quick_clear()
        method render () =
          quick_render ()
      end)
@@ -199,7 +203,10 @@ let init _ =
   button##.onclick := Dom_html.handler (fun _ -> analyse () ; Js._false) ;
   W.make_combobox "examples"
     (List.map
-       (fun (name, value) -> (name, fun () -> Interface.Code.set value ; quick_parse (); quick_render()))
+       (fun (name, value) -> (name, fun () -> quick_clear()
+                                            ; Interface.Code.set value
+                                            ; quick_parse ()
+                                            ; quick_render()))
        Examples.list ) ;
   Js._false
 
