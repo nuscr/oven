@@ -46,13 +46,18 @@
                 theme: "iblize-light",
                 // etc
             });
-            to = undefined;
+            to1 = window.setTimeout(() => console.log("empty timer."), 1);
+            to2 = window.setTimeout(() => console.log("empty timer."), 1);
+
+            function clear_and_parse () {
+                synMPST.clear(1); synMPST.parse(1);
+            }
 
             iblize.onUpdate((value) => {
-                synMPST.clear(1);
-                synMPST.parse(1);
-                window.clearTimeout(to);
-                to = window.setTimeout(()=> synMPST.render(1), 1000);
+                window.clearTimeout(to1);
+                to1 = window.setTimeout(clear_and_parse, 100);
+                window.clearTimeout(to2);
+                to2 = window.setTimeout(()=> synMPST.render(1), 1000);
 
             });
           </script>
