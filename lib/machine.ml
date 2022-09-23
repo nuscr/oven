@@ -395,7 +395,11 @@ module FSM (State : STATE) (Label : LABEL) = struct
       let has_predecessor st =
         pred fsm st |> Utils.is_empty |> not
       in
-      get_vertices fsm |> List.filter (fun st -> has_no_successor st && has_predecessor st)
+      let final_sts =
+        get_vertices fsm |> List.filter (fun st -> has_no_successor st && has_predecessor st)
+      in
+      (* if there are not continuations, continue from a detached state *)
+      if Utils.is_empty final_sts then [State.fresh()] else final_sts
 
     let walker (fsm : t) (fsm' : t) (initial_st : vertex * vertex)
         (walk_fun : dict -> vertex * vertex -> ((edge * (vertex * vertex))) list)
