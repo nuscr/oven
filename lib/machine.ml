@@ -199,6 +199,18 @@ module FSM (State : STATE) (Label : LABEL) = struct
   let has_strong_outgoing_transitions fsm st =
     succ_e fsm st |> List.filter (fun e -> E.label e = Label.default |> not) |> Utils.is_empty |> not
 
+  let get_final_states (fsm : t) : vertex list =
+    let has_no_successor st =
+      succ fsm st |> Utils.is_empty
+    in
+    let has_predecessor st =
+      pred fsm st |> Utils.is_empty |> not
+    in
+    let final_sts =
+      get_vertices fsm |> List.filter (fun st -> has_no_successor st && has_predecessor st)
+    in
+    (* if there are not continuations, continue from a detached state *)
+    if Utils.is_empty final_sts then [State.fresh()] else final_sts
 
   (* return all the tau reachable states *)
   let tau_reachable fsm st =
@@ -401,19 +413,6 @@ module FSM (State : STATE) (Label : LABEL) = struct
       let coord = translate_state_to_joint_fsm sts side dict in
       E.create (E.src e |> coord) (E.label e) (E.dst e |> coord)
 
-    let get_final_states (fsm : t) : vertex list =
-      let has_no_successor st =
-        succ fsm st |> Utils.is_empty
-      in
-      let has_predecessor st =
-        pred fsm st |> Utils.is_empty |> not
-      in
-      let final_sts =
-        get_vertices fsm |> List.filter (fun st -> has_no_successor st && has_predecessor st)
-      in
-      (* if there are not continuations, continue from a detached state *)
-      if Utils.is_empty final_sts then [State.fresh()] else final_sts
-
     let walker (fsm : t) (fsm' : t) (initial_st : vertex * vertex)
         (walk_fun : dict -> vertex * vertex -> ((edge * (vertex * vertex))) list)
       : dict * (vertex list * t) =
@@ -552,6 +551,73 @@ module FSM (State : STATE) (Label : LABEL) = struct
 
          f_both l_both @ f_sided L l_es' @ f_sided R r_es'
       )
+
+
+  type priority_source
+    = FirstMachine
+    | SecondMachine
+    | NoMachine
+
+  let rec prioritise
+      (initial_fsm : t)
+      (fsm : t) (s_st : vertex)
+      (fsm1 : t) (s1_st : vertex)
+      (fsm2 : t) (s2_st : vertex)
+    : vertex list * t =
+    let edges_with_labels_in es lbls =
+      List.filter (fun e -> List.mem (E.label e) lbls) es
+    in
+    let rec pr i s s1 s2 =
+      (* all the edges to rank *)
+      let es =
+        try
+          succ_e fsm s
+        with
+        e -> raise (Error.Violation ("Unexpected, succ_e failed with: " ^ Printexc.to_string e))
+
+      in
+      (* labels available in f1 and f2 *)
+      let f1_lbls = succ_e fsm1 s1 |> List.map E.label in
+      let f2_lbls = succ_e fsm2 s2 |> List.map E.label in
+      (* edges that are in f1 or f2 respectively *)
+      let es_in_f1 = edges_with_labels_in es f1_lbls in
+      let es_in_f2 = edges_with_labels_in es f2_lbls in
+      let m, next_es =
+        if Utils.is_non_empty es_in_f1
+        then FirstMachine, es_in_f1
+        else if Utils.is_non_empty es_in_f2
+        then SecondMachine, es_in_f2
+        else NoMachine, es
+      in
+      (* add the edges and continue *)
+      prs i m next_es s1 s2
+
+    and prs i m es s1 s2 =
+      let find_edge_with_label m st lbl =
+        try
+          succ_e m st |> List.find (fun e -> E.label e = lbl)
+        with
+          Not_found -> Error.Violation "Unexpected: the label must be in the list." |> raise
+      in
+      match es, m with
+      | [], _ -> i
+
+      | e::es, FirstMachine ->
+        let s1' = find_edge_with_label fsm1 s1 (E.label e) |> E.dst in
+        let i = pr (add_edge_e i e) (E.dst e) s1' s2 in
+        prs i m es s1' s2
+
+      | e::es, SecondMachine ->
+        let s2' = find_edge_with_label fsm2 s2 (E.label e) |> E.dst in
+        let i = pr (add_edge_e i e) (E.dst e) s1 s2' in
+        prs i m es s1 s2'
+
+      | e::es, NoMachine ->
+        let i = pr (add_edge_e i e) (E.dst e) s1 s2 in
+        prs i m es s1 s2
+    in
+    let res = pr initial_fsm s_st s1_st s2_st in
+    get_final_states res, res
 
   let only_reachable_from st fsm =
     let add_state_and_successors n_fsm st =
@@ -782,7 +848,7 @@ module Global = struct
     let rec tr
         (fsm : t)
         (g : global)
-        (next : vertex list) : vertex list *t =
+        (next : vertex list) : vertex list * t =
       match g with
       | MessageTransfer lbl ->
         let e x y = FSM.E.create x (Some lbl) y in
@@ -819,7 +885,6 @@ module Global = struct
           List.concat nexts |> Utils.uniq, fsm'
 
       | Fin g' ->
-
         let connect_to fsm next st =
           List.fold_left (fun fsm st' -> FSM.add_edge fsm st' st) (FSM.add_vertex fsm st) next
         in
@@ -882,7 +947,19 @@ module Global = struct
           let st, fsm = gather_next fsm next in
           combine_branches fsm next st branches tight_intersection_compose
 
-      | Prioritise _ -> Error.Violation "Prioritise not yet implemented." |> raise
+      | Prioritise (g, g1, g2) ->
+        let s_st, initial_fsm = gather_next fsm next in
+        let _, fsm = tr initial_fsm g [s_st] in
+
+        let s1_st = State.fresh () in
+        let _, fsm1 = tr empty g1 [s1_st] in
+        let fsm1 = postproces_taus fsm1 in
+
+        let s2_st = State.fresh () in
+        let _, fsm2 = tr empty g2 [s2_st] in
+        let fsm2 = postproces_taus fsm2 in
+
+        prioritise initial_fsm (add_vertex fsm s_st) s_st fsm1 s1_st fsm2 s2_st
 
     and combine_branches fsm next s_st branches
         (combine_fun : vertex * vertex -> t -> t -> vertex * (vertex list * t)) =
