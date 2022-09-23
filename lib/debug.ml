@@ -30,7 +30,7 @@ let unset_all_debug_flags () =
 
 let get_set_flag flag = function
   | None when flag.state = true -> "Skipping: " ^ flag.description |> Utils.log ; flag.state
-  | None -> "Doing: " ^ flag.description |> Utils.log ; flag.state
+  | None -> flag.state
   | Some v -> let old = flag.state in flag.state <- v ; old
 
 let simplify_machine_off  = get_set_flag simplify_machine_flag

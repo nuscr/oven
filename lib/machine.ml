@@ -101,10 +101,6 @@ module FSM (State : STATE) (Label : LABEL) = struct
   let get_edges fsm =
     fold_edges_e (fun e l -> e::l) fsm []
 
-  let string_of_edge e =
-    "[" ^ (E.src e |> State.as_string) ^ "-|-"
-    ^ (E.label e |> Label.as_string) ^ "-|-" ^ (E.dst e |> State.as_string) ^ "]"
-
   let get_vertices (fsm : t) : V.t list =
     let l = fold_vertex (fun st l -> st::l) fsm [] in
     assert (List.length l = nb_vertex fsm) ;
