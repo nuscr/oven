@@ -187,7 +187,7 @@ module FSM (State : STATE) (Label : LABEL) = struct
 
   (* if state can step with ANY transition, including tau *)
   let state_can_step (fsm : t) (st : vertex) : bool =
-   succ fsm st |> Utils.is_empty|> not
+    succ fsm st |> Utils.is_empty|> not
 
   let get_reachable_labels (fsm : t) (st : vertex) : Label.t list  =
     walk_with_function st (with_any_transition fsm) (fun e -> E.label e)
@@ -259,7 +259,7 @@ module FSM (State : STATE) (Label : LABEL) = struct
       if (E.src e = E.dst e && E.label e |> Label.is_default)
       then true
       else
-         false
+        false
     in
     fold_edges_e (fun e fsm -> if is_reflexive_tau e then fsm else add_edge_e fsm e) fsm e_fsm
 
@@ -324,7 +324,7 @@ module FSM (State : STATE) (Label : LABEL) = struct
 
     let translate (eqsts : state_equivalence_class) (fsm : t) : t =
       let eqsts = canonicalise_start_end eqsts in
-            (* get the canonical representative for each vertex *)
+      (* get the canonical representative for each vertex *)
       let translate_st st =
         try
           List.find (fun sts -> List.mem st sts) eqsts |> List.hd
@@ -502,9 +502,9 @@ module FSM (State : STATE) (Label : LABEL) = struct
 
   (* compose two machines allowing only their common labels *)
   let loose_intersection_compose
-    (sts : vertex * vertex)
-    (fsm : t)
-    (fsm' : t) :  vertex * (vertex list * t) =
+      (sts : vertex * vertex)
+      (fsm : t)
+      (fsm' : t) :  vertex * (vertex list * t) =
     let open MachineComposition in
     compose_with sts fsm fsm'
       (fun dict (st, st' as sts) ->
@@ -567,32 +567,31 @@ module FSM (State : STATE) (Label : LABEL) = struct
     let edges_with_labels_in es lbls =
       List.filter (fun e -> List.mem (E.label e) lbls) es
     in
-    let rec pr i s s1 s2 =
-      (* all the edges to rank *)
-      let es =
-        try
-          succ_e fsm s
-        with
-        e -> raise (Error.Violation ("Unexpected, succ_e failed with: " ^ Printexc.to_string e))
+    let rec pr i s s1 s2 visited =
+      if List.mem s visited then i
+      else
+        (* all the edges to rank *)
+        let es =
+          try succ_e fsm s with
+            e -> raise (Error.Violation ("Unexpected, succ_e failed with: " ^ Printexc.to_string e))
+        in
+        (* labels available in f1 and f2 *)
+        let f1_lbls = succ_e fsm1 s1 |> List.map E.label in
+        let f2_lbls = succ_e fsm2 s2 |> List.map E.label in
+        (* edges that are in f1 or f2 respectively *)
+        let es_in_f1 = edges_with_labels_in es f1_lbls in
+        let es_in_f2 = edges_with_labels_in es f2_lbls in
+        let m, next_es =
+          if Utils.is_non_empty es_in_f1
+          then FirstMachine, es_in_f1
+          else if Utils.is_non_empty es_in_f2
+          then SecondMachine, es_in_f2
+          else NoMachine, es
+        in
+        (* add the edges and continue *)
+        prs i m next_es s1 s2 (s::visited)
 
-      in
-      (* labels available in f1 and f2 *)
-      let f1_lbls = succ_e fsm1 s1 |> List.map E.label in
-      let f2_lbls = succ_e fsm2 s2 |> List.map E.label in
-      (* edges that are in f1 or f2 respectively *)
-      let es_in_f1 = edges_with_labels_in es f1_lbls in
-      let es_in_f2 = edges_with_labels_in es f2_lbls in
-      let m, next_es =
-        if Utils.is_non_empty es_in_f1
-        then FirstMachine, es_in_f1
-        else if Utils.is_non_empty es_in_f2
-        then SecondMachine, es_in_f2
-        else NoMachine, es
-      in
-      (* add the edges and continue *)
-      prs i m next_es s1 s2
-
-    and prs i m es s1 s2 =
+    and prs i m es s1 s2 visited =
       let find_edge_with_label m st lbl =
         try
           succ_e m st |> List.find (fun e -> E.label e = lbl)
@@ -604,19 +603,19 @@ module FSM (State : STATE) (Label : LABEL) = struct
 
       | e::es, FirstMachine ->
         let s1' = find_edge_with_label fsm1 s1 (E.label e) |> E.dst in
-        let i = pr (add_edge_e i e) (E.dst e) s1' s2 in
-        prs i m es s1' s2
+        let i = pr (add_edge_e i e) (E.dst e) s1' s2 visited in
+        prs i m es s1' s2 visited
 
       | e::es, SecondMachine ->
         let s2' = find_edge_with_label fsm2 s2 (E.label e) |> E.dst in
-        let i = pr (add_edge_e i e) (E.dst e) s1 s2' in
-        prs i m es s1 s2'
+        let i = pr (add_edge_e i e) (E.dst e) s1 s2' visited in
+        prs i m es s1 s2' visited
 
       | e::es, NoMachine ->
-        let i = pr (add_edge_e i e) (E.dst e) s1 s2 in
-        prs i m es s1 s2
+        let i = pr (add_edge_e i e) (E.dst e) s1 s2 visited in
+        prs i m es s1 s2 visited
     in
-    let res = pr initial_fsm s_st s1_st s2_st in
+    let res = pr initial_fsm s_st s1_st s2_st [] in
     get_final_states res, res
 
   let only_reachable_from st fsm =
