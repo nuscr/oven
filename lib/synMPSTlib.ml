@@ -31,6 +31,13 @@ module Toplevel = struct
     else
       Error.UserError "Validation failed!" |> raise
 
+  let rec find_protocol n (cu : Syntax.compilation_unit) =
+    match n, cu with
+    | _, [] -> None
+    | None, prot::_ -> Some prot
+    | Some n, prot::_ when n = prot.Syntax.protocol_name -> Some prot
+    | _, _::prots -> find_protocol n prots
+
   let get_transitions = Operations.Global.get_transitions
 
   let get_traces_as_string (cu : Syntax.compilation_unit) : string =

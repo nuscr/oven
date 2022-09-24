@@ -113,7 +113,6 @@ let set_local fsms =
 
   List.iter set_graph fsms
 
-
 let analyse' () =
   try
     let () = Interface.Error.reset () in
@@ -121,9 +120,14 @@ let analyse' () =
     let cu  = SynMPSTlib.parse_string protocol in
     let cu' = SynMPSTlib.translate_and_validate cu in
 
-    match cu' with
-    | [] -> Interface.Error.display_exn "No protocols found!"
-    | prot::_ ->
+    let name =
+      let n = Interface.Code.get_name () in
+      if n = "" then None else Some n
+    in
+
+    match SynMPSTlib.find_protocol name cu' with
+    | None -> Interface.Error.display_exn "No protocols found!"
+    | Some prot ->
       let _, fsm = SynMPSTlib.generate_global_state_machine prot.interactions in
       SynMPSTlib.dot_of_global_machine fsm |> Interface.GraphEFSM.set_dot ;
 
@@ -132,12 +136,6 @@ let analyse' () =
       set_local fsms ;
 
       SynMPSTlib.well_behaved_protocol prot
-
-    (* let tr : Dom_html.element Js.t = SynMPSTlib.get_traces_as_string cu' |> T.txt |> To_dom.of_element in *)
-    (* W.(set_children (get "projected") [(tr :> Dom.node Js.t)]) ; *)
-    (* let labels = SynMPSTlib.get_transitions cu' in *)
-    (* let labels_html = display_labels labels in *)
-    (* W.(set_children (get "result") [(labels_html :> Dom.node Js.t)]) *)
   with
   | Invalid_argument _ -> () (* TODO this is a HACK to avoid errors on protocols without interactions *)
   | SynMPSTlib__.Error.UserError msg -> Interface.Error.display_exn (msg)
@@ -164,8 +162,15 @@ let quick_parse () =
   Interface.GraphLocal.set_div "output" "";
   let src = Interface.Code.get () in
   let names nms =
-    let l = List.map (fun n -> "<li> " ^ n ^ " </li>") nms |> String.concat "\n" in
-    Interface.GraphLocal.set_div "output" @@ "<h2> Protocols: </h2><ul>\n" ^ l ^ "\n</ul>"
+    let l =
+      List.mapi
+        (fun i n ->
+           let checked = if i = 0 then "checked" else "" in
+           "<input type=\"radio\" id=\"" ^ n ^ "\" value=\" " ^ n
+           ^ "\" name = \"protocol_choice\" " ^ checked ^ " ><label for=\"" ^ n ^  "\">" ^ n ^ "</label><br>")
+        nms
+      |> String.concat "\n" in
+    Interface.GraphLocal.set_div "output" @@ "<fieldset><legend>Protocol:</legend>" ^ l ^ "</fieldset>\n"
   in
   match SynMPSTlib.quick_parse_string src with
   | Result.Ok prots -> names prots

@@ -16,6 +16,12 @@ module Code = struct
     let s = String.escaped s in
     let _ = Js.Unsafe.eval_string ("iblize.setValue(\"" ^ s ^ "\");") in
     ()
+
+  let get_name () =
+    let get_protocol = "getProtocolName();" in
+    let res = Js.Unsafe.eval_string get_protocol in
+    Js.to_string res
+
 end
 
 module Error = struct

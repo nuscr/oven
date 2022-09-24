@@ -2,6 +2,8 @@ val parse_string : string -> Syntax.compilation_unit
 val quick_parse_string : string -> (string list, string) result
 val translate_and_validate : Syntax.compilation_unit -> Syntax.compilation_unit
 
+val find_protocol : string option -> Syntax.compilation_unit -> Syntax.global Syntax.protocol option
+
 val get_transitions : Syntax.compilation_unit -> (string * Syntax.transition_label) list
 
 val string_of_transition_label : Syntax.transition_label -> string

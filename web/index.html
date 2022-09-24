@@ -14,6 +14,15 @@
   <body>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/viz.js/2.1.2/viz.js" integrity="sha256-8RHyK+AFzq9iXwbFo2unqidwPbwHU5FFWe3RwkcVtuU=" crossorigin="anonymous"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/viz.js/2.1.2/full.render.js" integrity="sha256-Ogqs510LFnekr9o7OLdpelaaAmNss9egQRTyzCqV2NQ=" crossorigin="anonymous"></script>
+    <script>
+      function getProtocolName() {
+        var ele = document.getElementsByName('protocol_choice');
+        for(i = 0; i < ele.length; i++) {
+                if(ele[i].checked) return ele[i].value.trim();
+            }
+        return "";
+      }
+    </script>
 
     <div class="ui fixed menu">
       <div class="ui container">
