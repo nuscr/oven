@@ -241,6 +241,35 @@ module FSM (State : STATE) (Label : LABEL) = struct
       in
       fold_edges_e (fun e fsm -> add_edge_e fsm (update e)) fsm fsm'
 
+  (* merge two machines renaming their states *)
+  let disjoint_merge (st, fsm) (st', fsm') =
+    (* ensure that the starting vertices are in the machine *)
+    let fsm = add_vertex fsm st in
+    let fsm' = add_vertex fsm' st' in
+    let tr_s vs st =
+      try
+        List.assoc st vs
+      with
+      | Not_found -> Error.Violation "disjoint_merge: state not found in translation dictionary!" |> raise
+    in
+    let tr_e vs e =
+      E.create (E.src e |> tr_s vs) (E.label e) (E.dst e |> tr_s vs)
+    in
+
+    let vs = get_vertices fsm |> List.map (fun st -> (st, State.freshen st)) in
+    let vs' = get_vertices fsm' |> List.map (fun st -> (st, State.freshen st)) in
+
+    let vsr = List.map snd (vs @ vs') in
+
+    let fsmr = List.fold_left add_vertex  empty vsr in
+
+    let add vs fsm fsmr =
+      fold_edges_e (fun e fsm -> add_edge_e fsm (tr_e vs e)) fsm fsmr
+    in
+    let resfsm = add vs fsm (add vs' fsm' fsmr) in
+    "------------------------------ CHECKPOINT!" |> Utils.log ;
+    (tr_s vs st, tr_s vs' st'), resfsm
+
   (* simple merge two state machines *)
   let merge (fsm : t) (fsm' : t) : t =
     (* extend with vertices *)
@@ -1219,7 +1248,7 @@ module Local = struct
   let well_behaved_role (r, st, fsm : role  * vertex * t) : wb_res =
     c5 r fsm [] [st]
 
-  let well_behaved_protocol (proto : global protocol) : wb_res =
+  let well_behaved_protocol_with_wb_check (proto : global protocol) : wb_res =
     let roles = proto.roles in
     let g = proto.interactions in
     let _start, gfsm = Global.generate_state_machine g in
@@ -1243,4 +1272,59 @@ module Local = struct
     in
 
     List.map (local_machine protocol.interactions) roles
+
+  let well_behaved_protocol_by_bisumulation (proto : global protocol) : wb_res =
+    let parallel_compose_local = function
+      | [] -> assert false, FSM.empty
+      | [_, st, lfsm] ->  st, lfsm
+      | (_, st, lfsm)::lfsms ->
+        List.fold_left
+          (fun (st, lfsm) (_,st', lfsm') -> let st, (_, fsm) = FSM.parallel_compose (st, st') lfsm lfsm' in st, fsm ) (st, lfsm) lfsms
+    in
+    let tr_labels (gfsm : Global.t) : t =
+      let fsm  : t = empty in
+      let add_tr_edge e fsm =
+        let stm = State.fresh () in
+        let gl = Global.E.label e in
+        match gl with
+        | None -> add_edge_e fsm @@ E.create (Global.E.src e) None (Global.E.dst e)
+        | Some lbl ->
+
+          let ll1 = Some {Local.sender = lbl.sender ; receiver = lbl.receiver ; direction = Local.Sending ; label = lbl.label } in
+          let ll2 = Some {Local.sender = lbl.sender ; receiver = lbl.receiver ; direction = Local.Receiving ; label = lbl.label } in
+          add_edge_e (add_edge_e fsm (E.create (Global.E.src e) ll1 stm))
+            (E.create stm ll2 (Global.E.dst e))
+      in
+
+      Global.fold_edges_e add_tr_edge gfsm fsm
+    in
+
+    let roles = proto.roles in
+    let g = proto.interactions in
+    let start, gfsm = Global.generate_state_machine g in
+
+    let lfsms = List.map (fun r -> let l = project r gfsm in r, get_start_state l, l) roles in
+
+    let lstart, lfsm = parallel_compose_local lfsms in
+
+    let (st, st'), fsm = disjoint_merge (start, tr_labels gfsm) (lstart, lfsm) in
+
+    (* check if st and st' are bisimilar in fsm *)
+    let module B = Bisimulation (State) (Label) (struct let is_strong = false end) in
+    let bs = B.compute_bisimulation_quotient fsm in
+    if B.are_states_bisimilar bs st st'
+    then Result.Ok ()
+    else Result.Error "Starting state for the global machine and the parallel composition of local machines are not weakly bisimilar."
+
+  let well_behaved_protocol g =
+    let r1 = well_behaved_protocol_with_wb_check g in
+    let r2 = well_behaved_protocol_by_bisumulation g in
+
+    match r1, r2 with
+    | Result.Ok _, Result.Ok _ -> r1
+    | Result.Ok _ , Result.Error _ ->
+      Result.Error "The bisimulation approach rejected a protocol accepted by the optimised approach."
+    | Result.Error msg, Result.Ok _ ->
+      Result.Error ("The bisimulation approach accepted a protocol rejected by the optimised approach. It failed with message: " ^ msg)
+    | Result.Error _, Result.Error _ -> r1
 end
