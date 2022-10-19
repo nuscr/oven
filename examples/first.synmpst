@@ -1,7 +1,7 @@
 (*) A simple protocol
 
 
-global Adder(role C, role S)
+global Adder(role C, S)
 {
   fin {
     HELLO(int) from C to S;

@@ -1,7 +1,7 @@
 (*) A simple protocol
 
 
-global Adder(role C, role S)
+global Adder(C, S)
 {
   choice {
       HOLA from C to S;

@@ -96,7 +96,7 @@ let protocol_hdr ==
 let role_decls == LPAR ; nms = separated_nonempty_list(COMMA, role_decl) ;
                   RPAR ; { nms }
 
-let role_decl == ROLE_KW ; nm = name ; { nm }
+let role_decl == ROLE_KW? ; nm = name ; { nm }
 
 let global_protocol_body ==
   LCURLY ; ints = global_interaction* ;
