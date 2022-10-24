@@ -38,8 +38,7 @@ let block_to_global = function
 %token PAR_KW
 
 %token INTERSECTION_KW
-%token TIGHT_KW
-%token LOOSE_KW
+%token JOIN_KW
 
 %token PRIORITISE_KW
 %token WITH_KW
@@ -108,8 +107,8 @@ let global_interaction ==
   | inf_composition
   | fin_composition
   | parallel_composition
-  | loose_intersection
-  | tight_intersection
+  | join_composition
+  | intersection
   | priority
   | global_protocol_block
 
@@ -128,20 +127,15 @@ let parallel_composition ==
   ~ = separated_nonempty_list(AND_KW, global_protocol_block) ;
   < Par >
 
-let loose_intersection_intro ==
-  | LOOSE_KW ; INTERSECTION_KW
-  | LOOSE_KW
-  | INTERSECTION_KW
-
-let loose_intersection ==
-  loose_intersection_intro ;
+let join_composition ==
+  JOIN_KW ;
   ~ = separated_nonempty_list(AND_KW, global_protocol_block) ;
-  < LInt >
+  < Join >
 
-let tight_intersection ==
-  TIGHT_KW ; INTERSECTION_KW? ;
+let intersection ==
+  INTERSECTION_KW ;
   ~ = separated_nonempty_list(AND_KW, global_protocol_block) ;
-  < TInt >
+  < Intersection >
 
 let priority ==
   PRIORITISE_KW ; p1 = global_protocol_block ;

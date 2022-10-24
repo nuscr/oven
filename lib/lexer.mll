@@ -71,8 +71,7 @@ and token = parse
 | "inf" { INF_KW }
 | "par" { PAR_KW }
 | "intersection" { INTERSECTION_KW }
-| "tight" { TIGHT_KW }
-| "loose" { LOOSE_KW }
+| "join" { JOIN_KW }
 | "prioritise" { PRIORITISE_KW }
 | "with" { WITH_KW }
 | "high" { HIGH_KW }

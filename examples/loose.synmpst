@@ -1,14 +1,6 @@
-(*
-  For loose intersection: loose intersection | loose | intersection
-
-  For tight intersection: tight intersection | tight
-
-*)
-
-
-global Loose (role A, role B, role S1, role S2)
+global Join (role A, role B, role S1, role S2)
 {
-  loose {
+  join {
     M from A to B ;
     M from B to S1;
   } and {

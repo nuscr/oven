@@ -479,7 +479,7 @@ module FSM (State : STATE) (Label : LABEL) = struct
          f L l_es @ f R r_es)
 
   (* compose two machines allowing only their common labels *)
-  let tight_intersection_compose
+  let intersection_compose
       (sts : vertex * vertex)
       (fsm : t)
       (fsm' : t) :  vertex * (vertex list * t) =
@@ -500,8 +500,8 @@ module FSM (State : STATE) (Label : LABEL) = struct
          in
          f L l_es')
 
-  (* compose two machines allowing only their common labels *)
-  let loose_intersection_compose
+  (* compose two machines joining their common labels, and allowing free interleavings of the rest *)
+  let join_compose
       (sts : vertex * vertex)
       (fsm : t)
       (fsm' : t) :  vertex * (vertex list * t) =
@@ -934,17 +934,17 @@ module Global = struct
           let st, fsm = gather_next fsm next in
           combine_branches fsm next st branches parallel_compose
 
-      | LInt branches ->
+      | Join branches ->
         let branches = filter_degenerate_branches branches in
         if List.length branches = 0 then next, fsm else
           let st, fsm = gather_next fsm next in
-          combine_branches fsm next st branches loose_intersection_compose
+          combine_branches fsm next st branches join_compose
 
-      | TInt branches ->
+      | Intersection branches ->
         let branches = filter_degenerate_branches branches in
         if List.length branches = 0 then next, fsm else
           let st, fsm = gather_next fsm next in
-          combine_branches fsm next st branches tight_intersection_compose
+          combine_branches fsm next st branches intersection_compose
 
       | Prioritise (g, g1, g2) ->
         let s_st, initial_fsm = gather_next fsm next in

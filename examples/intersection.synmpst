@@ -1,30 +1,8 @@
-(*
-  For loose intersection: loose intersection | loose | intersection
-
-  For tight intersection: tight intersection | tight
-
-*)
-
 
 global Intersection (role C, role S)
 {
   PRE from C to S;
-  tight intersection {
-    A from C to S;
-    D from S to C;
-    C from S to C;
-  } and {
-    A from C to S;
-    B from S to C;
-    C from S to C;
-  }
-  POST from C to S;
-}
-
-global Intersection1 (role C, role S)
-{
-  PRE from C to S;
-  tight {
+  intersection {
     A from C to S;
     D from S to C;
     C from S to C;
