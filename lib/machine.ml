@@ -1274,6 +1274,17 @@ module Local = struct
     List.map (local_machine protocol.interactions) roles
 
   let well_behaved_protocol_by_bisumulation (proto : global protocol) : wb_res =
+    let synchronised_composition (lms : (role * vertex * t) list) : vertex * t =
+      let roles, sts, lfsms = Utils.split3 lms in
+      let module D = Map.Make(String) in
+      let open D in
+      (* machine dictionary *)
+      let md = List.fold_left (fun d (r, fsm) -> D.add r fsm d) D.empty (List.combine roles lfsms) in
+      (* machine state dictionary *)
+      let msd = List.fold_left (fun d (r, st) -> D.add r st d) D.empty (List.combine roles sts) in
+      assert false
+    in
+
     let parallel_compose_local = function
       | [] -> assert false, FSM.empty
       | [_, st, lfsm] ->  st, lfsm

@@ -1,5 +1,6 @@
 
 (* functions on lists *)
+val split3 : ('a * 'b * 'c) list -> 'a list * 'b list * 'c list
 val uniq : 'a list -> 'a list
 val sorted_uniq : ('a -> 'a -> int) -> 'a list -> 'a list
 val is_empty : 'a list -> bool

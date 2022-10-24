@@ -1,3 +1,9 @@
+let split3 xs =
+  List.fold_left
+    (fun (xs1, xs2, xs3) (x1,x2,x3) -> x1::xs1, x2::xs2, x3::xs3)
+    ([], [], [])
+    xs
+
 let rec uniq x =
   let rec helper l n =
     match l with
