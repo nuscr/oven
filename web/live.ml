@@ -193,7 +193,7 @@ let quick_clear() =
 
 let _ =
   let open Js_of_ocaml in
-  Js.export "synMPST"
+  Js.export "braidMPST"
     (object%js
        method parse () =
          quick_parse ()

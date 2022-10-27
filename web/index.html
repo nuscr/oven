@@ -8,7 +8,7 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/semantic-ui/2.4.1/semantic.js" integrity="sha256-qs5p0BFSqSvrstBxPvex+zdyrzcyGdHNeNmAirO2zc0=" crossorigin="anonymous"></script>
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/tonsky/FiraCode@1.207/distr/fira_code.css">
     <link rel="stylesheet" href="style.css" />
-    <title>SynMPST live</title>
+    <title>braidMPST IDE</title>
     <script src="https://cdn.jsdelivr.net/npm/iblize/dist/iblize.min.js"></script>
   </head>
   <body>
@@ -26,19 +26,19 @@
 
     <div class="ui fixed menu">
       <div class="ui container">
-        <a href="https://nuscr.dev/SynMPST/" class="header item">
-          <img class="logo" src="synMPST.png">
-          SynMPST
+        <a href="https://nuscr.dev/braid/" class="header item">
+          <img class="logo" src="braidMPST.png">
+          BraidMPST
         </a>
         <!-- <a href="docs" class="item">Documentation</a> -->
-        <a href="https://github.com/nuscr/SynMPST" target="_blank" rel="noopener noreferrer" class="item">GitHub</a>
+        <a href="https://github.com/nuscr/braid" target="_blank" rel="noopener noreferrer" class="item">GitHub</a>
       </div>
     </div>
 
     <div class="ui main container">
       <h1 class="ui header">
-        <img src="synMPST.png" alt="Logo" />
-        SynMPST live
+        <img src="braidMPST.png" alt="Logo" />
+        BraidMPST IDE
       </h1>
 
       <div class="ui negative message" id="errorbox" hidden></div>
@@ -59,14 +59,14 @@
             to2 = window.setTimeout(() => console.log("empty timer."), 1);
 
             function clear_and_parse () {
-                synMPST.clear(1); synMPST.parse(1);
+                braidMPST.clear(1); braidMPST.parse(1);
             }
 
             iblize.onUpdate((value) => {
                 window.clearTimeout(to1);
                 to1 = window.setTimeout(clear_and_parse, 100);
                 window.clearTimeout(to2);
-                to2 = window.setTimeout(()=> synMPST.render(1), 1000);
+                to2 = window.setTimeout(()=> braidMPST.render(1), 1000);
 
             });
           </script>
