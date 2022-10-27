@@ -1,3 +1,5 @@
+open BraidMPSTlib
+
 let read_file fn =
 
   let ch = open_in fn in
@@ -5,7 +7,7 @@ let read_file fn =
   close_in ch;
   s
 
-let usage_msg = "synMPST - command line tool\n Usage: syn <file1>"
+let usage_msg = "braidMPST - command line tool\n Usage: syn <file1>"
 
 let input_files = ref []
 
@@ -16,9 +18,9 @@ let speclist = []
 
 
 let process_file input_file =
-    "// synMPST - Local state machines for: " ^ input_file |> print_endline ;
+    "// braidMPST - Local state machines for: " ^ input_file |> print_endline ;
   try
-    let str = input_file |> read_file |> SynMPSTlib.local_dots_of_scribble_file in
+    let str = input_file |> read_file |> BraidMPST.local_dots_of_scribble_file in
     str |> print_endline
   with
   | exp ->  print_endline ("Unable to read the file!" ^ input_file ^ "\n" ^ Printexc.to_string exp)

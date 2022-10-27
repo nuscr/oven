@@ -1,6 +1,6 @@
 (lang dune 2.8)
 
-(name nu2scr)
+(name braid)
 
 ; (cram enable)
 
@@ -22,11 +22,11 @@
 ; (documentation "https://...")
 
 (package
- (name synMPST)
+ (name braidMPST)
  (synopsis
-   "A tool to manipulate and validate Synthetic MPST protocols.")
+   "A tool to manipulate and validate MPST protocols with flexible interleavings.")
  (description
-   "A tool to manipulate and validate Synthetic MPST protocols supporting mixed choice.")
+   "A tool to manipulate and validate MPST protocols supporting mixed choice.")
  (depends
   (ocaml
    (>= 4.08))
@@ -56,7 +56,7 @@
  ))
 
 (package
- (name synMPST-web)
+ (name braidIDE)
  (synopsis
    "A web tool to manipulate and validate Synthetic MPST protocols.")
  (description

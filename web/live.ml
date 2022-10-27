@@ -1,10 +1,12 @@
-(* SynMPST live *)
+(* BraidMPST live *)
 open Js_of_ocaml
 
 module Html = Dom_html
 module T = Js_of_ocaml_tyxml.Tyxml_js.Html
 open Js_of_ocaml_tyxml.Tyxml_js
 module W = Webutils
+
+open BraidMPSTlib
 
 (* let show_protocol_role protocol role = *)
 (*   let protocol = ProtocolName.user protocol in *)
@@ -81,7 +83,7 @@ let display_label (protocol, label) =
   (* let lk_f = *)
   (*   Of_dom.of_anchor (W.make_link (fun () -> fsm scr (protocol, role)) "FSM") *)
   (* in *)
-  let l : string = SynMPSTlib.string_of_transition_label label in
+  let l : string = BraidMPST.string_of_transition_label label in
   T.(li [ txt protocol
         ; txt " : "
         ; txt l])
@@ -95,7 +97,7 @@ let display_label (protocol, label) =
   (*     ; lk_f *)
   (*     ; txt " ] " ]) *)
 
-let display_labels (lbls : (string * SynMPSTlib__.Syntax.transition_label) list) =
+let display_labels (lbls : (string * Syntax.transition_label) list) =
   To_dom.of_element @@ T.(ul (List.map display_label lbls))
 
 let set_local fsms =
@@ -108,7 +110,7 @@ let set_local fsms =
   Interface.GraphLocal.set_div "local" divs ;
 
   let set_graph (r, fsm) =
-    Interface.GraphLocal.set_dot ("local_" ^ r) (SynMPSTlib.dot_of_local_machine fsm)
+    Interface.GraphLocal.set_dot ("local_" ^ r) (BraidMPST.dot_of_local_machine fsm)
   in
 
   List.iter set_graph fsms
@@ -117,34 +119,34 @@ let analyse' () =
   try
     let () = Interface.Error.reset () in
     let protocol = Interface.Code.get () in
-    let cu  = SynMPSTlib.parse_string protocol in
-    let cu' = SynMPSTlib.translate_and_validate cu in
+    let cu  = BraidMPST.parse_string protocol in
+    let cu' = BraidMPST.translate_and_validate cu in
 
     let name =
       let n = Interface.Code.get_name () in
       if n = "" then None else Some n
     in
 
-    match SynMPSTlib.find_protocol name cu' with
+    match BraidMPST.find_protocol name cu' with
     | None -> Interface.Error.display_exn "No protocols found!"
     | Some prot ->
-      let _, fsm = SynMPSTlib.generate_global_state_machine prot.interactions in
-      SynMPSTlib.dot_of_global_machine fsm |> Interface.GraphEFSM.set_dot ;
+      let _, fsm = BraidMPST.generate_global_state_machine prot.interactions in
+      BraidMPST.dot_of_global_machine fsm |> Interface.GraphEFSM.set_dot ;
 
-      let fsms = SynMPSTlib.generate_all_local_machines prot in
-      (* SynMPSTlib.dot_of_local_machine fsm |> Interface.GraphLocal.set_dot "local" ; *)
+      let fsms = BraidMPST.generate_all_local_machines prot in
+      (* BraidMPST.dot_of_local_machine fsm |> Interface.GraphLocal.set_dot "local" ; *)
       set_local fsms ;
 
-      SynMPSTlib.well_behaved_protocol prot
+      BraidMPST.well_behaved_protocol prot
   with
   | Invalid_argument _ -> () (* TODO this is a HACK to avoid errors on protocols without interactions *)
-  | SynMPSTlib__.Error.UserError msg -> Interface.Error.display_exn (msg)
+  | Error.UserError msg -> Interface.Error.display_exn (msg)
   | e -> Interface.Error.display_exn ("Error: " ^ Printexc.to_string e)
 
 
 let analyse () =
   analyse' () ;
-  Js_of_ocaml.Firebug.console##log (Js_of_ocaml.Js.string @@ SynMPSTlib.get_log())
+  Js_of_ocaml.Firebug.console##log (Js_of_ocaml.Js.string @@ BraidMPST.get_log())
 
 (* let analyse () = *)
 (*   let () = Interface.Error.reset () in *)
@@ -172,14 +174,14 @@ let quick_parse () =
       |> String.concat "\n" in
     Interface.GraphLocal.set_div "output" @@ "<fieldset><legend>Protocol:</legend>" ^ l ^ "</fieldset>\n"
   in
-  match SynMPSTlib.quick_parse_string src with
+  match BraidMPST.quick_parse_string src with
   | Result.Ok prots -> names prots
   | Result.Error err -> Interface.GraphLocal.set_div "output" err
 
 
 let quick_render () =
   let code = Interface.Code.get() in
-  match SynMPSTlib.quick_parse_string code with
+  match BraidMPST.quick_parse_string code with
   | Result.Ok _ -> analyse ()
   | Result.Error _ -> ()
 

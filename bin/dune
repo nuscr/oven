@@ -1,9 +1,9 @@
 (executables
  (names main)
- (libraries synMPSTlib))
+ (libraries braidMPSTlib))
 
 (install
  (section bin)
  (files
-  (main.exe as syn))
- (package synMPST))
+  (main.exe as braid))
+ (package braidMPST))
