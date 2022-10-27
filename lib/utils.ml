@@ -10,6 +10,7 @@ let rec uniq x =
   | h::t -> h::(helper (uniq t) h)
 
 
+(*
 let sorted_uniq compare l =
   let rec rem_dup l acc = function
     | [] -> acc
@@ -17,7 +18,9 @@ let sorted_uniq compare l =
     | x::xs -> rem_dup (Some x) (x::acc) xs
   in
   List.sort compare l |> rem_dup None []
+*)
 
+let sorted_uniq = List.sort_uniq
 
 let is_empty = function
   | [] -> true
