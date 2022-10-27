@@ -59,14 +59,14 @@
             to2 = window.setTimeout(() => console.log("empty timer."), 1);
 
             function clear_and_parse () {
-                braidMPST.clear(1); braidMPST.parse(1);
+                braidInterface.clear(1); braidInterface.parse(1);
             }
 
             iblize.onUpdate((value) => {
                 window.clearTimeout(to1);
                 to1 = window.setTimeout(clear_and_parse, 100);
                 window.clearTimeout(to2);
-                to2 = window.setTimeout(()=> braidMPST.render(1), 1000);
+                to2 = window.setTimeout(()=> braidInterface.render(1), 1000);
 
             });
           </script>
