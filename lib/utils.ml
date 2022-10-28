@@ -29,8 +29,12 @@ let rec minus l1 = function
   | [] -> l1
   | y::ys -> minus (rem y l1) ys
 
-let log, get_log =
+(* Logging functions *)
+
+let log, get_log, set_immediate_log =
+  let immediate = ref false in
   let contents = Buffer.create 4096 in
-  (fun s ->
+  (fun s -> if !immediate then (Stdlib.output_string Stdlib.stderr s ; Stdlib.flush Stdlib.stderr) else
      Buffer.add_string contents s; Buffer.add_char contents '\n'),
-  (fun () -> let s = Buffer.contents contents in Buffer.clear contents ; s)
+  (fun () -> let s = Buffer.contents contents in Buffer.clear contents ; s),
+  fun b -> immediate := b

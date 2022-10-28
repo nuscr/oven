@@ -9,3 +9,6 @@ val minus : 'a list -> 'a list -> 'a list
 (* debugging functions *)
 val log : string -> unit
 val get_log : unit -> string
+
+(* if it is true then use std error for the log, and no buffering *)
+val set_immediate_log : bool -> unit

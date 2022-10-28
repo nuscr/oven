@@ -26,5 +26,6 @@ let process_file input_file =
   | exp ->  print_endline ("Unable to read the file!" ^ input_file ^ "\n" ^ Printexc.to_string exp)
 
 let () =
+  BraidMPSTlib.Utils.set_immediate_log true ;
   Arg.parse speclist anon_fun usage_msg;
   List.iter process_file !input_files
