@@ -34,7 +34,7 @@ let rec minus l1 = function
 let log, get_log, set_immediate_log =
   let immediate = ref false in
   let contents = Buffer.create 4096 in
-  (fun s -> if !immediate then (Stdlib.output_string Stdlib.stderr s ; Stdlib.flush Stdlib.stderr) else
+  (fun s -> if !immediate then (Stdlib.output_string Stdlib.stderr @@ "//Log: " ^ s ^ "\n" ; Stdlib.flush Stdlib.stderr) else
      Buffer.add_string contents s; Buffer.add_char contents '\n'),
   (fun () -> let s = Buffer.contents contents in Buffer.clear contents ; s),
   fun b -> immediate := b
