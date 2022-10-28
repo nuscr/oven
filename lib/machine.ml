@@ -86,8 +86,8 @@ module Global = struct
   module FSM = FSM (State) (Label)
   include FSM
 
-  module FSMComp = StateMachineComposition.Composition (State) (Label)
-  module SEC = StateMachineBisimulation.StateEquivalenceClasses (State) (Label)
+  module FSMComp = Composition.Composition (State) (Label)
+  module SEC = Bisimulation.StateEquivalenceClasses (State) (Label)
 
   let postproces_taus (fsm : FSM.t) =
     if Debug.post_process_taus_off None then fsm
@@ -259,7 +259,7 @@ module Global = struct
     List.iter (fun st -> let _ = State.mark_as_end st in ()) next ;
     (start, fsm_final |> FSMComp.only_reachable_from start)
 
-  module B = StateMachineBisimulation.Bisimulation (State) (Label) (struct let is_strong = false end)
+  module B = Bisimulation.Bisimulation (State) (Label) (struct let is_strong = false end)
   let minimise fsm = B.minimise fsm
 
   let generate_state_machine (g : global) : vertex * FSM.t =
@@ -277,7 +277,7 @@ module Global = struct
   let generate_dot fsm = fsm |> Dot.generate_dot
 
   let generate_minimal_dot fsm =
-    let module WB =  StateMachineBisimulation.Bisimulation (State) (Label) (struct let is_strong = false end) in
+    let module WB =  Bisimulation.Bisimulation (State) (Label) (struct let is_strong = false end) in
     WB.generate_minimal_dot fsm
 end
 
@@ -339,7 +339,7 @@ module Local = struct
 
   type wb_res = (unit, string) Result.t
 
-  module WB =  StateMachineBisimulation.Bisimulation (State) (Label) (struct let is_strong = false end)
+  module WB =  Bisimulation.Bisimulation (State) (Label) (struct let is_strong = false end)
 
   (* this is more applicative than monadic, as previous results don't change the future results *)
   let special_bind (v : wb_res) (f : unit -> wb_res) : wb_res =
@@ -500,7 +500,7 @@ module Local = struct
   let generate_dot fsm = fsm |> Dot.generate_dot
 
   let generate_minimal_dot fsm =
-    let module WB = StateMachineBisimulation.Bisimulation (State) (Label) (struct let is_strong = false end) in
+    let module WB = Bisimulation.Bisimulation (State) (Label) (struct let is_strong = false end) in
     WB.generate_minimal_dot fsm
 
   let generate_local_for_roles roles gfsm =
