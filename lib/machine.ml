@@ -711,7 +711,8 @@ module Bisimulation (State : STATE) (Label : LABEL) (Str : STRENGTH)  = struct
       List.filter (List.mem st) bs
     in
 
-    let can_reach_block st a bs =
+    (* given a vertex and a label check all the block lists that can be reached *)
+    let can_reach_block (st:vertex) (a:Label.t) (bs:state_equivalence_class) : state_equivalence_class list =
       let sts = if Str.is_strong then
           (* this makes it a strong bisimulation *)
           can_reach_with_anything edges st a
