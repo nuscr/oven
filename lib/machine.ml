@@ -86,6 +86,8 @@ module Global = struct
   module FSM = FSM (State) (Label)
   include FSM
 
+  module FSMComp = StateMachineComposition.Composition (State) (Label)
+
   let postproces_taus (fsm : FSM.t) =
     if Debug.post_process_taus_off None then fsm
     else
@@ -203,19 +205,19 @@ module Global = struct
         let branches = filter_degenerate_branches branches in
         if List.length branches = 0 then next, fsm else
           let st, fsm = gather_next fsm next in
-          combine_branches fsm next st branches parallel_compose
+          combine_branches fsm next st branches FSMComp.parallel_compose
 
       | Join branches ->
         let branches = filter_degenerate_branches branches in
         if List.length branches = 0 then next, fsm else
           let st, fsm = gather_next fsm next in
-          combine_branches fsm next st branches join_compose
+          combine_branches fsm next st branches FSMComp.join_compose
 
       | Intersection branches ->
         let branches = filter_degenerate_branches branches in
         if List.length branches = 0 then next, fsm else
           let st, fsm = gather_next fsm next in
-          combine_branches fsm next st branches intersection_compose
+          combine_branches fsm next st branches FSMComp.intersection_compose
 
       | Prioritise (g, g1, g2) ->
         let s_st, initial_fsm = gather_next fsm next in
@@ -229,7 +231,7 @@ module Global = struct
         let _, fsm2 = tr empty g2 [s2_st] in
         let fsm2 = postproces_taus fsm2 in
 
-        prioritise initial_fsm (add_vertex fsm s_st) s_st fsm1 s1_st fsm2 s2_st
+        FSMComp.prioritise initial_fsm (add_vertex fsm s_st) s_st fsm1 s1_st fsm2 s2_st
 
     and combine_branches fsm next s_st branches
         (combine_fun : vertex * vertex -> t -> t -> vertex * (vertex list * t)) =
@@ -254,7 +256,7 @@ module Global = struct
     in
     let next, fsm_final = tr FSM.empty g [start] in
     List.iter (fun st -> let _ = State.mark_as_end st in ()) next ;
-    (start, fsm_final |> only_reachable_from start)
+    (start, fsm_final |> FSMComp.only_reachable_from start)
 
   module B = Bisimulation (State) (Label) (struct let is_strong = false end)
   let minimise fsm = B.minimise fsm
