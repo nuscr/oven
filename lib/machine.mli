@@ -57,9 +57,9 @@ module Local :
 
   val generate_minimal_dot : FSM.t -> string
 
-  val generate_all_local : Syntax.global Syntax.protocol -> (Syntax.role * FSM.t) list
+  val generate_local_for_roles : Syntax.role list -> Global.FSM.t -> (Syntax.role * FSM.t) list
 
   type wb_res = (unit, string) Result.t
 
-  val well_behaved_protocol : Syntax.global Syntax.protocol -> wb_res
+  val well_behaved_local_machines : (Syntax.role * FSM.t) list -> wb_res
 end

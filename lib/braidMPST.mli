@@ -22,8 +22,8 @@ val minimal_dot_of_local_machine : Machine.Local.FSM.t -> string
 
 val get_log : unit -> string
 
-val generate_all_local_machines : Syntax.global Syntax.protocol -> (Syntax.role * Machine.Local.FSM.t) list
+val generate_local_machines_for_roles : Syntax.role list -> Machine.Global.FSM.t -> (Syntax.role * Machine.Local.FSM.t) list
 
-val well_behaved_protocol : Syntax.global Syntax.protocol -> unit
+val well_behaved_local_machines : string -> (Syntax.role * Machine.Local.FSM.t) list -> unit
 
 val local_dots_of_scribble_file : string -> string

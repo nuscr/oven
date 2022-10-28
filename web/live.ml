@@ -133,11 +133,11 @@ let analyse' () =
       let _, fsm = BraidMPST.generate_global_state_machine prot.interactions in
       BraidMPST.dot_of_global_machine fsm |> Interface.GraphEFSM.set_dot ;
 
-      let fsms = BraidMPST.generate_all_local_machines prot in
+      let rs_lfsms = BraidMPST.generate_local_machines_for_roles prot.roles fsm in
       (* BraidMPST.dot_of_local_machine fsm |> Interface.GraphLocal.set_dot "local" ; *)
-      set_local fsms ;
+      set_local rs_lfsms ;
 
-      BraidMPST.well_behaved_protocol prot
+      BraidMPST.well_behaved_local_machines prot.protocol_name rs_lfsms
   with
   | Invalid_argument _ -> () (* TODO this is a HACK to avoid errors on protocols without interactions *)
   | Error.UserError msg -> Interface.Error.display_exn (msg)

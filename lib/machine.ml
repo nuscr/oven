@@ -1220,13 +1220,8 @@ module Local = struct
   let well_behaved_role (r, st, fsm : role  * vertex * t) : wb_res =
     c5 r fsm [] [st]
 
-  let well_behaved_protocol (proto : global protocol) : wb_res =
-    let roles = proto.roles in
-    let g = proto.interactions in
-    let _start, gfsm = Global.generate_state_machine g in
-
-    let lfsms = List.map (fun r -> let l = project r gfsm in r, get_start_state l, l) roles in
-
+  let well_behaved_local_machines roles_and_lfsms : wb_res =
+    let lfsms = List.map (fun (r, l) -> r, get_start_state l, l) roles_and_lfsms in
     pipe_fold well_behaved_role (Result.ok ()) lfsms
 
   let generate_dot fsm = fsm |> Dot.generate_dot
@@ -1235,13 +1230,10 @@ module Local = struct
     let module WB = Bisimulation (State) (Label) (struct let is_strong = false end) in
     WB.generate_minimal_dot fsm
 
-  let generate_all_local protocol =
-    let roles = protocol.roles in
-
-    let local_machine (g : global) (r : role) =
-      let _, gfsm = Global.generate_state_machine g in
+  let generate_local_for_roles roles gfsm =
+    let local_machine r =
       r, project r gfsm |> minimise_state_numbers
     in
 
-    List.map (local_machine protocol.interactions) roles
+    List.map local_machine roles
 end

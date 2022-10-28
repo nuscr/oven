@@ -58,32 +58,36 @@ module Toplevel = struct
 
   let minimal_dot_of_local_machine = Machine.Local.generate_minimal_dot
 
-  let generate_all_local_machines =
-    Machine.Local.generate_all_local
+  let generate_local_machines_for_roles =
+    Machine.Local.generate_local_for_roles
 
   let dot_of_local_machine = Machine.Local.generate_dot
 
-  let well_behaved_protocol (proto : Syntax.global Syntax.protocol) : unit =
-    match Machine.Local.well_behaved_protocol proto with
+  let well_behaved_local_machines protocol_name rs_and_ls : unit =
+    match Machine.Local.well_behaved_local_machines rs_and_ls with
     | Result.Ok () -> ()
     | Result.Error errMsg ->
-      proto.Syntax.protocol_name ^ ": failed with : " ^ errMsg |> Utils.log ;
-      Error.UserError ("Protocol: " ^ proto.Syntax.protocol_name ^ " failed with:\n" ^ errMsg) |> raise
+      protocol_name ^ ": failed with : " ^ errMsg |> Utils.log ;
+      Error.UserError ("Protocol: " ^ protocol_name ^ " failed with:\n" ^ errMsg) |> raise
 
 end
 
 module CommandLineInterface = struct
   open Syntax
 
-  let process_role fsm r =
-    let lfsm = Toplevel.project_state_machine r fsm in
+  let process_role (r, lfsm) =
     let dot = Toplevel.minimal_dot_of_local_machine lfsm in
     "// Role: " ^ r ^ "\n" ^ dot
 
   let process_protocol (proto : global protocol) : string =
-    Toplevel.well_behaved_protocol proto ;
-    let _, fsm = Toplevel.generate_global_state_machine (proto.interactions) in
-    let out = List.map (process_role fsm) proto.roles |> String.concat "\n" in
+    let _, gfsm = Toplevel.generate_global_state_machine proto.interactions in
+    let rs_lfsms = Toplevel.generate_local_machines_for_roles proto.roles gfsm in
+
+    Toplevel.well_behaved_local_machines proto.protocol_name rs_lfsms ;
+
+    let out = List.map process_role rs_lfsms |> String.concat "\n" in
+
+
     "// Protocol: " ^ proto.protocol_name ^ "\n"
     ^ out
 
