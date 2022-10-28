@@ -161,20 +161,25 @@ module FSM (State : STATE) (Label : LABEL) = struct
     f [] [] [st]
 
   let walk_with_function (st : vertex) (step : vertex -> edge list) (p : edge -> 'a) : 'a list =
-    let rec f st visited res (k : 'a list -> 'b) =
+    let visited : vertex list ref = ref [] in
+    let add v = visited := v :: !visited in
+    let was_visited v = List.mem v !visited in
+    let rec f st res (k : 'a list -> 'b) =
+      List.length !visited |> string_of_int |> Utils.log ;
       (* if it can step then done *)
-      if List.mem st visited then k res
+      if was_visited st then k res
       else
         let sts, res' = step st |> List.map (fun e -> E.dst e, p e) |> List.split in
-        fs sts  (st::visited) (res' @ res) k
+        add st ;
+        fs sts (res' @ res) k
 
-    and fs sts visited res (k : 'a list -> 'b) =
+    and fs sts res (k : 'a list -> 'b) =
       match sts with
       | [] -> k res
       | st::sts ->
-        f st visited res (fun res -> fs sts visited res k)
+        f st res (fun res -> fs sts res k)
     in
-    f st [] [] (fun x -> x)
+    f st [] (fun x -> x)
 
   let walk_with_any_predicate (st : vertex) (step : vertex -> edge list) (p : edge -> bool) : bool =
     walk_with_function st step p |> List.exists ((=) true)
