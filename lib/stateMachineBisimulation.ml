@@ -1,5 +1,93 @@
 open StateMachine
 
+  module StateEquivalenceClasses (State : STATE) (Label : LABEL) =
+  struct
+    module FSM = FSM (State) (Label)
+    include FSM
+
+    (* a list whre each element is a list of the equivalent states *)
+    type state_equivalence_class = vertex list list
+
+    let _string_of_state_equivalence_class sec =
+      List.map (fun l -> List.map State.as_string l |> String.concat "; ") sec |> String.concat " || "
+
+    let canonicalise_start_end eq_sts =
+      let make_head_start l =
+        try
+          let _ = List.hd l |> State.mark_as_start in ()
+        with
+        | Failure _ -> Error.Violation "The equivalence class needs a canonical element." |> raise
+      in
+      let make_head_end l =
+        try
+          let _ = List.hd l |> State.mark_as_end in ()
+        with
+        | Failure _ -> Error.Violation "The equivalence class needs a canonical element." |> raise
+      in
+      let canonicalise eq_st =
+        if List.exists State.is_start eq_st then make_head_start eq_st ;
+        if List.exists State.is_end eq_st then make_head_end eq_st ;
+        eq_st
+      in
+      List.map canonicalise eq_sts
+
+    let compute_from_pair_list (vss : (vertex * vertex) list) : state_equivalence_class =
+      let find_list_and_rest v eq_sts =
+        let have, rest = List.partition (List.mem v) eq_sts in
+        match have with
+        | [] -> [], rest
+        | [have] -> have, rest
+        | _::_ -> Error.Violation "Invariant: each vertex appears only once." |> raise
+      in
+
+      let merge (eq_sts : state_equivalence_class)
+          ((v1, v2) : vertex * vertex) : state_equivalence_class =
+
+        let add_if_not_there v l = if List.mem v l then l else v::l in
+
+        let has_v1, rest =  find_list_and_rest v1 eq_sts in
+        if List.mem v2 has_v1 then eq_sts (* we are done *)
+
+        else if Utils.is_empty has_v1
+        then
+          let has_v2, rest = find_list_and_rest v2 eq_sts in
+          (add_if_not_there v2 (add_if_not_there v1 has_v2))::rest
+        else
+          (* has_v1 is not empty and it does not contain v2 *)
+          (* rest may contain v2 *)
+          let has_v2, rest = find_list_and_rest v2 rest in
+
+          (has_v1 @ (add_if_not_there v2 has_v2))::rest
+      in
+      List.fold_left merge [] vss
+
+    let translate (eqsts : state_equivalence_class) (fsm : t) : t =
+      let eqsts = canonicalise_start_end eqsts in
+      (* get the canonical representative for each vertex *)
+      let translate_st st =
+        try
+          List.find (fun sts -> List.mem st sts) eqsts |> List.hd
+        with
+        | Failure _ -> Error.Violation "Equivalence class cannot be empty." |> raise
+        | Not_found -> st (* if it is not in an equivalence class it's on its own one *)
+
+      in
+      let translate_edge e =
+        if E.label e |> Label.is_default
+        then None
+        else Some (E.create
+                     (E.src e |> translate_st)
+                     (E.label e)
+                     (E.dst e |> translate_st))
+      in
+      fold_edges_e
+        (fun e fsm ->
+           match translate_edge e with
+           | None -> fsm
+           | Some e' -> add_edge_e fsm e')
+        fsm empty
+  end
+
 module type STRENGTH = sig
   val is_strong : bool
 end
@@ -10,14 +98,14 @@ module Bisimulation (State : STATE) (Label : LABEL) (Str : STRENGTH)  = struct
   module FSM = FSM (State) (Label)
   include FSM
 
-  open StateEquivalenceClasess
+  module EC = StateEquivalenceClasses (State) (Label)
 
   type block = vertex list
 
-  let compute_bisimulation_quotient (fsm : FSM.t) : state_equivalence_class =
-    let initial () : state_equivalence_class * FSM.edge list =
+  let compute_bisimulation_quotient (fsm : FSM.t) : EC.state_equivalence_class =
+    let initial () : EC.state_equivalence_class * FSM.edge list =
       (* a singleton block with all the states to be refined *)
-      let bs : state_equivalence_class = [FSM.fold_vertex (fun st l -> st :: l) fsm []] in
+      let bs : EC.state_equivalence_class = [FSM.fold_vertex (fun st l -> st :: l) fsm []] in
       let edges = get_edges fsm in
       bs, edges
     in
@@ -32,7 +120,11 @@ module Bisimulation (State : STATE) (Label : LABEL) (Str : STRENGTH)  = struct
     in
 
     (* given a vertex and a label check all the block lists that can be reached *)
-    let can_reach_block (st:vertex) (a:Label.t) (bs:state_equivalence_class) : state_equivalence_class list =
+    let can_reach_block
+        (st:vertex)
+        (a:Label.t)
+        (bs : EC.state_equivalence_class)
+      : EC.state_equivalence_class list =
       let sts = if Str.is_strong then
           (* this makes it a strong bisimulation *)
           can_reach_with_anything edges st a
@@ -43,7 +135,7 @@ module Bisimulation (State : STATE) (Label : LABEL) (Str : STRENGTH)  = struct
       List.map (fun st -> find_state_in_blocks st bs) sts |> Utils.uniq
     in
 
-    let split (b : block) (a : Label.t) (bs : state_equivalence_class) : block * block =
+    let split (b : block) (a : Label.t) (bs : EC.state_equivalence_class) : block * block =
       match b with
       | [] -> [], []
       | st::_ -> (* choose some state in the block *)
@@ -58,7 +150,7 @@ module Bisimulation (State : STATE) (Label : LABEL) (Str : STRENGTH)  = struct
         b1, b2 (* TODO remove the let *)
     in
 
-    let compute (bs : block list) : bool * state_equivalence_class =
+    let compute (bs : block list) : bool * EC.state_equivalence_class =
       let rec for_each_edge (b : block) : FSM.edge list -> bool * block list = function
         | [] -> false, [b]
         | e::es ->
@@ -103,7 +195,7 @@ module Bisimulation (State : STATE) (Label : LABEL) (Str : STRENGTH)  = struct
     if Debug.minimise_off None then fsm
     else
       let eqsts = compute_bisimulation_quotient fsm in
-      StateEquivalenceClasess.translate eqsts fsm
+      EC.translate eqsts fsm
 
   let generate_minimal_dot _fsm =
     (* fsm |> minimise |> FSM.remove_reflexive_taus |> FSM.Dot.generate_dot *)

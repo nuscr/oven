@@ -87,6 +87,7 @@ module Global = struct
   include FSM
 
   module FSMComp = StateMachineComposition.Composition (State) (Label)
+  module SEC = StateMachineBisimulation.StateEquivalenceClasses (State) (Label)
 
   let postproces_taus (fsm : FSM.t) =
     if Debug.post_process_taus_off None then fsm
@@ -100,8 +101,8 @@ module Global = struct
           fsm []
       in
       (* lists of equivalent states *)
-      let eqsts = StateEquivalenceClasess.compute_from_pair_list tau_pairs in
-      StateEquivalenceClasess.translate eqsts fsm
+      let eqsts = SEC.compute_from_pair_list tau_pairs in
+      SEC.translate eqsts fsm
 
   let filter_degenerate_branches branches =
     List.filter (function Seq [] -> false | _ -> true) branches
