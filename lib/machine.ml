@@ -165,7 +165,6 @@ module FSM (State : STATE) (Label : LABEL) = struct
     let add v = visited := v :: !visited in
     let was_visited v = List.mem v !visited in
     let rec f st res (k : 'a list -> 'b) =
-      List.length !visited |> string_of_int |> Utils.log ;
       (* if it can step then done *)
       if was_visited st then k res
       else
