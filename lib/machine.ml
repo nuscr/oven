@@ -509,6 +509,9 @@ module FSM (State : STATE) (Label : LABEL) = struct
       (sts : vertex * vertex)
       (fsm : t)
       (fsm' : t) :  vertex * (vertex list * t) =
+    let get_size_as_str fsm = get_vertices fsm |> List.length |> string_of_int in
+    "FSM size = " ^ get_size_as_str fsm |> Utils.log ;
+    "FSM' size = " ^ get_size_as_str fsm' |> Utils.log ;
     let open MachineComposition in
     compose_with sts fsm fsm'
       (fun dict (st, st' as sts) ->
