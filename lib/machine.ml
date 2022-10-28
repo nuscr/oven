@@ -1,323 +1,509 @@
-open Graph
+open Syntax
 
-module type STATE =
-sig
-  type t
-  val equal : t -> t -> bool
-  val hash : t -> int
-  val compare : t -> t -> int
+open StateMachine
 
-  val get_id : t -> int
+let _debug =
+  (* let _ = Debug.set_all_debug_flags() in *)
+  (* let _ = Debug.keep_only_reacheable_off (Some true) in *)
+  (* let _ = Debug.project_to_empty (Some true) in *)
+  (* let _ = Debug.post_process_taus_off (Some false) in *)
+  (* let _ = Debug.minimise_off (Some true) in *)
+  (* let _ = Debug.minimise_state_numbers_off (Some true) in *)
+  ()
 
-  val fresh : unit -> t
-  val freshen : t -> t
-  val renumber_state : int -> t -> t
+module State = struct
+  type t = { id : int
+           ; is_start : bool ref
+           ; is_end : bool ref
+           }
 
-  val as_string : t -> string
-  val list_as_string : t list -> string
+  let equal s1 s2 = (s1.id = s2.id)
 
-  val mark_as_start : t -> t
-  val mark_as_end : t -> t
+  let hash = Hashtbl.hash
 
-  (* val fresh_start : unit -> t *)
-  (* val fresh_end : unit -> t *)
+  let compare s1 s2 = compare s1.id s2.id
 
-  val is_start : t -> bool
-  val is_end : t -> bool
+  let mark_as_start s =
+    s.is_start := true ; s
+
+  let mark_as_end s =
+    s.is_end := true ; s
+
+  let as_string {id ; is_start ; is_end} =
+    let s_str = if !is_start then "S" else "" in
+    let e_str = if !is_end then "E" else "" in
+    let extra = if !is_start || !is_end then s_str ^ e_str ^ "-" else "" in
+    extra ^ (string_of_int id)
+
+  let rec list_as_string = function
+    | [] -> "[]"
+    | s::ss -> as_string s ^ "::" ^ list_as_string ss
+
+  (* let mark_as_not_end s = *)
+  (*   s.is_end := false ; s *)
+
+  let is_start s = !(s.is_start)
+  let is_end s = !(s.is_end)
+
+  let fresh, fresh_start, fresh_end, freshen =
+    let n = ref 0 in
+    ((fun () -> incr n ; {id = !n ; is_start = ref false ; is_end = ref false}),
+     (fun () -> incr n ; {id = !n ; is_start = ref true ; is_end = ref false}),
+     (fun () -> incr n ; {id = !n ; is_start = ref false ; is_end = ref true}),
+     (fun st -> incr n ; {id = !n ; is_start = ref (is_start st) ; is_end = ref (is_end st)}))
+
+  let renumber_state n {id = _ ; is_start ; is_end} = {id = n ; is_start ; is_end}
+
+  let get_id {id ; _ } = id
+
 end
 
-module type LABEL =
-sig
-  type t
 
-  val default : t
+module Global = struct
+  module Label = struct
+    type t = transition_label option
 
-  val compare : t -> t -> int
+    let default : t = None
 
-  val as_string : t -> string
-  val list_as_string : t list -> string
+    let compare = Stdlib.compare (* consider a more specific one *)
 
-  val is_default : t -> bool
-end
+    let project r lbl =
+      Option.bind lbl
+        (fun l-> Operations.Local.project_transition r l)
 
-module type FSM =
-sig
-  type t
+    let as_string = function
+      | None -> "τ"
+      | Some l -> string_of_transition_label l
 
-  module State : STATE
-  module Label : LABEL
+    let list_as_string l =
+      List.map as_string l |> String.concat ", "
 
-  type vertex = State.t
-
-  module E :
-  sig
-    type t
-    val compare : t -> t -> int
-    val src : t -> vertex
-    val dst : t -> vertex
-    type label = Label.t
-    val create : vertex -> label -> vertex -> t
-    val label : t -> label
+    let is_default = function
+      | None -> true
+      | Some _ -> false
   end
 
-  val get_vertices : t -> vertex list
-  val get_start_state : t -> vertex
-  val add_vertex : t -> vertex -> t
-  val empty : t
+  module FSM = FSM (State) (Label)
+  include FSM
 
-  type edge = E.t
-  val get_edges : t -> edge list
-  val add_edge : t -> vertex -> vertex -> t
-  val add_edge_e : t -> edge -> t
-  val succ : t -> vertex -> vertex list
-  val succ_e : t -> vertex -> edge list
-  val fold_edges :
-    (vertex -> vertex -> 'a -> 'a) -> t -> 'a -> 'a
-  val iter_edges_e : (edge -> unit) -> t -> unit
-  val fold_edges_e : (edge -> 'a -> 'a) -> t -> 'a -> 'a
-  val iter_vertex : (vertex -> unit) -> t -> unit
-  val fold_vertex : (vertex -> 'a -> 'a) -> t -> 'a -> 'a
-
-  val walk_collect_edges_with_predicate :
-    t -> vertex-> (vertex -> edge list) -> (edge -> bool) -> edge list
-  val walk_collect_vertices_with_predicate :
-    t -> vertex -> (vertex -> edge list) -> (edge -> bool) -> vertex list
-  val walk_with_function :
-    vertex -> (vertex -> edge list) -> (edge -> 'a) -> 'a list
-  val walk_with_any_predicate :
-    vertex -> (vertex -> edge list) -> (edge -> bool) -> bool
-  val only_with_tau : t -> vertex -> edge list
-  val with_any_transition : t -> vertex -> edge list
-  val state_can_step : t -> vertex -> bool
-  val get_reachable_labels : t -> vertex -> E.label list
-  val state_can_step_recursive : t -> vertex -> bool
-  val has_strong_outgoing_transitions : t -> vertex -> bool
-  val get_final_states : t -> vertex list
-  val tau_reachable : t -> vertex -> vertex list
-  val tau_reachable_labelled_edges : t -> vertex -> edge list
-  val can_reach_with_anything :
-    E.t list -> vertex -> E.label -> vertex list
-  val can_reach_with_weak_step : t -> vertex -> E.label -> vertex list
-  val minimise_state_numbers : t -> t
-  val merge : t -> t -> t
-  val merge_all : t list -> t
-  val remove_reflexive_taus : t -> t
-  module Dot :
-  sig
-    val generate_dot : t -> string
-  end
-end
-
-module StateMachine (State : STATE) (Label : LABEL) = struct
-  module G = Persistent.Digraph.ConcreteLabeled (State) (Label)
-  include G
-
-  type t = G.t
-
-  module State = State
-  module Label = Label
-
-  let _string_of_edge e =
-    (E.src e |> State.as_string)
-    ^ "--" ^ (E.label e |> Label.as_string) ^ "->"
-    ^ (E.dst e |> State.as_string)
-
-  let get_edges fsm =
-    fold_edges_e (fun e l -> e::l) fsm []
-
-  let get_vertices (fsm : t) : V.t list =
-    let l = fold_vertex (fun st l -> st::l) fsm [] in
-    assert (List.length l = nb_vertex fsm) ;
-    l
-
-  let get_start_state fsm =
-    try
-      List.find State.is_start @@ get_vertices fsm
-    with
-    |_ -> Error.Violation "FSM must have a start state." |> raise
-
-  (* states that can be reached in one step with label that is not tau a from st *)
-  let _can_reach_with_labels edges st a =
-    List.filter_map (fun e -> if E.src e = st && E.label e = a && not (E.label e = Label.default) then Some (E.dst e) else None) edges
-
-  let walk_collect_edges_with_predicate (fsm : t) (st : vertex) (step : vertex -> edge list) (p : edge -> bool) : edge list =
-    (* states from edges *)
-    let sfe es =
-      List.concat_map (fun e -> E.src e:: E.dst e::[]) es
-    in
-
-    let rec f visited acc to_visit =
-      match to_visit with
-      | [] -> acc
-      | curr_st::sts when List.mem curr_st visited  ->
-        f visited acc sts
-      | curr_st::sts ->
-        let acc' = (List.filter p (succ_e fsm curr_st)) @ acc in
-        let visited' = curr_st::visited in
-        let to_visit' = to_visit @ (sfe @@ step curr_st)  in
-        f  visited' acc' (sts@to_visit')
-    in
-    f [] [] [st]
-
-  let walk_collect_vertices_with_predicate (fsm : t) (st : vertex) (step : vertex -> edge list) (p : edge -> bool) : vertex list =
-    (* states from edges *)
-    let sfe es =
-      List.concat_map (fun e -> E.src e:: E.dst e::[]) es
-    in
-
-    let rec f visited acc to_visit =
-      match to_visit with
-      | [] -> acc
-      | curr_st::sts when List.mem curr_st visited  ->
-        f visited acc sts
-      | curr_st::sts ->
-        let acc' = (List.filter p (succ_e fsm curr_st) |> List.map E.dst) @ acc in
-        let visited' = curr_st::visited in
-        let to_visit' = to_visit @ (sfe @@ step curr_st)  in
-        f  visited' acc' (sts@to_visit')
-    in
-    f [] [] [st]
-
-  let walk_with_function (st : vertex) (step : vertex -> edge list) (p : edge -> 'a) : 'a list =
-    let visited : vertex list ref = ref [] in
-    let add v = visited := v :: !visited in
-    let was_visited v = List.mem v !visited in
-    let rec f st res (k : 'a list -> 'b) =
-      (* if it can step then done *)
-      if was_visited st then k res
-      else
-        let sts, res' = step st |> List.map (fun e -> E.dst e, p e) |> List.split in
-        add st ;
-        fs sts (res' @ res) k
-
-    and fs sts res (k : 'a list -> 'b) =
-      match sts with
-      | [] -> k res
-      | st::sts ->
-        f st res (fun res -> fs sts res k)
-    in
-    f st [] (fun x -> x)
-
-  let walk_with_any_predicate (st : vertex) (step : vertex -> edge list) (p : edge -> bool) : bool =
-    walk_with_function st step p |> List.exists ((=) true)
-
-  let only_with_tau (fsm : t) (st : vertex) : edge list =
-    succ_e fsm st |> List.filter (fun e -> E.label e = Label.default)
-
-  let with_any_transition (fsm : t) (st : vertex) : edge list =
-    succ_e fsm st
-
-  (* if state can step with ANY transition, including tau *)
-  let state_can_step (fsm : t) (st : vertex) : bool =
-    succ fsm st |> Utils.is_empty|> not
-
-  let get_reachable_labels (fsm : t) (st : vertex) : Label.t list  =
-    walk_with_function st (with_any_transition fsm) (fun e -> E.label e)
-
-  (* if the state can step with a non tau transition explore transitively *)
-  let state_can_step_recursive (fsm : t) (st : vertex) : bool =
-    walk_with_any_predicate st (with_any_transition fsm) (fun e -> E.label e |> Label.is_default |> not)
-
-  let has_strong_outgoing_transitions fsm st =
-    succ_e fsm st |> List.filter (fun e -> E.label e = Label.default |> not) |> Utils.is_empty |> not
-
-  let get_final_states (fsm : t) : vertex list =
-    let has_no_successor st =
-      succ fsm st |> Utils.is_empty
-    in
-    let has_predecessor st =
-      pred fsm st |> Utils.is_empty |> not
-    in
-    let final_sts =
-      get_vertices fsm |> List.filter (fun st -> has_no_successor st && has_predecessor st)
-    in
-    (* if there are not continuations, continue from a detached state *)
-    if Utils.is_empty final_sts then [State.fresh()] else final_sts
-
-  (* return all the tau reachable states *)
-  let tau_reachable fsm st =
-    walk_collect_vertices_with_predicate fsm st (only_with_tau fsm) (fun e -> E.label e = Label.default)
-
-  let tau_reachable_labelled_edges fsm st =
-    walk_collect_edges_with_predicate fsm st (only_with_tau fsm) (fun e -> E.label e = Label.default |> not)
-
-  (* states that can be reached in one step with label a from st *)
-  let can_reach_with_anything edges st a =
-    List.filter_map (fun e -> if E.src e = st && E.label e = a then Some (E.dst e) else None) edges
-
-  let can_reach_with_weak_step fsm st a =
-    (* labels that are tau reachable from this state *)
-    let weak_edges = tau_reachable_labelled_edges fsm st in
-    (* add the set of tau reacheable states from the destination of the edge *)
-    List.concat_map (fun e -> let dst = E.dst e in if E.label e = a then dst::(tau_reachable fsm dst) else []) weak_edges
-
-  let minimise_state_numbers fsm =
-    if Debug.minimise_state_numbers_off None then fsm
+  let postproces_taus (fsm : FSM.t) =
+    if Debug.post_process_taus_off None then fsm
     else
-      let vertices = get_vertices fsm |> List.mapi (fun n st -> (st, State.renumber_state n st)) in
-
-      let fsm' = List.fold_left (fun fsm (_, st) -> add_vertex fsm st ) empty vertices in
-      let update e =
-        let tr st = List.assoc st vertices in
-        E.create (E.src e |> tr) (E.label e) (E.dst e |> tr)
+      let tau_pairs =
+        FSM.fold_edges_e
+          (fun e l ->
+             if FSM.E.label e |> Label.is_default
+             then  (FSM.E.src e, FSM.E. dst e)::l
+             else l)
+          fsm []
       in
-      fold_edges_e (fun e fsm -> add_edge_e fsm (update e)) fsm fsm'
+      (* lists of equivalent states *)
+      let eqsts = StateEquivalenceClasess.compute_from_pair_list tau_pairs in
+      StateEquivalenceClasess.translate eqsts fsm
 
-  (* simple merge two state machines *)
-  let merge (fsm : t) (fsm' : t) : t =
-    (* extend with vertices *)
-    let with_vertices = fold_vertex (fun v g -> add_vertex g v) fsm' fsm in
-    (* extend with edges *)
-    let with_edges = fold_edges_e (fun e g -> add_edge_e g e) fsm' with_vertices in
-    with_edges
+  let filter_degenerate_branches branches =
+    List.filter (function Seq [] -> false | _ -> true) branches
 
-  (* simple merge two state machines *)
-  let merge_all (fsms : t list) : t =
-    List.fold_left merge empty fsms
+  let gather_next fsm next : vertex * FSM.t =
+    let st = State.fresh() in
+    st, List.fold_left (fun fsm st' -> FSM.add_edge fsm st' st) fsm next
 
-  let remove_reflexive_taus (fsm : t) : t =
-    let e_fsm = fold_vertex (fun st fsm -> add_vertex fsm st) fsm empty in
-    let is_reflexive_tau e =
-      if (E.src e = E.dst e && E.label e |> Label.is_default)
-      then true
-      else
-        false
+  let generate_state_machine' (g : global) : vertex * FSM.t =
+    let start = State.fresh_start () in
+    (* tr does the recursive translation.
+       s_st and e_st are the states that will bound the translated type
+       next is a list of states that lead to the machine we are currently translating
+       and the first element of the returned value is the places where the execution will continue
+    *)
+    let rec tr
+        (fsm : t)
+        (g : global)
+        (next : vertex list) : vertex list * t =
+      match g with
+      | MessageTransfer lbl ->
+        let e x y = FSM.E.create x (Some lbl) y in
+        let n_st = State.fresh() in
+        let fsm = FSM.add_vertex fsm n_st in
+        let fsm' = List.fold_left (fun fsm st -> FSM.add_edge_e fsm (e st n_st)) fsm next in
+        [n_st], fsm'
+
+      | Seq gis ->
+        let rec connect fsm gis next =
+          match gis with
+          | [g'] ->
+            tr fsm g' next
+
+          | g'::gs ->
+            let next', fsm' = tr fsm g' next in
+            connect fsm' gs next'
+
+          | [] ->
+            let st = State.fresh_start () |> State.mark_as_end in
+            st::next, FSM.add_vertex FSM.empty st
+
+        in
+        connect fsm gis next
+
+      | Choice branches ->
+        if Utils.is_empty branches then next, fsm else
+
+          (* TODO gather the results and then dispatch the branches *)
+          let st, fsm = gather_next fsm next in
+
+          let nexts, fsms = List.map (fun g -> tr fsm g [st]) branches |> List.split in
+          let fsm' = merge_all fsms in
+          List.concat nexts |> Utils.uniq, fsm'
+
+      | Fin g' ->
+        let connect_to fsm next st =
+          List.fold_left (fun fsm st' -> FSM.add_edge fsm st' st) (FSM.add_vertex fsm st) next
+        in
+        let tr_from_to fsm g from_st to_st =
+          let next, fsm = tr fsm g [from_st] in
+          connect_to fsm next to_st
+
+        in
+
+        let first_st = State.fresh () in (* state to start *)
+        let end_first_st = State.fresh () in (* state to finish before start *)
+        let loop_st = State.fresh () in (* state to loop *)
+        let end_st = State.fresh () in (* state to finish after one or more loops *)
+
+        let fsm = FSM.add_edge fsm first_st end_first_st in
+        let fsm = connect_to fsm next first_st in (* gather in first *)
+        let fsm = tr_from_to fsm g' first_st loop_st in (* one ste before looping *)
+        let fsm = tr_from_to fsm g' loop_st loop_st in (* do the loop *)
+
+        let fsm = FSM.add_edge fsm loop_st end_st in
+
+        [end_first_st ; end_st], fsm
+
+      | Inf g' ->
+        let next, fsm = tr fsm g' next in
+        let loop_st = State.fresh () in (* new loop state *)
+        (* connect all the nexts to the loop st *)
+        let fsm =
+          List.fold_left (fun fsm st -> FSM.add_edge fsm st loop_st) (FSM.add_vertex fsm loop_st) next
+        in
+        (* do the actions from the loop_st *)
+        let next, fsm = tr fsm g' [loop_st] in
+        (* and connect the loop *)
+        let fsm =
+          List.fold_left (fun fsm st -> FSM.add_edge fsm st loop_st) fsm next
+        in
+        (* return the result, and combine the nexts to stop the recursion at any point *)
+        [], fsm
+
+
+      | Par [] ->
+        "EMPTY PAR" |> Utils.log ;
+        next, fsm
+
+      | Par branches ->
+        let branches = filter_degenerate_branches branches in
+        if List.length branches = 0 then next, fsm else
+          let st, fsm = gather_next fsm next in
+          combine_branches fsm next st branches parallel_compose
+
+      | Join branches ->
+        let branches = filter_degenerate_branches branches in
+        if List.length branches = 0 then next, fsm else
+          let st, fsm = gather_next fsm next in
+          combine_branches fsm next st branches join_compose
+
+      | Intersection branches ->
+        let branches = filter_degenerate_branches branches in
+        if List.length branches = 0 then next, fsm else
+          let st, fsm = gather_next fsm next in
+          combine_branches fsm next st branches intersection_compose
+
+      | Prioritise (g, g1, g2) ->
+        let s_st, initial_fsm = gather_next fsm next in
+        let _, fsm = tr initial_fsm g [s_st] in
+
+        let s1_st = State.fresh () in
+        let _, fsm1 = tr empty g1 [s1_st] in
+        let fsm1 = postproces_taus fsm1 in
+
+        let s2_st = State.fresh () in
+        let _, fsm2 = tr empty g2 [s2_st] in
+        let fsm2 = postproces_taus fsm2 in
+
+        prioritise initial_fsm (add_vertex fsm s_st) s_st fsm1 s1_st fsm2 s2_st
+
+    and combine_branches fsm next s_st branches
+        (combine_fun : vertex * vertex -> t -> t -> vertex * (vertex list * t)) =
+      let m () =
+        FSM.add_vertex FSM.empty s_st
+      in
+      let st_next_fsms = List.map (fun g -> s_st, tr (m ()) g [s_st]) branches in
+      let (merged_next : vertex list), (fsm' : t) =
+        match st_next_fsms with
+        | [] -> ([s_st], m ())
+        | [next_fsm] -> next_fsm |> snd
+        | s_st_next_fsm::next_fsms' ->
+          (List.fold_left
+             (fun (s_st, (_, fsm)) (s_st', (_, fsm')) ->
+                combine_fun (s_st, s_st') fsm fsm')
+             s_st_next_fsm
+             next_fsms') |> snd
+      in
+      let resfsm = merge fsm fsm' in
+      let next = if Utils.is_empty merged_next then next else merged_next in
+      next, resfsm
     in
-    fold_edges_e (fun e fsm -> if is_reflexive_tau e then fsm else add_edge_e fsm e) fsm e_fsm
+    let next, fsm_final = tr FSM.empty g [start] in
+    List.iter (fun st -> let _ = State.mark_as_end st in ()) next ;
+    (start, fsm_final |> only_reachable_from start)
 
-  module Dot = struct
-    module Display = struct
-      include G
+  module B = Bisimulation (State) (Label) (struct let is_strong = false end)
+  let minimise fsm = B.minimise fsm
 
-      let vertex_name v =
-        string_of_int @@ State.get_id v
+  let generate_state_machine (g : global) : vertex * FSM.t =
+    let st, fsm = generate_state_machine' g in
+    let fsm = if Debug.simplify_machine_off None
+      then fsm
+      else
+        postproces_taus fsm
+        |> minimise
+        |> FSM.remove_reflexive_taus
+        |> minimise_state_numbers
+    in
+    st, fsm
 
-      let graph_attributes _ = [`Rankdir `LeftToRight]
+  let generate_dot fsm = fsm |> Dot.generate_dot
 
-      let default_vertex_attributes _ = []
+  let generate_minimal_dot fsm =
+    let module WB = Bisimulation (State) (Label) (struct let is_strong = false end) in
+    WB.generate_minimal_dot fsm
+end
 
-      let vertex_attributes = function
-        | v when State.is_start v && State.is_end v -> [`Shape `Doublecircle ; `Style `Filled ; `Fillcolor 0x7777FF ; `Label (State.as_string v)]
-        | v when State.is_start v -> [`Shape `Circle ; `Style `Filled ; `Fillcolor 0x77FF77 ; `Label (State.as_string v)]
-        | v when State.is_end v -> [`Shape `Doublecircle ; `Style `Filled ; `Fillcolor 0xFF7777 ; `Label (State.as_string v)]
-        | v -> [`Shape `Circle ; `Label (State.as_string v) ]
+module Local = struct
+  module Label = struct
+    type t = Syntax.Local.local_transition_label option
 
-      let default_edge_attributes _ = []
+    let default : t = None
 
-      let edge_attributes (e : edge) = [ `Label (Label.as_string @@ E.label e) ]
+    let compare = Stdlib.compare (* consider a more specific one *)
 
-      let get_subgraph _ = None
+    let as_string = function
+      | None -> "τ"
+      | Some l -> Syntax.Local.string_of_local_transition_label l
+
+
+    let list_as_string l =
+      List.map as_string l |> String.concat ", "
+
+    let is_default = function
+      | None -> true
+      | Some _ -> false
+  end
+
+  module FSM = FSM (State) (Label)
+  include FSM
+
+  let project (r : Syntax.role) (fsm : Global.FSM.t) : FSM.t =
+    if Debug.project_to_empty None then FSM.empty
+    else begin
+      (* add the \tau transitions induced by L-Rev *)
+      let complete fsm : FSM.t =
+        let tau_edges = FSM.fold_edges_e (fun e l -> if FSM.E.label e |> Option.is_none then e::l else l) fsm []  in
+
+        let reverse_edge e =
+          FSM.E.create (FSM.E.dst e) (FSM.E.label e) (FSM.E.src e)
+        in
+
+        let new_tau_edges = List.filter_map (fun e -> if state_can_step fsm (FSM.E.dst e) then Some (reverse_edge e) else None) tau_edges in
+
+        List.fold_left FSM.add_edge_e fsm new_tau_edges
+      in
+
+      let project_edge e =
+        FSM.E.create
+          (Global.FSM.E.src e)
+          (Global.Label.project r (Global.FSM.E.label e))
+          (Global.FSM.E.dst e)
+      in
+      let with_vertices = Global.FSM.fold_vertex (fun s f -> FSM.add_vertex f s) fsm FSM.empty in
+      let with_edges =
+        Global.FSM.fold_edges_e
+          (fun e f -> FSM.add_edge_e f (project_edge e))
+          fsm
+          with_vertices
+      in
+      with_edges |> complete
     end
 
-    module Output = Graphviz.Dot(Display)
+  type wb_res = (unit, string) Result.t
 
-    let generate_dot fsm =
-      let buffer_size = 65536 in
-      let buffer = Buffer.create buffer_size in
-      let formatter = Format.formatter_of_buffer buffer in
-      Output.fprint_graph formatter fsm ;
-      Format.pp_print_flush formatter () ;
-      Buffer.contents buffer
-  end
+  module WB = Bisimulation (State) (Label) (struct let is_strong = false end)
 
+  (* this is more applicative than monadic, as previous results don't change the future results *)
+  let special_bind (v : wb_res) (f : unit -> wb_res) : wb_res =
+    match v with
+    | Result.Ok _ -> f ()
+    | Result.Error msg ->
+      begin match f() with
+        | Result.Ok _ -> Result.Error msg
+        | Result.Error msg' -> msg ^ "\n" ^ msg' |> Result.error
+      end
+
+  let rec pipe_fold (f: 'a -> wb_res)  (res : wb_res) : 'a list -> wb_res =
+    let (let*) = special_bind in
+    function
+    | [] -> res
+    | x::xs ->
+      pipe_fold f (let* _ = res in f x) xs
+
+  let rec wb r (st, fsm : vertex * t) : wb_res =
+    let (let*) = special_bind in
+    let _blocks = WB.compute_bisimulation_quotient fsm in
+    let* _res = _c1 r (st, fsm) in
+    let* _res = _c2 r _blocks (st, fsm) in
+    let* _res = _c3 r _blocks (st, fsm) in
+    let* _res = _c4 r _blocks (st, fsm) in
+    _res |> Result.ok
+
+  and _c1 r (st, fsm) : wb_res =
+    if has_strong_outgoing_transitions fsm st then
+      if State.is_end st then
+        "For role: " ^ r ^ " state: " ^ State.as_string st ^ " may terminate or continue (C1 violation)." |> Result.error
+      else
+        Result.ok ()
+    else Result.ok ()
+
+  and _c2 r blocks (st, fsm) : wb_res =
+    let by_tau = tau_reachable fsm st in
+    if List.for_all (fun st' -> WB.are_states_bisimilar blocks st st') by_tau
+    then Result.ok ()
+    else
+      try
+        let st' = List.find (fun st' -> WB.are_states_bisimilar blocks st st' |> not) by_tau in
+        "For role: " ^ r ^ " states: " ^ State.as_string st ^ " and " ^ State.as_string st' ^ " are not bisimilar (C2 violation)." |> Result.error
+      with
+        _ -> Error.Violation "This is a bug. There must be a non bisimilar state."  |> raise
+
+  and _c3 r blocks (st, fsm) : wb_res =
+    let is_send = function
+      | Some l -> l.Syntax.Local.direction = Syntax.Local.Sending
+      | None -> false
+    in
+    let by_tau = tau_reachable fsm st in
+
+    (* send labels and their states *)
+    let _sends =
+      List.concat_map
+        (fun st' -> List.filter_map (fun e -> if E.label e |> is_send then Some (E.label e, E.dst e) else None) (succ_e fsm st'))
+        by_tau
+    in
+
+    (* makes the original state step with the labelled transition *)
+    let one_step (l : Label.t) st_error =
+      try
+        List.find (fun e -> l = E.label e) (succ_e fsm st) |> E.dst |> Result.ok
+      with
+      | Not_found ->
+        "For role: " ^ r ^
+        " state: " ^ State.as_string st
+        ^ " cannot take label: " ^ Label.as_string l
+        ^ " that reaches with tau state: " ^ State.as_string st_error
+        ^ " (C3 Violation)."
+        |> Result.error
+    in
+
+    (* checks if the states are bisimilar after taking the step *)
+    let check st l st' =
+      let (let*) = Result.bind in
+      let* st_succ = one_step l st' in
+      if WB.are_states_bisimilar blocks st_succ st' then
+        Result.ok ()
+      else
+        "States: " ^ State.as_string st
+        ^ " is not bisimilar to state: " ^ State.as_string st'
+        ^ " after taking label: " ^ Label.as_string l
+        ^ " (C3 violation)."
+        |> Result.error
+    in
+
+    List.fold_left (fun r (l, st') -> Result.bind r (fun _ -> check st l st')) (Result.ok ()) _sends
+
+  and _c4 r blocks (st, fsm) : wb_res =
+    let is_receive = function
+      | Some l -> l.Syntax.Local.direction = Syntax.Local.Receiving
+      | None -> false
+    in
+    let by_tau = st::tau_reachable fsm st in
+    let weak_reductions =
+      List.concat_map
+        (fun st' -> succ_e fsm st' |> List.filter (fun e -> E.label e |> Option.is_some))
+        by_tau
+    in
+    let rec f = function
+      | [] -> Result.ok ()
+      | e::es ->
+        (* split in the edges with a different label, and the states that the same label transitions to *)
+        let es_diff, st_same =
+          List.fold_left
+            (fun (d, s) e' ->
+               if E.label e = E.label e'
+               then
+                 let t_r = tau_reachable fsm (E.dst e) in
+                 let t_r' = tau_reachable fsm (E.dst e') in
+                 (d, (E.dst e)::(E.dst e')::t_r @ t_r' @ s)
+               else (if E.label e' |> is_receive then  e'::d,s else d, s))
+            ([], [])
+            es
+        in
+        let are_bisim = match st_same with
+          | [] -> Result.ok ()
+          | [_] -> Result.ok ()
+          | s::ss ->
+            let check s s' =
+              if WB.are_states_bisimilar blocks s s' then
+                Result.ok ()
+              else
+                "For role: " ^ r
+                ^ " states: " ^ State.as_string s
+                ^ " is not bisimilar to state: " ^ State.as_string s'
+                ^ " after taking label: " ^ Label.as_string (E.label e)
+                ^ " (C4 violation)."
+                |> Result.error
+            in
+            List.fold_left (fun r s' -> Result.bind r (fun _ -> check s s')) (Result.ok ()) ss
+        in
+        Result.bind are_bisim (fun _ -> f es_diff)
+    in
+    f (weak_reductions |> List.filter (fun e -> E.label e |> is_receive))
+
+  and c5 r fsm visited to_visit : wb_res =
+    match to_visit with
+    | [] -> Result.ok ()
+    | st::_ when List.mem st visited -> Result.ok ()
+    | st::sts ->
+      begin match wb r (st, fsm) with
+        | Result.Ok () ->
+          let to_visit' = Utils.minus ((succ fsm st) @ sts) visited in
+          c5 r fsm (st::visited) to_visit'
+        | Result.Error err -> Result.error err
+      end
+
+  let well_behaved_role (r, st, fsm : role  * vertex * t) : wb_res =
+    c5 r fsm [] [st]
+
+  let well_behaved_local_machines roles_and_lfsms : wb_res =
+    let lfsms = List.map (fun (r, l) -> r, get_start_state l, l) roles_and_lfsms in
+    pipe_fold well_behaved_role (Result.ok ()) lfsms
+
+  let generate_dot fsm = fsm |> Dot.generate_dot
+
+  let generate_minimal_dot fsm =
+    let module WB = Bisimulation (State) (Label) (struct let is_strong = false end) in
+    WB.generate_minimal_dot fsm
+
+  let generate_local_for_roles roles gfsm =
+    let local_machine r =
+      r, project r gfsm |> minimise_state_numbers
+    in
+
+    List.map local_machine roles
 end
