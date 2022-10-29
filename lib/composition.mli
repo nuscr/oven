@@ -1,6 +1,5 @@
 module Composition :
   functor (FSM : Machine.FSM) ->
-
   sig
     val parallel_compose : FSM.vertex * FSM.vertex -> FSM.t -> FSM.t -> FSM.vertex * (FSM.vertex list * FSM.t)
 
