@@ -1,6 +1,7 @@
 open Graph
 
-module type STATE = sig
+module type STATE =
+sig
   type t
   val equal : t -> t -> bool
   val hash : t -> int
@@ -25,7 +26,8 @@ module type STATE = sig
   val is_end : t -> bool
 end
 
-module type LABEL = sig
+module type LABEL =
+sig
   type t
 
   val default : t
@@ -38,9 +40,82 @@ module type LABEL = sig
   val is_default : t -> bool
 end
 
+module type FSMT =
+sig
+  type t
+
+  module State : STATE
+  module Label : LABEL
+
+  type vertex = State.t
+
+  module E :
+  sig
+    type t
+    val compare : t -> t -> int
+    val src : t -> vertex
+    val dst : t -> vertex
+    type label = Label.t
+    val create : vertex -> label -> vertex -> t
+    val label : t -> label
+  end
+
+  val get_vertices : t -> vertex list
+  val get_start_state : t -> vertex
+  val add_vertex : t -> vertex -> t
+  val empty : t
+
+  type edge = E.t
+  val get_edges : t -> edge list
+  val add_edge : t -> vertex -> vertex -> t
+  val add_edge_e : t -> edge -> t
+  val succ : t -> vertex -> vertex list
+  val succ_e : t -> vertex -> edge list
+  val fold_edges :
+    (vertex -> vertex -> 'a -> 'a) -> t -> 'a -> 'a
+  val iter_edges_e : (edge -> unit) -> t -> unit
+  val fold_edges_e : (edge -> 'a -> 'a) -> t -> 'a -> 'a
+  val iter_vertex : (vertex -> unit) -> t -> unit
+  val fold_vertex : (vertex -> 'a -> 'a) -> t -> 'a -> 'a
+
+  val walk_collect_edges_with_predicate :
+    t -> vertex-> (vertex -> edge list) -> (edge -> bool) -> edge list
+  val walk_collect_vertices_with_predicate :
+    t -> vertex -> (vertex -> edge list) -> (edge -> bool) -> vertex list
+  val walk_with_function :
+    vertex -> (vertex -> edge list) -> (edge -> 'a) -> 'a list
+  val walk_with_any_predicate :
+    vertex -> (vertex -> edge list) -> (edge -> bool) -> bool
+  val only_with_tau : t -> vertex -> edge list
+  val with_any_transition : t -> vertex -> edge list
+  val state_can_step : t -> vertex -> bool
+  val get_reachable_labels : t -> vertex -> E.label list
+  val state_can_step_recursive : t -> vertex -> bool
+  val has_strong_outgoing_transitions : t -> vertex -> bool
+  val get_final_states : t -> vertex list
+  val tau_reachable : t -> vertex -> vertex list
+  val tau_reachable_labelled_edges : t -> vertex -> edge list
+  val can_reach_with_anything :
+    E.t list -> vertex -> E.label -> vertex list
+  val can_reach_with_weak_step : t -> vertex -> E.label -> vertex list
+  val minimise_state_numbers : t -> t
+  val merge : t -> t -> t
+  val merge_all : t list -> t
+  val remove_reflexive_taus : t -> t
+  module Dot :
+  sig
+    val generate_dot : t -> string
+  end
+end
+
 module FSM (State : STATE) (Label : LABEL) = struct
   module G = Persistent.Digraph.ConcreteLabeled (State) (Label)
   include G
+
+  type t = G.t
+
+  module State = State
+  module Label = Label
 
   let _string_of_edge e =
     (E.src e |> State.as_string)
@@ -140,7 +215,7 @@ module FSM (State : STATE) (Label : LABEL) = struct
     walk_with_function st (with_any_transition fsm) (fun e -> E.label e)
 
   (* if the state can step with a non tau transition explore transitively *)
-  let _state_can_step_recursive (fsm : t) (st : vertex) : bool =
+  let state_can_step_recursive (fsm : t) (st : vertex) : bool =
     walk_with_any_predicate st (with_any_transition fsm) (fun e -> E.label e |> Label.is_default |> not)
 
   let has_strong_outgoing_transitions fsm st =

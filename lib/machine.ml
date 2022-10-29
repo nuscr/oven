@@ -84,12 +84,11 @@ module Global = struct
   end
 
   module FSM = FSM (State) (Label)
-  include FSM
 
-  module FSMComp = Composition.Composition (State) (Label)
-  module SEC = Bisimulation.StateEquivalenceClasses (State) (Label)
+  module FSMComp = Composition.Composition (FSM)
+  module SEC = Bisimulation.StateEquivalenceClasses (FSM)
 
-  let postproces_taus (fsm : FSM.t) =
+  let postproces_taus (fsm : FSM.t) : FSM.t =
     if Debug.post_process_taus_off None then fsm
     else
       let tau_pairs =
@@ -101,17 +100,18 @@ module Global = struct
           fsm []
       in
       (* lists of equivalent states *)
-      let eqsts = SEC.compute_from_pair_list tau_pairs in
-      SEC.translate eqsts fsm
+      let _eqsts = SEC.compute_from_pair_list tau_pairs in
+      (* SEC.translate eqsts fsm *)
+      assert false
 
   let filter_degenerate_branches branches =
     List.filter (function Seq [] -> false | _ -> true) branches
 
-  let gather_next fsm next : vertex * FSM.t =
+  let gather_next fsm next : FSM.vertex * FSM.t =
     let st = State.fresh() in
     st, List.fold_left (fun fsm st' -> FSM.add_edge fsm st' st) fsm next
 
-  let generate_state_machine' (g : global) : vertex * FSM.t =
+  let generate_state_machine' (g : global) : FSM.vertex * FSM.t =
     let start = State.fresh_start () in
     (* tr does the recursive translation.
        s_st and e_st are the states that will bound the translated type
@@ -119,9 +119,9 @@ module Global = struct
        and the first element of the returned value is the places where the execution will continue
     *)
     let rec tr
-        (fsm : t)
+        (fsm : FSM.t)
         (g : global)
-        (next : vertex list) : vertex list * t =
+        (next : FSM.vertex list) : FSM.vertex list * FSM.t =
       match g with
       | MessageTransfer lbl ->
         let e x y = FSM.E.create x (Some lbl) y in
@@ -154,7 +154,7 @@ module Global = struct
           let st, fsm = gather_next fsm next in
 
           let nexts, fsms = List.map (fun g -> tr fsm g [st]) branches |> List.split in
-          let fsm' = merge_all fsms in
+          let fsm' = FSM.merge_all fsms in
           List.concat nexts |> Utils.uniq, fsm'
 
       | Fin g' ->
@@ -225,22 +225,22 @@ module Global = struct
         let _, fsm = tr initial_fsm g [s_st] in
 
         let s1_st = State.fresh () in
-        let _, fsm1 = tr empty g1 [s1_st] in
+        let _, fsm1 = tr FSM.empty g1 [s1_st] in
         let fsm1 = postproces_taus fsm1 in
 
         let s2_st = State.fresh () in
-        let _, fsm2 = tr empty g2 [s2_st] in
+        let _, fsm2 = tr FSM.empty g2 [s2_st] in
         let fsm2 = postproces_taus fsm2 in
 
-        FSMComp.prioritise initial_fsm (add_vertex fsm s_st) s_st fsm1 s1_st fsm2 s2_st
+        FSMComp.prioritise initial_fsm (FSM.add_vertex fsm s_st) s_st fsm1 s1_st fsm2 s2_st
 
     and combine_branches fsm next s_st branches
-        (combine_fun : vertex * vertex -> t -> t -> vertex * (vertex list * t)) =
+        (combine_fun : FSM.vertex * FSM.vertex -> FSM.t -> FSM.t -> FSM.vertex * (FSM.vertex list * FSM.t)) =
       let m () =
         FSM.add_vertex FSM.empty s_st
       in
       let st_next_fsms = List.map (fun g -> s_st, tr (m ()) g [s_st]) branches in
-      let (merged_next : vertex list), (fsm' : t) =
+      let (merged_next : FSM.vertex list), (fsm' : FSM.t) =
         match st_next_fsms with
         | [] -> ([s_st], m ())
         | [next_fsm] -> next_fsm |> snd
@@ -251,7 +251,7 @@ module Global = struct
              s_st_next_fsm
              next_fsms') |> snd
       in
-      let resfsm = merge fsm fsm' in
+      let resfsm = FSM.merge fsm fsm' in
       let next = if Utils.is_empty merged_next then next else merged_next in
       next, resfsm
     in
@@ -259,10 +259,10 @@ module Global = struct
     List.iter (fun st -> let _ = State.mark_as_end st in ()) next ;
     (start, fsm_final |> FSMComp.only_reachable_from start)
 
-  module B = Bisimulation.Bisimulation (State) (Label) (struct let is_strong = false end)
+  module B = Bisimulation.Bisimulation (FSM) (Bisimulation.Weak)
   let minimise fsm = B.minimise fsm
 
-  let generate_state_machine (g : global) : vertex * FSM.t =
+  let generate_state_machine (g : global) : FSM.vertex * FSM.t =
     let st, fsm = generate_state_machine' g in
     let fsm = if Debug.simplify_machine_off None
       then fsm
@@ -270,14 +270,15 @@ module Global = struct
         postproces_taus fsm
         |> minimise
         |> FSM.remove_reflexive_taus
-        |> minimise_state_numbers
+        |> FSM.minimise_state_numbers
     in
     st, fsm
 
-  let generate_dot fsm = fsm |> Dot.generate_dot
+  (* TODO do we need this?, maybe just not reexport it *)
+  let generate_dot fsm = fsm |> FSM.Dot.generate_dot
 
   let generate_minimal_dot fsm =
-    let module WB =  Bisimulation.Bisimulation (State) (Label) (struct let is_strong = false end) in
+    let module WB =  Bisimulation.Bisimulation (FSM) (Bisimulation.Weak) in
     WB.generate_minimal_dot fsm
 end
 
@@ -303,7 +304,6 @@ module Local = struct
   end
 
   module FSM = FSM (State) (Label)
-  include FSM
 
   let project (r : Syntax.role) (fsm : Global.FSM.t) : FSM.t =
     if Debug.project_to_empty None then FSM.empty
@@ -316,7 +316,7 @@ module Local = struct
           FSM.E.create (FSM.E.dst e) (FSM.E.label e) (FSM.E.src e)
         in
 
-        let new_tau_edges = List.filter_map (fun e -> if state_can_step fsm (FSM.E.dst e) then Some (reverse_edge e) else None) tau_edges in
+        let new_tau_edges = List.filter_map (fun e -> if FSM.state_can_step fsm (FSM.E.dst e) then Some (reverse_edge e) else None) tau_edges in
 
         List.fold_left FSM.add_edge_e fsm new_tau_edges
       in
@@ -339,7 +339,7 @@ module Local = struct
 
   type wb_res = (unit, string) Result.t
 
-  module WB =  Bisimulation.Bisimulation (State) (Label) (struct let is_strong = false end)
+  module WB =  Bisimulation.Bisimulation (FSM) (Bisimulation.Weak)
 
   (* this is more applicative than monadic, as previous results don't change the future results *)
   let special_bind (v : wb_res) (f : unit -> wb_res) : wb_res =
@@ -358,7 +358,7 @@ module Local = struct
     | x::xs ->
       pipe_fold f (let* _ = res in f x) xs
 
-  let rec wb r (st, fsm : vertex * t) : wb_res =
+  let rec wb r (st, fsm : FSM.vertex * FSM.t) : wb_res =
     let (let*) = special_bind in
     let _blocks = WB.compute_bisimulation_quotient fsm in
     let* _res = _c1 r (st, fsm) in
@@ -368,7 +368,7 @@ module Local = struct
     _res |> Result.ok
 
   and _c1 r (st, fsm) : wb_res =
-    if has_strong_outgoing_transitions fsm st then
+    if FSM.has_strong_outgoing_transitions fsm st then
       if State.is_end st then
         "For role: " ^ r ^ " state: " ^ State.as_string st ^ " may terminate or continue (C1 violation)." |> Result.error
       else
@@ -376,7 +376,7 @@ module Local = struct
     else Result.ok ()
 
   and _c2 r blocks (st, fsm) : wb_res =
-    let by_tau = tau_reachable fsm st in
+    let by_tau = FSM.tau_reachable fsm st in
     if List.for_all (fun st' -> WB.are_states_bisimilar blocks st st') by_tau
     then Result.ok ()
     else
@@ -391,19 +391,21 @@ module Local = struct
       | Some l -> l.Syntax.Local.direction = Syntax.Local.Sending
       | None -> false
     in
-    let by_tau = tau_reachable fsm st in
+    let by_tau = FSM.tau_reachable fsm st in
 
     (* send labels and their states *)
     let _sends =
       List.concat_map
-        (fun st' -> List.filter_map (fun e -> if E.label e |> is_send then Some (E.label e, E.dst e) else None) (succ_e fsm st'))
+        (fun st' -> List.filter_map
+            (fun e -> if FSM.E.label e |> is_send then Some (FSM.E.label e, FSM.E.dst e) else None)
+            (FSM.succ_e fsm st'))
         by_tau
     in
 
     (* makes the original state step with the labelled transition *)
     let one_step (l : Label.t) st_error =
       try
-        List.find (fun e -> l = E.label e) (succ_e fsm st) |> E.dst |> Result.ok
+        List.find (fun e -> l = FSM.E.label e) (FSM.succ_e fsm st) |> FSM.E.dst |> Result.ok
       with
       | Not_found ->
         "For role: " ^ r ^
@@ -435,10 +437,10 @@ module Local = struct
       | Some l -> l.Syntax.Local.direction = Syntax.Local.Receiving
       | None -> false
     in
-    let by_tau = st::tau_reachable fsm st in
+    let by_tau = st::FSM.tau_reachable fsm st in
     let weak_reductions =
       List.concat_map
-        (fun st' -> succ_e fsm st' |> List.filter (fun e -> E.label e |> Option.is_some))
+        (fun st' -> FSM.succ_e fsm st' |> List.filter (fun e -> FSM.E.label e |> Option.is_some))
         by_tau
     in
     let rec f = function
@@ -448,12 +450,12 @@ module Local = struct
         let es_diff, st_same =
           List.fold_left
             (fun (d, s) e' ->
-               if E.label e = E.label e'
+               if FSM.E.label e = FSM.E.label e'
                then
-                 let t_r = tau_reachable fsm (E.dst e) in
-                 let t_r' = tau_reachable fsm (E.dst e') in
-                 (d, (E.dst e)::(E.dst e')::t_r @ t_r' @ s)
-               else (if E.label e' |> is_receive then  e'::d,s else d, s))
+                 let t_r = FSM.tau_reachable fsm (FSM.E.dst e) in
+                 let t_r' = FSM.tau_reachable fsm (FSM.E.dst e') in
+                 (d, (FSM.E.dst e)::(FSM.E.dst e')::t_r @ t_r' @ s)
+               else (if FSM.E.label e' |> is_receive then  e'::d,s else d, s))
             ([], [])
             es
         in
@@ -468,7 +470,7 @@ module Local = struct
                 "For role: " ^ r
                 ^ " states: " ^ State.as_string s
                 ^ " is not bisimilar to state: " ^ State.as_string s'
-                ^ " after taking label: " ^ Label.as_string (E.label e)
+                ^ " after taking label: " ^ Label.as_string (FSM.E.label e)
                 ^ " (C4 violation)."
                 |> Result.error
             in
@@ -476,7 +478,7 @@ module Local = struct
         in
         Result.bind are_bisim (fun _ -> f es_diff)
     in
-    f (weak_reductions |> List.filter (fun e -> E.label e |> is_receive))
+    f (weak_reductions |> List.filter (fun e -> FSM.E.label e |> is_receive))
 
   and c5 r fsm visited to_visit : wb_res =
     match to_visit with
@@ -485,27 +487,28 @@ module Local = struct
     | st::sts ->
       begin match wb r (st, fsm) with
         | Result.Ok () ->
-          let to_visit' = Utils.minus ((succ fsm st) @ sts) visited in
+          let to_visit' = Utils.minus ((FSM.succ fsm st) @ sts) visited in
           c5 r fsm (st::visited) to_visit'
         | Result.Error err -> Result.error err
       end
 
-  let well_behaved_role (r, st, fsm : role  * vertex * t) : wb_res =
+  let well_behaved_role (r, st, fsm : role  * FSM.vertex * FSM.t) : wb_res =
     c5 r fsm [] [st]
 
   let well_behaved_local_machines roles_and_lfsms : wb_res =
-    let lfsms = List.map (fun (r, l) -> r, get_start_state l, l) roles_and_lfsms in
+    let lfsms = List.map (fun (r, l) -> r, FSM.get_start_state l, l) roles_and_lfsms in
     pipe_fold well_behaved_role (Result.ok ()) lfsms
 
-  let generate_dot fsm = fsm |> Dot.generate_dot
+  (* TODO: do we need to reexport this? *)
+  let generate_dot fsm = fsm |> FSM.Dot.generate_dot
 
   let generate_minimal_dot fsm =
-    let module WB = Bisimulation.Bisimulation (State) (Label) (struct let is_strong = false end) in
+    let module WB = Bisimulation.Bisimulation (FSM) (Bisimulation.Weak) in
     WB.generate_minimal_dot fsm
 
   let generate_local_for_roles roles gfsm =
     let local_machine r =
-      r, project r gfsm |> minimise_state_numbers
+      r, project r gfsm |> FSM.minimise_state_numbers
     in
 
     List.map local_machine roles

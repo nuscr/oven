@@ -115,6 +115,7 @@ struct
       (fun dict (st, st' as sts) ->
          let l_es = FSM.succ_e fsm st in
          let r_es = FSM.succ_e fsm' st' in
+
          let f side es =
            List.map
              (fun e ->
@@ -178,6 +179,7 @@ struct
 
            List.map (fun l ->
                let jsrc = List.assoc (st, st') dict in
+
                let dst = get_edge_with_label l_es l |> FSM.E.dst in
                let dst' = get_edge_with_label r_es l |> FSM.E.dst in
 
