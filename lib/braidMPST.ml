@@ -51,20 +51,20 @@ module Toplevel = struct
 
   let string_of_transition_label = Syntax.string_of_transition_label
 
-  let generate_global_state_machine = Machine.Global.generate_state_machine
-  let project_state_machine = Machine.Local.project
+  let generate_global_state_machine = GlobalLocal.Global.generate_state_machine
+  let project_state_machine = GlobalLocal.Local.project
 
-  let dot_of_global_machine = Machine.Global.generate_dot
+  let dot_of_global_machine = GlobalLocal.Global.generate_dot
 
-  let minimal_dot_of_local_machine = Machine.Local.generate_minimal_dot
+  let minimal_dot_of_local_machine = GlobalLocal.Local.generate_minimal_dot
 
   let generate_local_machines_for_roles =
-    Machine.Local.generate_local_for_roles
+    GlobalLocal.Local.generate_local_for_roles
 
-  let dot_of_local_machine = Machine.Local.generate_dot
+  let dot_of_local_machine = GlobalLocal.Local.generate_dot
 
   let well_behaved_local_machines protocol_name rs_and_ls : unit =
-    match Machine.Local.well_behaved_local_machines rs_and_ls with
+    match GlobalLocal.Local.well_behaved_local_machines rs_and_ls with
     | Result.Ok () -> ()
     | Result.Error errMsg ->
       protocol_name ^ ": failed with : " ^ errMsg |> Utils.log ;
