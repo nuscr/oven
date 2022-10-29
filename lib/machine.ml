@@ -100,9 +100,9 @@ module Global = struct
           fsm []
       in
       (* lists of equivalent states *)
-      let _eqsts = SEC.compute_from_pair_list tau_pairs in
-      (* SEC.translate eqsts fsm *)
-      assert false
+      let eqsts = SEC.compute_from_pair_list tau_pairs in
+      SEC.translate eqsts fsm
+
 
   let filter_degenerate_branches branches =
     List.filter (function Seq [] -> false | _ -> true) branches
