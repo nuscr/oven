@@ -81,7 +81,7 @@ sig
   val remove_reflexive_taus : t -> t
   module Dot : sig val generate_dot : t -> string end
 end
-module FSM :
+module StateMachine :
   functor (State : STATE) (Label : LABEL) ->
   sig
     type t (* = G.t *)
