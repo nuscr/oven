@@ -1,5 +1,5 @@
 module StateEquivalenceClasses :
-  functor (FSM : Machine.FSMT) ->
+  functor (FSM : Machine.FSM) ->
   sig
     type state_equivalence_class
     val _string_of_state_equivalence_class :
@@ -20,7 +20,7 @@ module Strong : STRENGTH
 module Weak : STRENGTH
 
 module Bisimulation :
-  functor (FSM : Machine.FSMT) (Str : STRENGTH) ->
+  functor (FSM : Machine.FSM) (Str : STRENGTH) ->
   sig
     type block
 

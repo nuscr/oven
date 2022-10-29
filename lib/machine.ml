@@ -40,7 +40,7 @@ sig
   val is_default : t -> bool
 end
 
-module type FSMT =
+module type FSM =
 sig
   type t
 
