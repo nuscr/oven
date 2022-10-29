@@ -24,7 +24,7 @@ sig
   val list_as_string : t list -> string
   val is_default : t -> bool
 end
-module type FSMT =
+module type FSM =
 sig
   type t
   module State : STATE
