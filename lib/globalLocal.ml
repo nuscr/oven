@@ -83,7 +83,7 @@ module Global = struct
       | Some _ -> false
   end
 
-  module FSM = FSM (State) (Label)
+  module FSM = StateMachine (State) (Label)
 
   module FSMComp = Composition.Composition (FSM)
   module SEC = Bisimulation.StateEquivalenceClasses (FSM)
@@ -303,7 +303,7 @@ module Local = struct
       | Some _ -> false
   end
 
-  module FSM = FSM (State) (Label)
+  module FSM = StateMachine (State) (Label)
 
   let project (r : Syntax.role) (fsm : Global.FSM.t) : FSM.t =
     if Debug.project_to_empty None then FSM.empty

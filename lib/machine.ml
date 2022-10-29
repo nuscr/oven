@@ -108,7 +108,7 @@ sig
   end
 end
 
-module FSM (State : STATE) (Label : LABEL) = struct
+module StateMachine (State : STATE) (Label : LABEL) = struct
   module G = Persistent.Digraph.ConcreteLabeled (State) (Label)
   include G
 
