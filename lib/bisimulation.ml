@@ -1,4 +1,4 @@
-module StateEquivalenceClasses (FSM: StateMachine.FSMT) =
+module StateEquivalenceClasses (FSM: Machine.FSMT) =
 struct
 
   (* a list whre each element is a list of the equivalent states *)
@@ -105,7 +105,7 @@ struct
 end
 
 
-module Bisimulation (FSM : StateMachine.FSMT) (Str : STRENGTH)  = struct
+module Bisimulation (FSM : Machine.FSMT) (Str : STRENGTH)  = struct
   (* Compute the bisimulation quotient using the algorithm by Kanellakis and Smolka *)
 
   let get_strength () = Str.strength

@@ -1,6 +1,6 @@
 open Syntax
 
-open StateMachine
+open Machine
 
 let _debug =
   (* let _ = Debug.set_all_debug_flags() in *)

@@ -1,4 +1,4 @@
-module Composition (FSM : StateMachine.FSMT) =
+module Composition (FSM : Machine.FSMT) =
 struct
   (* Monadic interface commented out for now *)
   (* (\* monad for the edge selection *\) *)

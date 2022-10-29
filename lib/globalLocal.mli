@@ -23,7 +23,7 @@ sig
     val compare : t -> t -> int
   end
 
-  module FSM : StateMachine.FSMT
+  module FSM : Machine.FSMT
 
   val generate_state_machine : Syntax.global -> State.t * FSM.t
 
@@ -45,7 +45,7 @@ sig
     val compare : t -> t -> int
   end
 
-  module FSM : StateMachine.FSMT
+  module FSM : Machine.FSMT
 
   val project : Syntax.role -> Global.FSM.t -> FSM.t
 
