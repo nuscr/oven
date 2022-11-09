@@ -31,6 +31,7 @@ module Bisimulation :
     val are_states_bisimilar : StateEquivalenceClasses(FSM).state_equivalence_class -> FSM.vertex -> FSM.vertex -> bool
 
     val minimise : FSM.t -> FSM.t
+    val minimise_and_translate : FSM.t -> FSM.vertex list -> FSM.t * FSM.vertex list
 
     val generate_minimal_dot : FSM.t -> string
 

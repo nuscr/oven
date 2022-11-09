@@ -7,6 +7,7 @@ struct
   let _string_of_state_equivalence_class sec =
     List.map (fun l -> List.map FSM.State.as_string l |> String.concat "; ") sec |> String.concat " || "
 
+  (* mark the state as a start or an end if one of the states in the ec is *)
   let canonicalise_start_end eq_sts =
     let make_head_start l =
       try
@@ -57,24 +58,22 @@ struct
     in
     List.fold_left merge [] vss
 
-  let translate (eqsts : state_equivalence_class) (fsm : FSM.t) : FSM.t =
-    let eqsts = canonicalise_start_end eqsts in
     (* get the canonical representative for each vertex *)
-    let translate_st st =
+    let translate_with_ec eqsts  st =
       try
         List.find (fun sts -> List.mem st sts) eqsts |> List.hd
       with
       | Failure _ -> Error.Violation "Equivalence class cannot be empty." |> raise
       | Not_found -> st (* if it is not in an equivalence class it's on its own one *)
 
-    in
+  let translate (eqsts : state_equivalence_class) (fsm : FSM.t) : FSM.t =
     let translate_edge e =
       if FSM.E.label e |> FSM.Label.is_default
       then None
       else Some (FSM.E.create
-                   (FSM.E.src e |> translate_st)
+                   (FSM.E.src e |> translate_with_ec eqsts)
                    (FSM.E.label e)
-                   (FSM.E.dst e |> translate_st))
+                   (FSM.E.dst e |> translate_with_ec eqsts))
     in
     FSM.fold_edges_e
       (fun e fsm ->
@@ -193,7 +192,7 @@ module Bisimulation (FSM : Machine.FSM) (Str : STRENGTH)  = struct
         bs'
 
     in
-    compute_while_changes bs
+    compute_while_changes bs |> EC.canonicalise_start_end
 
   let are_states_bisimilar (blocks : EC.state_equivalence_class) st1 st2 : bool =
     let find_block (st : FSM.vertex) =
@@ -209,6 +208,14 @@ module Bisimulation (FSM : Machine.FSM) (Str : STRENGTH)  = struct
     else
       let eqsts = compute_bisimulation_quotient fsm in
       EC.translate eqsts fsm
+
+  let minimise_and_translate (fsm : FSM.t) (vs : FSM.vertex list) : FSM.t * FSM.vertex list =
+    if Debug.minimise_off None then fsm, vs
+    else
+      let eqsts = compute_bisimulation_quotient fsm in
+      let vs' = List.map (EC.translate_with_ec eqsts) vs in
+      EC.translate eqsts fsm, vs'
+
 
   let generate_minimal_dot fsm =
     fsm |> minimise |> FSM.remove_reflexive_taus |> FSM.Dot.generate_dot
