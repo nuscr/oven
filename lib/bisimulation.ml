@@ -216,6 +216,17 @@ module Bisimulation (FSM : Machine.FSM) (Str : STRENGTH)  = struct
       let vs' = List.map (EC.translate_with_ec eqsts) vs in
       EC.translate eqsts fsm, vs'
 
+  let minimise_and_return_dict (fsm : FSM.t)
+    : FSM.t * (FSM.vertex * FSM.vertex) list =
+    let vs = FSM.get_vertices fsm in
+    if Debug.minimise_off None then
+
+      fsm, List.combine vs vs
+    else
+      let eqsts = compute_bisimulation_quotient fsm in
+      let vs' = List.map (EC.translate_with_ec eqsts) vs in
+      EC.translate eqsts fsm, List.combine vs vs'
+
 
   let generate_minimal_dot fsm =
     fsm |> minimise |> FSM.remove_reflexive_taus |> FSM.Dot.generate_dot

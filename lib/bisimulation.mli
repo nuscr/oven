@@ -32,6 +32,7 @@ module Bisimulation :
 
     val minimise : FSM.t -> FSM.t
     val minimise_and_translate : FSM.t -> FSM.vertex list -> FSM.t * FSM.vertex list
+    val minimise_and_return_dict : FSM.t -> FSM.t * (FSM.vertex * FSM.vertex) list
 
     val generate_minimal_dot : FSM.t -> string
 
