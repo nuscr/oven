@@ -13,8 +13,8 @@ let _debug =
 
 module State = struct
   type t = { id : int
-           ; is_start : bool ref
-           ; is_end : bool ref
+           ; mutable is_start : bool
+           ; mutable is_end : bool
            }
 
   let equal s1 s2 = (s1.id = s2.id)
@@ -24,15 +24,15 @@ module State = struct
   let compare s1 s2 = compare s1.id s2.id
 
   let mark_as_start s =
-    s.is_start := true ; s
+    s.is_start <- true ; s
 
   let mark_as_end s =
-    s.is_end := true ; s
+    s.is_end <- true ; s
 
   let as_string {id ; is_start ; is_end} =
-    let s_str = if !is_start then "S" else "" in
-    let e_str = if !is_end then "E" else "" in
-    let extra = if !is_start || !is_end then s_str ^ e_str ^ "-" else "" in
+    let s_str = if is_start then "S" else "" in
+    let e_str = if is_end then "E" else "" in
+    let extra = if is_start || is_end then s_str ^ e_str ^ "-" else "" in
     extra ^ (string_of_int id)
 
   let rec list_as_string = function
@@ -42,15 +42,15 @@ module State = struct
   (* let mark_as_not_end s = *)
   (*   s.is_end := false ; s *)
 
-  let is_start s = !(s.is_start)
-  let is_end s = !(s.is_end)
+  let is_start s = s.is_start
+  let is_end s = s.is_end
 
   let fresh, fresh_start, fresh_end, freshen =
     let n = ref 0 in
-    ((fun () -> incr n ; {id = !n ; is_start = ref false ; is_end = ref false}),
-     (fun () -> incr n ; {id = !n ; is_start = ref true ; is_end = ref false}),
-     (fun () -> incr n ; {id = !n ; is_start = ref false ; is_end = ref true}),
-     (fun st -> incr n ; {id = !n ; is_start = ref (is_start st) ; is_end = ref (is_end st)}))
+    ((fun () -> incr n ; {id = !n ; is_start = false ; is_end = false}),
+     (fun () -> incr n ; {id = !n ; is_start = true ; is_end = false}),
+     (fun () -> incr n ; {id = !n ; is_start = false ; is_end = true}),
+     (fun st -> incr n ; {id = !n ; is_start = (is_start st) ; is_end = (is_end st)}))
 
   let renumber_state n {id = _ ; is_start ; is_end} = {id = n ; is_start ; is_end}
 
