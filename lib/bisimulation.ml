@@ -81,6 +81,23 @@ struct
          | None -> fsm
          | Some e' -> FSM.add_edge_e fsm e')
       fsm FSM.empty
+
+  let make_tau_ends_equivalent fsm =
+    if Debug.post_process_taus_off None then fsm
+    else
+      let tau_pairs =
+        FSM.fold_edges_e
+          (fun e l ->
+             if FSM.E.label e |> FSM.Label.is_default
+             then  (FSM.E.src e, FSM.E. dst e)::l
+             else l)
+          fsm []
+      in
+      (* lists of equivalent states *)
+      let eqsts = compute_from_pair_list tau_pairs in
+      translate eqsts fsm
+
+
 end
 
 module type STRENGTH = sig

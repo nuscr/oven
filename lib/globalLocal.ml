@@ -86,23 +86,6 @@ module Global = struct
   module FSM = StateMachine (State) (Label)
 
   module FSMComp = Composition.Composition (FSM)
-  module SEC = Bisimulation.StateEquivalenceClasses (FSM)
-
-  let postproces_taus (fsm : FSM.t) : FSM.t =
-    if Debug.post_process_taus_off None then fsm
-    else
-      let tau_pairs =
-        FSM.fold_edges_e
-          (fun e l ->
-             if FSM.E.label e |> Label.is_default
-             then  (FSM.E.src e, FSM.E. dst e)::l
-             else l)
-          fsm []
-      in
-      (* lists of equivalent states *)
-      let eqsts = SEC.compute_from_pair_list tau_pairs in
-      SEC.translate eqsts fsm
-
 
   let filter_degenerate_branches branches =
     List.filter (function Seq [] -> false | _ -> true) branches
@@ -122,6 +105,7 @@ module Global = struct
         (fsm : FSM.t)
         (g : global)
         (next : FSM.vertex list) : FSM.vertex list * FSM.t =
+      let module SEC = Bisimulation.StateEquivalenceClasses (FSM) in
       match g with
       | MessageTransfer lbl ->
         let e x y = FSM.E.create x (Some lbl) y in
@@ -226,11 +210,11 @@ module Global = struct
 
         let s1_st = State.fresh () in
         let _, fsm1 = tr FSM.empty g1 [s1_st] in
-        let fsm1 = postproces_taus fsm1 in
+        let fsm1 = SEC.make_tau_ends_equivalent fsm1 in
 
         let s2_st = State.fresh () in
         let _, fsm2 = tr FSM.empty g2 [s2_st] in
-        let fsm2 = postproces_taus fsm2 in
+        let fsm2 = SEC.make_tau_ends_equivalent fsm2 in
 
         FSMComp.prioritise initial_fsm (FSM.add_vertex fsm s_st) s_st fsm1 s1_st fsm2 s2_st
 
@@ -263,11 +247,12 @@ module Global = struct
   let minimise fsm = B.minimise fsm
 
   let generate_state_machine (g : global) : FSM.vertex * FSM.t =
+    let module SEC = Bisimulation.StateEquivalenceClasses (FSM) in
     let st, fsm = generate_state_machine' g in
     let fsm = if Debug.simplify_machine_off None
       then fsm
       else
-        postproces_taus fsm
+        SEC.make_tau_ends_equivalent fsm
         |> minimise
         |> FSM.remove_reflexive_taus
         |> FSM.minimise_state_numbers

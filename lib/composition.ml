@@ -151,6 +151,14 @@ struct
       (sts : FSM.vertex * FSM.vertex)
       (fsm : FSM.t)
       (fsm' : FSM.t) :  FSM.vertex * (FSM.vertex list * FSM.t) =
+
+    let module Min = Bisimulation.Bisimulation (FSM)(Bisimulation.Weak) in
+
+    let fsm, dict = Min.minimise_and_return_dict fsm in
+    let fsm', dict' = Min.minimise_and_return_dict fsm' in
+
+    let sts = List.assoc (fst sts) dict, List.assoc (snd sts) dict' in
+
     let get_size_as_str fsm = FSM.get_vertices fsm |> List.length |> string_of_int in
     "FSM size = " ^ get_size_as_str fsm |> Utils.log ;
     "FSM' size = " ^ get_size_as_str fsm' |> Utils.log ;
@@ -158,6 +166,15 @@ struct
       (fun dict (st, st' as sts) ->
          let l_es = FSM.succ_e fsm st in
          let r_es = FSM.succ_e fsm' st' in
+
+         let dot = FSM.Dot.generate_dot fsm in
+         let dot' = FSM.Dot.generate_dot fsm' in
+         "///////////////////////// Start Join Compose" |> Utils.log ;
+         "First machine" |> Utils.log ;
+         dot |> Utils.log ;
+         "///////////////////////// Second Machine" |> Utils.log ;
+         dot' |> Utils.log ;
+         "///////////////////////// End Join Compose" |> Utils.log ;
 
          (* if the transition is enabled in both, then it's ok *)
          let l_both = List.filter (fun e -> List.mem (FSM.E.label e) (List.map FSM.E.label r_es)) l_es in

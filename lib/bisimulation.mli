@@ -8,6 +8,8 @@ module StateEquivalenceClasses :
     val translate : state_equivalence_class -> FSM.t -> FSM.t
     val compute_from_pair_list :
       (FSM.vertex * FSM.vertex) list -> state_equivalence_class
+
+    val make_tau_ends_equivalent : FSM.t -> FSM.t
   end
 
 module type STRENGTH = sig
