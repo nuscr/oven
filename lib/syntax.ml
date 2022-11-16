@@ -64,11 +64,11 @@ let rec validate_roles roles = function
     validate_roles roles g2 &&
     validate_roles roles g3
 
-let validate_global_protocol protocol =
+let validate_roles_in_global_protocol protocol =
   validate_roles protocol.roles protocol.interactions
 
-let validate_compilation_unit cu =
-  List.for_all validate_global_protocol cu
+let validate_roles_in_compilation_unit cu =
+  List.for_all validate_roles_in_global_protocol cu
 
 (* local "types" *)
 

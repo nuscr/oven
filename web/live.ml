@@ -120,7 +120,7 @@ let analyse' () =
     let () = Interface.Error.reset () in
     let protocol = Interface.Code.get () in
     let cu  = BraidMPST.parse_string protocol in
-    let cu' = BraidMPST.translate_and_validate cu in
+    let cu' = BraidMPST.translate_and_validate_roles cu in
 
     let name =
       let n = Interface.Code.get_name () in

@@ -25,8 +25,8 @@ module Toplevel = struct
     with
       Error.UserError s -> Result.error s
 
-  let translate_and_validate (cu : Syntax.compilation_unit) : Syntax.compilation_unit =
-    if Syntax.validate_compilation_unit cu then
+  let translate_and_validate_roles (cu : Syntax.compilation_unit) : Syntax.compilation_unit =
+    if Syntax.validate_roles_in_compilation_unit cu then
       cu
     else
       Error.UserError "Validation failed!" |> raise

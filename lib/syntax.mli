@@ -40,9 +40,7 @@ type global  (* consider renaming just global *)
 
 type compilation_unit = global protocol list
 
-(* val get_transitions : compilation_unit -> (string * transition_label) list *)
-val validate_global_protocol : global protocol -> bool
-val validate_compilation_unit : compilation_unit -> bool
+val validate_roles_in_compilation_unit : compilation_unit -> bool
 
 (* local "types" *)
 
