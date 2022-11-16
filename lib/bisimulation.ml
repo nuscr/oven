@@ -66,6 +66,11 @@ struct
       | Failure _ -> Error.Violation "Equivalence class cannot be empty." |> raise
       | Not_found -> st (* if it is not in an equivalence class it's on its own one *)
 
+  let get_dict_from_ec fsm eqsts =
+    let vs = FSM.get_vertices fsm in
+    let vs' = List.map (translate_with_ec eqsts) vs in
+    List.combine vs vs'
+
   let translate (eqsts : state_equivalence_class) (fsm : FSM.t) : FSM.t =
     let translate_edge e =
       if FSM.E.label e |> FSM.Label.is_default
@@ -82,21 +87,24 @@ struct
          | Some e' -> FSM.add_edge_e fsm e')
       fsm FSM.empty
 
-  let make_tau_ends_equivalent fsm =
-    if Debug.post_process_taus_off None then fsm
-    else
-      let tau_pairs =
-        FSM.fold_edges_e
-          (fun e l ->
+
+  let make_tau_ends_equivalent_with_dict fsm =
+    let tau_pairs =
+      FSM.fold_edges_e
+        (fun e l ->
              if FSM.E.label e |> FSM.Label.is_default
              then  (FSM.E.src e, FSM.E. dst e)::l
              else l)
-          fsm []
-      in
-      (* lists of equivalent states *)
-      let eqsts = compute_from_pair_list tau_pairs in
-      translate eqsts fsm
+        fsm []
+    in
+    (* lists of equivalent states *)
+    let eqsts = compute_from_pair_list tau_pairs in
+    translate eqsts fsm, get_dict_from_ec fsm eqsts
 
+  let make_tau_ends_equivalent fsm =
+    if Debug.post_process_taus_off None then fsm
+    else
+      make_tau_ends_equivalent_with_dict fsm |> fst
 
 end
 
@@ -235,18 +243,14 @@ module Bisimulation (FSM : Machine.FSM) (Str : STRENGTH)  = struct
 
   let minimise_and_return_dict (fsm : FSM.t)
     : FSM.t * (FSM.vertex * FSM.vertex) list =
-    let vs = FSM.get_vertices fsm in
     if Debug.minimise_off None then
-
+      let vs = FSM.get_vertices fsm in
       fsm, List.combine vs vs
     else
       let eqsts = compute_bisimulation_quotient fsm in
-      let vs' = List.map (EC.translate_with_ec eqsts) vs in
-      EC.translate eqsts fsm, List.combine vs vs'
+      EC.translate eqsts fsm, EC.get_dict_from_ec fsm eqsts
 
 
   let generate_minimal_dot fsm =
     fsm |> minimise |> FSM.remove_reflexive_taus |> FSM.Dot.generate_dot
-
-
 end
