@@ -219,7 +219,10 @@ module Global = struct
         FSMComp.prioritise initial_fsm (FSM.add_vertex fsm s_st) s_st fsm1 s1_st fsm2 s2_st
 
     and combine_branches fsm next s_st branches
-        (combine_fun : FSM.vertex * FSM.vertex -> FSM.t -> FSM.t -> FSM.vertex * (FSM.vertex list * FSM.t)) =
+        (combine_fun :
+           FSM.vertex * FSM.vertex ->
+         FSM.t -> FSM.t ->
+         FSM.vertex * (FSM.vertex list * FSM.t)) =
       let m () =
         FSM.add_vertex FSM.empty s_st
       in

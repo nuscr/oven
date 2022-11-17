@@ -101,6 +101,8 @@ struct
       (fsm' : FSM.t)
       (* from the dict and the current state, produce a list of edges and the one next state per edge *)
       (f : dict -> FSM.vertex * FSM.vertex -> (FSM.edge * (FSM.vertex * FSM.vertex)) list)
+    (* and return the resulting start state, the list of states to
+       continue from, and the resulting state machine *)
     :  FSM.vertex * (FSM.vertex list * FSM.t) =
 
     let dict, next_jfsm = walker fsm fsm' sts f in
