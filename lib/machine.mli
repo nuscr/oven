@@ -44,6 +44,7 @@ sig
   val get_start_state : t -> vertex
   val add_vertex : t -> vertex -> t
   val empty : t
+  val has_start : t -> bool
   type edge = E.t
   val get_edges : t -> edge list
   val add_edge : t -> vertex -> vertex -> t
@@ -141,6 +142,7 @@ module StateMachine :
     val add_vertex : t -> vertex -> t
     val empty : t
 
+    val has_start : t -> bool
 
     val _string_of_edge : E.t -> string
     val get_edges :

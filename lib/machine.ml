@@ -65,6 +65,8 @@ sig
   val add_vertex : t -> vertex -> t
   val empty : t
 
+  val has_start : t -> bool
+
   type edge = E.t
   val get_edges : t -> edge list
   val add_edge : t -> vertex -> vertex -> t
@@ -129,6 +131,10 @@ module StateMachine (State : STATE) (Label : LABEL) = struct
     let l = fold_vertex (fun st l -> st::l) fsm [] in
     assert (List.length l = nb_vertex fsm) ;
     l
+
+  let has_start fsm =
+    List.find_opt State.is_start @@ get_vertices fsm |> Option.is_some
+
 
   let get_start_state fsm =
     try
