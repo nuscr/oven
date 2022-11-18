@@ -104,7 +104,6 @@ struct
     (* and return the resulting start state, the list of states to
        continue from, and the resulting state machine *)
     :  FSM.vertex * (FSM.vertex list * FSM.t) =
-
     let dict, next_jfsm = walker fsm fsm' sts f in
     find_state_in_dest sts dict, next_jfsm
 
@@ -153,14 +152,6 @@ struct
       (sts : FSM.vertex * FSM.vertex)
       (fsm : FSM.t)
       (fsm' : FSM.t) :  FSM.vertex * (FSM.vertex list * FSM.t) =
-
-    let module Min = Bisimulation.Bisimulation (FSM)(Bisimulation.Weak) in
-
-    let fsm, dict = Min.minimise_and_return_dict fsm in
-    let fsm', dict' = Min.minimise_and_return_dict fsm' in
-
-    let sts = List.assoc (fst sts) dict, List.assoc (snd sts) dict' in
-
     let get_size_as_str fsm = FSM.get_vertices fsm |> List.length |> string_of_int in
     "FSM size = " ^ get_size_as_str fsm |> Utils.log ;
     "FSM' size = " ^ get_size_as_str fsm' |> Utils.log ;
