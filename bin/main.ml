@@ -19,11 +19,19 @@ let speclist = []
 
 let process_file input_file =
     "// braidMPST - Local state machines for: " ^ input_file |> print_endline ;
+    Printexc.record_backtrace true ;
   try
     let str = input_file |> read_file |> BraidMPST.local_dots_of_scribble_file in
     str |> print_endline
   with
-  | exp ->  print_endline ("Unable to read the file!" ^ input_file ^ "\n" ^ Printexc.to_string exp)
+  | exp ->  print_endline
+              ("Unable to read the file!" ^ input_file ^ "\n" ^
+               Printexc.to_string exp ^ "\n" ^ Printexc.get_backtrace()
+
+
+
+
+)
 
 let () =
   BraidMPSTlib.Utils.set_immediate_log true ;
