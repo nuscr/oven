@@ -94,9 +94,9 @@ module Global = struct
     let st = State.fresh() in
     st, List.fold_left (fun fsm st' -> FSM.add_edge fsm st st') fsm prev
 
-  let join_next fsm next : FSM.vertex * FSM.t =
-    let st = State.fresh() in
-    st, List.fold_left (fun fsm st' -> FSM.add_edge fsm st' st) fsm next
+  (* let join_next fsm next : FSM.vertex * FSM.t = *)
+  (*   let st = State.fresh() in *)
+  (*   st, List.fold_left (fun fsm st' -> FSM.add_edge fsm st' st) fsm next *)
 
   let generate_state_machine' (g : global) : FSM.vertex * FSM.t =
     (* tr does the recursive translation.
@@ -107,12 +107,13 @@ module Global = struct
     let rec tr
         (fsm : FSM.t)
         (g : global)
-        (* return the first vertex, the last vertex, and the state machine *)
-      : FSM.vertex * FSM.vertex * FSM.t =
+        (* return the first vertex, the vertices to connect at the
+           end, and the state machine *)
+      : FSM.vertex * FSM.vertex list * FSM.t =
       let start_to_end_fsm () =
         let s_st = State.fresh() in
         let e_st = State.fresh() in
-        s_st, e_st, FSM.add_edge FSM.empty s_st e_st
+        s_st, [e_st], FSM.add_edge FSM.empty s_st e_st
       in
       (* this one should not return *)
       (* let module SEC = Bisimulation.StateEquivalenceClasses (FSM) in *)
@@ -121,22 +122,22 @@ module Global = struct
         let s_st = State.fresh() in
         let e_st = State.fresh() in
         let fsm = FSM.add_vertex (FSM.add_vertex fsm e_st) s_st in
-        s_st, e_st, FSM.add_edge_e fsm (FSM.E.create s_st (Some lbl) e_st)
+        s_st, [e_st], FSM.add_edge_e fsm (FSM.E.create s_st (Some lbl) e_st)
 
-      | Seq gis ->
-        let rec connect fsm gis =
-          match gis with
-          | [g'] ->
-            tr fsm g'
+      | Seq _gis -> assert false
+        (* let rec connect fsm gis = *)
+        (*   match gis with *)
+        (*   | [g'] -> *)
+        (*     tr fsm g' *)
 
-          | g'::gs ->
-            let s_st, m_st, fsm' = tr fsm g' in
-            let m_st', e_st, fsm'' = connect fsm' gs in
-            s_st, e_st, FSM.add_edge fsm'' m_st m_st'
+        (*   | g'::gs -> *)
+        (*     let s_st, m_st, fsm' = tr fsm g' in *)
+        (*     let m_st', e_st, fsm'' = connect fsm' gs in *)
+        (*     s_st, e_st, FSM.add_edge fsm'' m_st m_st' *)
 
-          | [] -> start_to_end_fsm ()
-        in
-        connect fsm gis
+        (*   | [] -> start_to_end_fsm () *)
+        (* in *)
+        (* connect fsm gis *)
 
       | Choice branches ->
         if Utils.is_empty branches then start_to_end_fsm () else
@@ -144,27 +145,26 @@ module Global = struct
           let fsm = FSM.merge_all fsms in
 
           let s_st, fsm = split_prev fsm s_sts in
-          let e_st, fsm = join_next fsm e_sts in
-          s_st, e_st, fsm
+          s_st, List.concat e_sts, fsm
 
-      | Fin g' ->
-        let s_st, loop_st, fsm = tr fsm g' in
-        let loop_st', end_loop_st, fsm = tr fsm g' in
-        (* close the loops with loop_st -> loop_st' and end_loop_st -> loop_st *)
-        let fsm = FSM.add_edge (FSM.add_edge fsm loop_st loop_st') end_loop_st loop_st' in
-        (* add the links to end s_st -> e_st and loop_st' -> e_st *)
-        let e_st = State.fresh () in
-        let fsm = FSM.add_edge (FSM.add_edge fsm s_st e_st) loop_st' e_st in
-        s_st, e_st, fsm
+      | Fin _g' -> assert false
+        (* let s_st, loop_st, fsm = tr fsm g' in *)
+        (* let loop_st', end_loop_st, fsm = tr fsm g' in *)
+        (* (\* close the loops with loop_st -> loop_st' and end_loop_st -> loop_st *\) *)
+        (* let fsm = FSM.add_edge (FSM.add_edge fsm loop_st loop_st') end_loop_st loop_st' in *)
+        (* (\* add the links to end s_st -> e_st and loop_st' -> e_st *\) *)
+        (* let e_st = State.fresh () in *)
+        (* let fsm = FSM.add_edge (FSM.add_edge fsm s_st e_st) loop_st' e_st in *)
+        (* s_st, e_st, fsm *)
 
-      | Inf g' ->
-        let s_st, loop_st, fsm = tr fsm g' in
+      | Inf _g' -> assert false
+        (* let s_st, loop_st, fsm = tr fsm g' in *)
 
-        let start_loop_st, end_loop_st, fsm = tr fsm g' in
+        (* let start_loop_st, end_loop_st, fsm = tr fsm g' in *)
 
-        let fsm = FSM.add_edge (FSM.add_edge fsm loop_st start_loop_st) end_loop_st loop_st in
-        (* the end state is fresh and unconnected because it's an infinite loop *)
-        s_st, State.fresh(), fsm
+        (* let fsm = FSM.add_edge (FSM.add_edge fsm loop_st start_loop_st) end_loop_st loop_st in *)
+        (* (\* the end state is fresh and unconnected because it's an infinite loop *\) *)
+        (* s_st, State.fresh(), fsm *)
 
       | Par [] ->
         "EMPTY PAR" |> Utils.log ;
@@ -228,9 +228,9 @@ module Global = struct
     (*   let next = if Utils.is_empty merged_next then next else merged_next in *)
     (*   next, resfsm *)
     in
-    let s_st, e_st, fsm_final = tr FSM.empty g in
+    let s_st, e_sts, fsm_final = tr FSM.empty g in
     let s_st = State.mark_as_start s_st in
-    let _ = State.mark_as_end e_st  in
+    let _ = List.map State.mark_as_end e_sts  in
     s_st, fsm_final |> FSMComp.only_reachable_from s_st
 
   module B = Bisimulation.Bisimulation (FSM) (Bisimulation.Weak)
