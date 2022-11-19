@@ -56,7 +56,7 @@ struct
 
         (has_v1 @ (add_if_not_there v2 has_v2))::rest
     in
-    List.fold_left merge [] vss
+    List.fold_left merge [] vss |> canonicalise_start_end
 
     (* get the canonical representative for each vertex *)
     let translate_with_ec eqsts  st =
@@ -86,7 +86,6 @@ struct
          | None -> fsm
          | Some e' -> FSM.add_edge_e fsm e')
       fsm FSM.empty
-
 
   let make_tau_ends_equivalent_with_dict fsm =
     let tau_pairs =
