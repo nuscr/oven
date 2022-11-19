@@ -237,11 +237,12 @@ module Global = struct
   let minimise fsm = B.minimise fsm
 
   let generate_state_machine (g : global) : FSM.vertex * FSM.t =
-    let module SEC = Bisimulation.StateEquivalenceClasses (FSM) in
+
     let st, fsm = generate_state_machine' g in
     let st, fsm = if Debug.simplify_machine_off None
       then st, fsm
-      else
+      else (* st, fsm |> minimise *) (* TODO: WEIRD!!!! if we do only minimise it breaks machies appart *)
+        let module SEC = Bisimulation.StateEquivalenceClasses (FSM) in
         let fsm, dict = SEC.make_tau_ends_equivalent_with_dict fsm in
         List.assoc st dict, fsm |> minimise |> FSM.remove_reflexive_taus |> FSM.minimise_state_numbers
     in
