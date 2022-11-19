@@ -1,3 +1,10 @@
+let  split_3 l =
+  let rec f (acc1, acc2, acc3) = function
+    | [] -> (acc1, acc2, acc3)
+    | (x1, x2, x3)::xs -> f (x1::acc1, x2::acc2, x3::acc3) xs
+  in
+  f ([], [], []) l
+
 let rec uniq x =
   let rec helper l n =
     match l with

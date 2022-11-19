@@ -5,6 +5,7 @@ val is_empty : 'a list -> bool
 val is_non_empty : 'a list -> bool
 val rem : 'a -> 'a list -> 'a list
 val minus : 'a list -> 'a list -> 'a list
+val  split_3 : ('a * 'b * 'c) list -> 'a list * 'b list * 'c list
 
 (* debugging functions *)
 val log : string -> unit

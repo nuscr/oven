@@ -87,15 +87,18 @@ module Global = struct
 
   module FSMComp = Composition.Composition (FSM)
 
-  let filter_degenerate_branches branches =
+  let _filter_degenerate_branches branches =
     List.filter (function Seq [] -> false | _ -> true) branches
 
-  let gather_next fsm next : FSM.vertex * FSM.t =
+  let split_prev fsm prev : FSM.vertex * FSM.t =
+    let st = State.fresh() in
+    st, List.fold_left (fun fsm st' -> FSM.add_edge fsm st st') fsm prev
+
+  let join_next fsm next : FSM.vertex * FSM.t =
     let st = State.fresh() in
     st, List.fold_left (fun fsm st' -> FSM.add_edge fsm st' st) fsm next
 
   let generate_state_machine' (g : global) : FSM.vertex * FSM.t =
-    let start = State.fresh_start () in
     (* tr does the recursive translation.
        s_st and e_st are the states that will bound the translated type
        next is a list of states that lead to the machine we are currently translating
@@ -104,147 +107,131 @@ module Global = struct
     let rec tr
         (fsm : FSM.t)
         (g : global)
-        (next : FSM.vertex list) : FSM.vertex list * FSM.t =
-      let module SEC = Bisimulation.StateEquivalenceClasses (FSM) in
+        (* return the first vertex, the last vertex, and the state machine *)
+      : FSM.vertex * FSM.vertex * FSM.t =
+      let start_to_end_fsm () =
+        let s_st = State.fresh() in
+        let e_st = State.fresh() in
+        s_st, e_st, FSM.add_edge FSM.empty s_st e_st
+      in
+      (* this one should not return *)
+      (* let module SEC = Bisimulation.StateEquivalenceClasses (FSM) in *)
       match g with
       | MessageTransfer lbl ->
-        let e x y = FSM.E.create x (Some lbl) y in
-        let n_st = State.fresh() in
-        let fsm = FSM.add_vertex fsm n_st in
-        let fsm' = List.fold_left (fun fsm st -> FSM.add_edge_e fsm (e st n_st)) fsm next in
-        [n_st], fsm'
+        let s_st = State.fresh() in
+        let e_st = State.fresh() in
+        let fsm = FSM.add_vertex (FSM.add_vertex fsm e_st) s_st in
+        s_st, e_st, FSM.add_edge_e fsm (FSM.E.create s_st (Some lbl) e_st)
 
       | Seq gis ->
-        let rec connect fsm gis next =
+        let rec connect fsm gis =
           match gis with
           | [g'] ->
-            tr fsm g' next
+            tr fsm g'
 
           | g'::gs ->
-            let next', fsm' = tr fsm g' next in
-            connect fsm' gs next'
+            let s_st, m_st, fsm' = tr fsm g' in
+            let m_st', e_st, fsm'' = connect fsm' gs in
+            s_st, e_st, FSM.add_edge fsm'' m_st m_st'
 
-          | [] ->
-            let st = State.fresh_start () |> State.mark_as_end in
-            st::next, FSM.add_vertex FSM.empty st
-
+          | [] -> start_to_end_fsm ()
         in
-        connect fsm gis next
+        connect fsm gis
 
       | Choice branches ->
-        if Utils.is_empty branches then next, fsm else
+        if Utils.is_empty branches then start_to_end_fsm () else
+          let s_sts, e_sts, fsms = List.map (fun g -> tr fsm g) branches |> Utils.split_3 in
+          let fsm = FSM.merge_all fsms in
 
-          (* TODO gather the results and then dispatch the branches *)
-          let st, fsm = gather_next fsm next in
-
-          let nexts, fsms = List.map (fun g -> tr fsm g [st]) branches |> List.split in
-          let fsm' = FSM.merge_all fsms in
-          List.concat nexts |> Utils.uniq, fsm'
+          let s_st, fsm = split_prev fsm s_sts in
+          let e_st, fsm = join_next fsm e_sts in
+          s_st, e_st, fsm
 
       | Fin g' ->
-        let connect_to fsm next st =
-          List.fold_left (fun fsm st' -> FSM.add_edge fsm st' st) (FSM.add_vertex fsm st) next
-        in
-        let tr_from_to fsm g from_st to_st =
-          let next, fsm = tr fsm g [from_st] in
-          connect_to fsm next to_st
-
-        in
-
-        let first_st = State.fresh () in (* state to start *)
-        let end_first_st = State.fresh () in (* state to finish before start *)
-        let loop_st = State.fresh () in (* state to loop *)
-        let end_st = State.fresh () in (* state to finish after one or more loops *)
-
-        let fsm = FSM.add_edge fsm first_st end_first_st in
-        let fsm = connect_to fsm next first_st in (* gather in first *)
-        let fsm = tr_from_to fsm g' first_st loop_st in (* one ste before looping *)
-        let fsm = tr_from_to fsm g' loop_st loop_st in (* do the loop *)
-
-        let fsm = FSM.add_edge fsm loop_st end_st in
-
-        [end_first_st ; end_st], fsm
+        let s_st, loop_st, fsm = tr fsm g' in
+        let loop_st', end_loop_st, fsm = tr fsm g' in
+        (* close the loops with loop_st -> loop_st' and end_loop_st -> loop_st *)
+        let fsm = FSM.add_edge (FSM.add_edge fsm loop_st loop_st') end_loop_st loop_st' in
+        (* add the links to end s_st -> e_st and loop_st' -> e_st *)
+        let e_st = State.fresh () in
+        let fsm = FSM.add_edge (FSM.add_edge fsm s_st e_st) loop_st' e_st in
+        s_st, e_st, fsm
 
       | Inf g' ->
-        let next, fsm = tr fsm g' next in
-        let loop_st = State.fresh () in (* new loop state *)
-        (* connect all the nexts to the loop st *)
-        let fsm =
-          List.fold_left (fun fsm st -> FSM.add_edge fsm st loop_st) (FSM.add_vertex fsm loop_st) next
-        in
-        (* do the actions from the loop_st *)
-        let next, fsm = tr fsm g' [loop_st] in
-        (* and connect the loop *)
-        let fsm =
-          List.fold_left (fun fsm st -> FSM.add_edge fsm st loop_st) fsm next
-        in
-        (* return the result, and combine the nexts to stop the recursion at any point *)
-        [], fsm
+        let s_st, loop_st, fsm = tr fsm g' in
 
+        let start_loop_st, end_loop_st, fsm = tr fsm g' in
+
+        let fsm = FSM.add_edge (FSM.add_edge fsm loop_st start_loop_st) end_loop_st loop_st in
+        (* the end state is fresh and unconnected because it's an infinite loop *)
+        s_st, State.fresh(), fsm
 
       | Par [] ->
         "EMPTY PAR" |> Utils.log ;
-        next, fsm
+        start_to_end_fsm ()
 
-      | Par branches ->
-        let branches = filter_degenerate_branches branches in
-        if List.length branches = 0 then next, fsm else
-          let st, fsm = gather_next fsm next in
-          combine_branches fsm next st branches FSMComp.parallel_compose
+      (* | Par branches -> *)
+      (*   let branches = filter_degenerate_branches branches in *)
+      (*   if List.length branches = 0 then start_to_end_fsm () else *)
+      (*     let st, fsm = gather_next fsm next in *)
+      (*     combine_branches fsm next st branches FSMComp.parallel_compose *)
 
-      | Join branches ->
-        let branches = filter_degenerate_branches branches in
-        if List.length branches = 0 then next, fsm else
-          let st, fsm = gather_next fsm next in
-          combine_branches fsm next st branches FSMComp.join_compose
+      (* | Join branches -> *)
+      (*   let branches = filter_degenerate_branches branches in *)
+      (*   if List.length branches = 0 then start_to_end_fsm () else *)
+      (*     let st, fsm = gather_next fsm next in *)
+      (*     combine_branches fsm next st branches FSMComp.join_compose *)
 
-      | Intersection branches ->
-        let branches = filter_degenerate_branches branches in
-        if List.length branches = 0 then next, fsm else
-          let st, fsm = gather_next fsm next in
-          combine_branches fsm next st branches FSMComp.intersection_compose
+      (* | Intersection branches -> *)
+      (*   let branches = filter_degenerate_branches branches in *)
+      (*   if List.length branches = 0 then start_to_end_fsm () else *)
+      (*     let st, fsm = gather_next fsm next in *)
+      (*     combine_branches fsm next st branches FSMComp.intersection_compose *)
 
-      | Prioritise (g, g1, g2) ->
-        let s_st, initial_fsm = gather_next fsm next in
-        let _, fsm = tr initial_fsm g [s_st] in
+      (* | Prioritise (g, g1, g2) -> *)
+      (*   let s_st, initial_fsm = gather_next fsm next in *)
+      (*   let _, fsm = tr initial_fsm g [s_st] in *)
 
-        let s1_st = State.fresh () in
-        let _, fsm1 = tr FSM.empty g1 [s1_st] in
-        let fsm1 = SEC.make_tau_ends_equivalent fsm1 in
+      (*   let s1_st = State.fresh () in *)
+      (*   let _, fsm1 = tr FSM.empty g1 [s1_st] in *)
+      (*   let fsm1 = SEC.make_tau_ends_equivalent fsm1 in *)
 
-        let s2_st = State.fresh () in
-        let _, fsm2 = tr FSM.empty g2 [s2_st] in
-        let fsm2 = SEC.make_tau_ends_equivalent fsm2 in
+      (*   let s2_st = State.fresh () in *)
+      (*   let _, fsm2 = tr FSM.empty g2 [s2_st] in *)
+      (*   let fsm2 = SEC.make_tau_ends_equivalent fsm2 in *)
 
-        FSMComp.prioritise initial_fsm (FSM.add_vertex fsm s_st) s_st fsm1 s1_st fsm2 s2_st
+      (*   FSMComp.prioritise initial_fsm (FSM.add_vertex fsm s_st) s_st fsm1 s1_st fsm2 s2_st *)
 
-    and combine_branches fsm next s_st branches
-        (combine_fun :
-           FSM.vertex * FSM.vertex ->
-         FSM.t -> FSM.t ->
-         FSM.vertex * (FSM.vertex list * FSM.t)) =
-      let m () =
-        FSM.add_vertex FSM.empty s_st
-      in
-      let st_next_fsms = List.map (fun g -> s_st, tr (m ()) g [s_st]) branches in
-      let (merged_next : FSM.vertex list), (fsm' : FSM.t) =
-        match st_next_fsms with
-        | [] -> ([s_st], m ())
-        | [next_fsm] -> next_fsm |> snd
-        | s_st_next_fsm::next_fsms' ->
-          (List.fold_left
-             (fun (s_st, (_, fsm)) (s_st', (_, fsm')) ->
-                combine_fun (s_st, s_st') fsm fsm')
-             s_st_next_fsm
-             next_fsms') |> snd
-      in
-      let resfsm = FSM.merge fsm fsm' in
-      let next = if Utils.is_empty merged_next then next else merged_next in
-      next, resfsm
+      | _ -> assert false
+
+    (* and combine_branches fsm next s_st branches *)
+    (*     (combine_fun : *)
+    (*        FSM.vertex * FSM.vertex -> *)
+    (*      FSM.t -> FSM.t -> *)
+    (*      FSM.vertex * (FSM.vertex list * FSM.t)) = *)
+    (*   let m () = *)
+    (*     FSM.add_vertex FSM.empty s_st *)
+    (*   in *)
+    (*   let st_next_fsms = List.map (fun g -> s_st, tr (m ()) g [s_st]) branches in *)
+    (*   let (merged_next : FSM.vertex list), (fsm' : FSM.t) = *)
+    (*     match st_next_fsms with *)
+    (*     | [] -> ([s_st], m ()) *)
+    (*     | [next_fsm] -> next_fsm |> snd *)
+    (*     | s_st_next_fsm::next_fsms' -> *)
+    (*       (List.fold_left *)
+    (*          (fun (s_st, (_, fsm)) (s_st', (_, fsm')) -> *)
+    (*             combine_fun (s_st, s_st') fsm fsm') *)
+    (*          s_st_next_fsm *)
+    (*          next_fsms') |> snd *)
+    (*   in *)
+    (*   let resfsm = FSM.merge fsm fsm' in *)
+    (*   let next = if Utils.is_empty merged_next then next else merged_next in *)
+    (*   next, resfsm *)
     in
-    let next, fsm_final = tr FSM.empty g [start] in
-    List.iter (fun st -> let _ = State.mark_as_end st in ()) next ;
-    (start, fsm_final |> FSMComp.only_reachable_from start)
+    let s_st, e_st, fsm_final = tr FSM.empty g in
+    let s_st = State.mark_as_start s_st in
+    let _ = State.mark_as_end e_st  in
+    s_st, fsm_final |> FSMComp.only_reachable_from s_st
 
   module B = Bisimulation.Bisimulation (FSM) (Bisimulation.Weak)
   let minimise fsm = B.minimise fsm
@@ -252,13 +239,11 @@ module Global = struct
   let generate_state_machine (g : global) : FSM.vertex * FSM.t =
     let module SEC = Bisimulation.StateEquivalenceClasses (FSM) in
     let st, fsm = generate_state_machine' g in
-    let fsm = if Debug.simplify_machine_off None
-      then fsm
+    let st, fsm = if Debug.simplify_machine_off None
+      then st, fsm
       else
-        SEC.make_tau_ends_equivalent fsm
-        |> minimise
-        |> FSM.remove_reflexive_taus
-        |> FSM.minimise_state_numbers
+        let fsm, dict = SEC.make_tau_ends_equivalent_with_dict fsm in
+        List.assoc st dict, fsm |> minimise |> FSM.remove_reflexive_taus |> FSM.minimise_state_numbers
     in
     st, fsm
 
