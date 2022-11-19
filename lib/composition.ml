@@ -276,6 +276,7 @@ struct
     let res = pr initial_fsm s_st s1_st s2_st [] in
     FSM.get_final_states res, res
 
+  (* TODO this function should be in StateMachine *)
   let only_reachable_from st fsm =
     let add_state_and_successors n_fsm st =
       let next_sts = FSM.succ fsm st in
