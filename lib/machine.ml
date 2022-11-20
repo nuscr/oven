@@ -103,6 +103,7 @@ sig
   val minimise_state_numbers : t -> t
   val merge : t -> t -> t
   val merge_all : t list -> t
+  val freshen_with_dict : t -> t * (vertex * vertex) list
   val remove_reflexive_taus : t -> t
   module Dot :
   sig
@@ -280,6 +281,16 @@ module StateMachine (State : STATE) (Label : LABEL) = struct
   (* simple merge two state machines *)
   let merge_all (fsms : t list) : t =
     List.fold_left merge empty fsms
+
+  let freshen_with_dict (fsm : t) : t * (vertex * vertex) list =
+    let dict =
+      let vs = get_vertices fsm in
+      List.map (fun v -> v, State.freshen v) vs
+    in
+    let trs v = List.assoc v dict in
+    let tre e = E.create (E.src e |> trs) (E.label e) (E.dst e |> trs) in
+
+    fold_edges_e (fun e fsm -> add_edge_e fsm (tre e)) fsm empty, dict
 
   let remove_reflexive_taus (fsm : t) : t =
     let e_fsm = fold_vertex (fun st fsm -> add_vertex fsm st) fsm empty in

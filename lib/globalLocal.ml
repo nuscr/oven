@@ -99,13 +99,35 @@ module Global = struct
   (*   st, List.fold_left (fun fsm st' -> FSM.add_edge fsm st' st) fsm next *)
 
   let generate_state_machine' (g : global) : FSM.vertex * FSM.t =
+    let connect (s_st, e_sts, fsm) afsm'
+      : FSM.vertex * FSM.vertex list * FSM.t=
+      let freshen (s_st, e_sts, f) =
+        let f', dict = FSM.freshen_with_dict f in
+        List.assoc s_st dict, List.map (fun st -> List.assoc st dict) e_sts, f'
+      in
+
+      (* freshen afsm' and add to fsm connecting e_st to the start of afsm *)
+      let plug e_st fsm =
+        let s_st', e_sts', fsm' = freshen afsm' in
+        let fsm = FSM.merge fsm fsm' in
+        e_sts', FSM.add_edge fsm e_st s_st'
+      in
+
+      let e_sts, fsm =
+        List.fold_left
+          (fun (e_sts, fsm) e_st -> let e_sts', fsm = plug e_st fsm in e_sts @ e_sts', fsm)
+          ([], fsm) e_sts
+      in
+
+      s_st, e_sts, fsm
+    in
+
     (* tr does the recursive translation.
        s_st and e_st are the states that will bound the translated type
        next is a list of states that lead to the machine we are currently translating
        and the first element of the returned value is the places where the execution will continue
     *)
     let rec tr
-        (fsm : FSM.t)
         (g : global)
         (* return the first vertex, the vertices to connect at the
            end, and the state machine *)
@@ -121,27 +143,16 @@ module Global = struct
       | MessageTransfer lbl ->
         let s_st = State.fresh() in
         let e_st = State.fresh() in
-        let fsm = FSM.add_vertex (FSM.add_vertex fsm e_st) s_st in
+        let fsm = FSM.add_vertex (FSM.add_vertex FSM.empty e_st) s_st in
         s_st, [e_st], FSM.add_edge_e fsm (FSM.E.create s_st (Some lbl) e_st)
 
-      | Seq _gis -> assert false
-        (* let rec connect fsm gis = *)
-        (*   match gis with *)
-        (*   | [g'] -> *)
-        (*     tr fsm g' *)
-
-        (*   | g'::gs -> *)
-        (*     let s_st, m_st, fsm' = tr fsm g' in *)
-        (*     let m_st', e_st, fsm'' = connect fsm' gs in *)
-        (*     s_st, e_st, FSM.add_edge fsm'' m_st m_st' *)
-
-        (*   | [] -> start_to_end_fsm () *)
-        (* in *)
-        (* connect fsm gis *)
+      | Seq gis ->
+        let afsms = List.map tr gis in
+        List.fold_left (fun afsm afsm' -> connect afsm afsm') (start_to_end_fsm ())  afsms
 
       | Choice branches ->
         if Utils.is_empty branches then start_to_end_fsm () else
-          let s_sts, e_sts, fsms = List.map (fun g -> tr fsm g) branches |> Utils.split_3 in
+          let s_sts, e_sts, fsms = List.map tr branches |> Utils.split_3 in
           let fsm = FSM.merge_all fsms in
 
           let s_st, fsm = split_prev fsm s_sts in
@@ -228,7 +239,7 @@ module Global = struct
     (*   let next = if Utils.is_empty merged_next then next else merged_next in *)
     (*   next, resfsm *)
     in
-    let s_st, e_sts, fsm_final = tr FSM.empty g in
+    let s_st, e_sts, fsm_final = tr g in
     let s_st = State.mark_as_start s_st in
     let _ = List.map State.mark_as_end e_sts  in
     s_st, fsm_final |> FSMComp.only_reachable_from s_st

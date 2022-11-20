@@ -79,6 +79,7 @@ sig
   val minimise_state_numbers : t -> t
   val merge : t -> t -> t
   val merge_all : t list -> t
+  val freshen_with_dict : t -> t * (vertex * vertex) list
   val remove_reflexive_taus : t -> t
   module Dot : sig val generate_dot : t -> string end
 end
@@ -177,6 +178,7 @@ module StateMachine :
     val minimise_state_numbers : t -> t
     val merge : t -> t -> t
     val merge_all : t list -> t
+    val freshen_with_dict : t -> t * (vertex * vertex) list
     val remove_reflexive_taus : t -> t
     module Dot :
     sig
