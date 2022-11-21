@@ -3,5 +3,5 @@ global Loop(role C, S)
   fin {
     L from C to S;
   }
-  (*) E from S to C;
+  E from S to C;
 }
