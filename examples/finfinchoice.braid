@@ -1,0 +1,18 @@
+global FinAfterFin (role C, role S)
+{
+  fin {
+    choice {
+      fin{A() from C to S;}
+    } or {
+      B() from C to S;
+    }
+  }
+  fin {
+    choice {
+      fin{AA() from C to S;}
+    } or {
+      BB() from C to S;
+    }
+  }
+  DONE(int) from C to S;
+}

@@ -2,9 +2,12 @@ examples/first.braid
 examples/second.braid
 examples/par.braid
 examples/ParLoop.braid
+examples/fin.braid
 examples/finfin.braid
+examples/finfinchoice.braid
 examples/nestedfin.braid
 examples/choice.braid
+examples/choicefin.braid
 examples/intersection.braid
 examples/loose.braid
 examples/priority.braid
