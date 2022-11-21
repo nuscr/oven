@@ -99,12 +99,13 @@ module Global = struct
   (*   st, List.fold_left (fun fsm st' -> FSM.add_edge fsm st' st) fsm next *)
 
   let generate_state_machine' (g : global) : FSM.vertex * FSM.t =
+    let freshen (s_st, e_sts, f) =
+      let f', dict = FSM.freshen_with_dict f in
+      List.assoc s_st dict, List.map (fun st -> List.assoc st dict) e_sts, f'
+    in
+
     let connect (s_st, e_sts, fsm) afsm'
       : FSM.vertex * FSM.vertex list * FSM.t=
-      let freshen (s_st, e_sts, f) =
-        let f', dict = FSM.freshen_with_dict f in
-        List.assoc s_st dict, List.map (fun st -> List.assoc st dict) e_sts, f'
-      in
 
       (* freshen afsm' and add to fsm connecting e_st to the start of afsm *)
       let plug e_st fsm =
@@ -129,8 +130,8 @@ module Global = struct
     *)
     let rec tr
         (g : global)
-        (* return the first vertex, the vertices to connect at the
-           end, and the state machine *)
+      (* return the first vertex, the vertices to connect at the
+         end, and the state machine *)
       : FSM.vertex * FSM.vertex list * FSM.t =
       let start_to_end_fsm () =
         let s_st = State.fresh() in
@@ -158,24 +159,24 @@ module Global = struct
           let s_st, fsm = split_prev fsm s_sts in
           s_st, List.concat e_sts, fsm
 
-      | Fin _g' -> assert false
-        (* let s_st, loop_st, fsm = tr fsm g' in *)
-        (* let loop_st', end_loop_st, fsm = tr fsm g' in *)
-        (* (\* close the loops with loop_st -> loop_st' and end_loop_st -> loop_st *\) *)
-        (* let fsm = FSM.add_edge (FSM.add_edge fsm loop_st loop_st') end_loop_st loop_st' in *)
-        (* (\* add the links to end s_st -> e_st and loop_st' -> e_st *\) *)
-        (* let e_st = State.fresh () in *)
-        (* let fsm = FSM.add_edge (FSM.add_edge fsm s_st e_st) loop_st' e_st in *)
-        (* s_st, e_st, fsm *)
+      | Fin g' ->
+        let (s_st, _e_sts, _fsm as afsm) = tr g' in (* first do one step *)
+        let s_st', e_sts', fsm' = freshen afsm in (* copy the step *)
+        (* close the loop *)
+        let fsm' = List.fold_left (fun fsm e_st -> FSM.add_edge fsm e_st s_st') fsm' e_sts' in
+        let _s_st'', e_sts'', fsm'' = connect afsm (s_st', e_sts', fsm') in
+        (* start should be an end state because it's 0 or more time in
+           the Kleene star *)
+        s_st, s_st::e_sts'', fsm''
 
       | Inf _g' -> assert false
-        (* let s_st, loop_st, fsm = tr fsm g' in *)
+      (* let s_st, loop_st, fsm = tr fsm g' in *)
 
-        (* let start_loop_st, end_loop_st, fsm = tr fsm g' in *)
+      (* let start_loop_st, end_loop_st, fsm = tr fsm g' in *)
 
-        (* let fsm = FSM.add_edge (FSM.add_edge fsm loop_st start_loop_st) end_loop_st loop_st in *)
-        (* (\* the end state is fresh and unconnected because it's an infinite loop *\) *)
-        (* s_st, State.fresh(), fsm *)
+      (* let fsm = FSM.add_edge (FSM.add_edge fsm loop_st start_loop_st) end_loop_st loop_st in *)
+      (* (\* the end state is fresh and unconnected because it's an infinite loop *\) *)
+      (* s_st, State.fresh(), fsm *)
 
       | Par [] ->
         "EMPTY PAR" |> Utils.log ;
@@ -244,7 +245,7 @@ module Global = struct
     let _ = List.map State.mark_as_end e_sts  in
     s_st, fsm_final |> FSMComp.only_reachable_from s_st
 
-  module B = Bisimulation.Bisimulation (FSM) (Bisimulation.Weak)
+  module B = Bisimulation.Bisimulation (FSM) (Bisimulation.Strong)
   let minimise fsm = B.minimise fsm
 
   let generate_state_machine (g : global) : FSM.vertex * FSM.t =
@@ -255,7 +256,10 @@ module Global = struct
       else (* st, fsm |> minimise *) (* TODO: WEIRD!!!! if we do only minimise it breaks machies appart *)
         let module SEC = Bisimulation.StateEquivalenceClasses (FSM) in
         let fsm, dict = SEC.make_tau_ends_equivalent_with_dict fsm in
-        List.assoc st dict, fsm |> minimise |> FSM.remove_reflexive_taus |> FSM.minimise_state_numbers
+        (* NOTE: these passes change the state names, st, or its
+           lookup in the dict are invalid *)
+        List.assoc st dict, fsm (*|> minimise |> FSM.remove_reflexive_taus |> FSM.minimise_state_numbers*)
+        (* st, fsm *)
     in
     st, fsm
 
