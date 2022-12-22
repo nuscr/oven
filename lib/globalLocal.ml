@@ -90,7 +90,8 @@ module Global = struct
   let _filter_degenerate_branches branches =
     List.filter (function Seq [] -> false | _ -> true) branches
 
-  let split_prev fsm prev : FSM.vertex * FSM.t =
+  (* create a new state and connect it to all the states in prev *)
+  let split_prev (fsm : FSM.t) (prev : State.t list) : FSM.vertex * FSM.t =
     let st = State.fresh() in
     st, List.fold_left (fun fsm st' -> FSM.add_edge fsm st st') fsm prev
 
@@ -159,7 +160,7 @@ module Global = struct
           let s_st, fsm = split_prev fsm s_sts in
           s_st, List.concat e_sts, fsm
 
-      | Fin (Fin g') -> tr (Fin g') (* this is otherwise redundant *)
+      (* | Fin (Fin g') -> tr (Fin g') *) (* fin is idempotent *)
       | Fin g' ->
         let (s_st, _e_sts, _fsm as afsm) = tr g' in (* first do one step *)
         let s_st', e_sts', fsm' = freshen afsm in (* copy the step *)
@@ -257,6 +258,7 @@ module Global = struct
       else (* st, fsm |> minimise *) (* TODO: WEIRD!!!! if we do only minimise it breaks machies appart *)
         let module SEC = Bisimulation.StateEquivalenceClasses (FSM) in
         let fsm, dict = SEC.make_tau_ends_equivalent_with_dict fsm in
+        (* List.assoc st dict, fsm *)
         (* NOTE: check if remove reflexive taus is still necessary, and minimise_state_numbers changes the state names, st, or its *)
         (*    lookup in the dict are invalid *)
         match B.minimise_and_translate fsm [List.assoc st dict] with
