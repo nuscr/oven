@@ -256,8 +256,8 @@ module Global = struct
       else (* st, fsm |> minimise *) (* TODO: WEIRD!!!! if we do only minimise it breaks machies appart *)
         let module SEC = Bisimulation.StateEquivalenceClasses (FSM) in
         let fsm, dict = SEC.make_tau_ends_equivalent_with_dict fsm in
-        (* NOTE: these passes change the state names, st, or its
-           lookup in the dict are invalid *)
+        (* NOTE: these passes change the state names, st, or its *)
+        (*    lookup in the dict are invalid *)
         List.assoc st dict, fsm (*|> minimise |> FSM.remove_reflexive_taus |> FSM.minimise_state_numbers*)
         (* st, fsm *)
     in
