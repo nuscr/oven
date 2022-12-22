@@ -256,10 +256,11 @@ module Global = struct
       else (* st, fsm |> minimise *) (* TODO: WEIRD!!!! if we do only minimise it breaks machies appart *)
         let module SEC = Bisimulation.StateEquivalenceClasses (FSM) in
         let fsm, dict = SEC.make_tau_ends_equivalent_with_dict fsm in
-        (* NOTE: these passes change the state names, st, or its *)
+        (* NOTE: check if remove reflexive taus is still necessary, and minimise_state_numbers changes the state names, st, or its *)
         (*    lookup in the dict are invalid *)
-        List.assoc st dict, fsm (*|> minimise |> FSM.remove_reflexive_taus |> FSM.minimise_state_numbers*)
-        (* st, fsm *)
+        match B.minimise_and_translate fsm [List.assoc st dict] with
+        | fsm, [st] -> st, fsm (* |> FSM.remove_reflexive_taus |> FSM.minimise_state_numbers *)
+        | _ -> raise @@ Error.Violation "translation of start state did not yield a unique state"
     in
     st, fsm
 
