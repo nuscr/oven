@@ -159,6 +159,7 @@ module Global = struct
           let s_st, fsm = split_prev fsm s_sts in
           s_st, List.concat e_sts, fsm
 
+      | Fin (Fin g') -> tr (Fin g') (* this is otherwise redundant *)
       | Fin g' ->
         let (s_st, _e_sts, _fsm as afsm) = tr g' in (* first do one step *)
         let s_st', e_sts', fsm' = freshen afsm in (* copy the step *)
