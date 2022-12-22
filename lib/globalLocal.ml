@@ -263,9 +263,6 @@ module Global = struct
     in
     st, fsm
 
-  (* TODO do we need this?, maybe just not reexport it *)
-  let generate_dot fsm = fsm |> FSM.Dot.generate_dot
-
   let generate_minimal_dot fsm =
     let module WB =  Bisimulation.Bisimulation (FSM) (Bisimulation.Weak) in
     WB.generate_minimal_dot fsm
@@ -487,9 +484,6 @@ module Local = struct
   let well_behaved_local_machines roles_and_lfsms : wb_res =
     let lfsms = List.map (fun (r, l) -> r, FSM.get_start_state l, l) roles_and_lfsms in
     pipe_fold well_behaved_role (Result.ok ()) lfsms
-
-  (* TODO: do we need to reexport this? *)
-  let generate_dot fsm = fsm |> FSM.Dot.generate_dot
 
   let generate_minimal_dot fsm =
     let module WB = Bisimulation.Bisimulation (FSM) (Bisimulation.Weak) in

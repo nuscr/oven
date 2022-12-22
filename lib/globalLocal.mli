@@ -29,7 +29,6 @@ sig
 
   val minimise : FSM.t -> FSM.t
 
-  val generate_dot : FSM.t -> string
   val generate_minimal_dot : FSM.t -> string
 end
 
@@ -48,8 +47,6 @@ sig
   module FSM : Machine.FSM
 
   val project : Syntax.role -> Global.FSM.t -> FSM.t
-
-  val generate_dot : FSM.t -> string
 
   val generate_minimal_dot : FSM.t -> string
 
