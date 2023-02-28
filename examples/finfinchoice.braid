@@ -2,7 +2,8 @@ global FinAfterFin (role C, role S)
 {
   fin {
     choice {
-      fin{A() from C to S;}
+(*)      fin{A() from C to S;}
+      A() from C to S;
     } or {
       B() from C to S;
     }
