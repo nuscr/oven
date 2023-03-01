@@ -87,6 +87,9 @@ module Global = struct
 
   module FSMComp = Composition.Composition (FSM)
 
+  (* an FSM with the starting states, and end states associated *)
+  type component_fsm = FSM.vertex list * FSM.vertex list * FSM.t
+
   let _filter_degenerate_branches branches =
     List.filter (function Seq [] -> false | _ -> true) branches
 
@@ -99,30 +102,55 @@ module Global = struct
   (*   let st = State.fresh() in *)
   (*   st, List.fold_left (fun fsm st' -> FSM.add_edge fsm st' st) fsm next *)
 
+  (* returns the start state and and fsm that results from translating g *)
   let generate_state_machine' (g : global) : FSM.vertex * FSM.t =
-    let freshen (s_st, e_sts, f) =
+    let freshen (s_sts, e_sts, f) =
       let f', dict = FSM.freshen_with_dict f in
-      List.assoc s_st dict, List.map (fun st -> List.assoc st dict) e_sts, f'
+      List.map (fun st -> List.assoc st dict) s_sts, List.map (fun st -> List.assoc st dict) e_sts, f'
     in
 
-    let connect (s_st, e_sts, fsm) afsm'
-      : FSM.vertex * FSM.vertex list * FSM.t=
-
-      (* freshen afsm' and add to fsm connecting e_st to the start of afsm *)
-      let plug e_st fsm =
-        let s_st', e_sts', fsm' = freshen afsm' in
-        let fsm = FSM.merge fsm fsm' in
-        e_sts', FSM.add_edge fsm e_st s_st'
+    let copy_n_times (afsm : component_fsm) n =
+      let rec copy (s_list, e_list, acc_fsm as acc) = function
+      | 0 -> acc
+      | n when n < 0 -> assert false
+      | n ->
+        let (s', e', fsm') = freshen afsm  in
+        let acc_fsm' = FSM.merge acc_fsm fsm' in
+        copy (s'::s_list, e'::e_list, acc_fsm') (n - 1)
       in
-
-      let e_sts, fsm =
-        List.fold_left
-          (fun (e_sts, fsm) e_st -> let e_sts', fsm = plug e_st fsm in e_sts @ e_sts', fsm)
-          ([], fsm) e_sts
-      in
-
-      s_st, e_sts, fsm
+      copy (assert false) n
     in
+
+    let connect (afsm : component_fsm) (afsm' : component_fsm) : component_fsm =
+      let (_, e_sts, _fsm as afsm) = freshen afsm in
+      let (s_sts', _, _fsm' as afsm') = freshen afsm' in
+
+      let n = List.length e_sts in (* number of outputs of the first machine *)
+      let n' = List.length s_sts' in (* number of inputs of the second machine *)
+
+      (* we need n' first machines, and n second machines to connect *)
+      let s_sts_list, e_sts_list, fsm_first = copy_n_times afsm n' in
+      let s_sts_list', e_sts_list', fsm_second = copy_n_times afsm' n in
+
+      let res_fsm = FSM.merge fsm_first fsm_second in
+
+      let rec link fsm n' =
+        (* start states of the n'th machine *)
+        let ssts = List.nth e_sts_list n' in
+        List.fold_left (fun fsm (st, est) -> FSM.add_edge fsm st (List.nth est n')) fsm (List.combine ssts s_sts_list')
+      in
+
+      let rec f n fsm =
+        if n < 0
+        then fsm
+        else
+          f (n - 1) (link fsm n)
+      in
+
+      let res_fsm  = f n' res_fsm in
+      List.concat s_sts_list, List.concat e_sts_list', res_fsm
+    in
+
 
     (* tr does the recursive translation.
        s_st and e_st are the states that will bound the translated type
@@ -131,13 +159,13 @@ module Global = struct
     *)
     let rec tr
         (g : global)
-      (* return the first vertex, the vertices to connect at the
+      (* return the input vertices, the output vertices to connect at the
          end, and the state machine *)
-      : FSM.vertex * FSM.vertex list * FSM.t =
+      : FSM.vertex list * FSM.vertex list * FSM.t =
       let start_to_end_fsm () =
         let s_st = State.fresh() in
         let e_st = State.fresh() in
-        s_st, [e_st], FSM.add_edge FSM.empty s_st e_st
+        [s_st], [e_st], FSM.add_edge FSM.empty s_st e_st
       in
       (* this one should not return *)
       (* let module SEC = Bisimulation.StateEquivalenceClasses (FSM) in *)
@@ -146,7 +174,7 @@ module Global = struct
         let s_st = State.fresh() in
         let e_st = State.fresh() in
         let fsm = FSM.add_vertex (FSM.add_vertex FSM.empty e_st) s_st in
-        s_st, [e_st], FSM.add_edge_e fsm (FSM.E.create s_st (Some lbl) e_st)
+        [s_st], [e_st], FSM.add_edge_e fsm (FSM.E.create s_st (Some lbl) e_st)
 
       | Seq gis ->
         let afsms = List.map tr gis in
