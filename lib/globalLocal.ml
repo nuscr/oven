@@ -135,6 +135,18 @@ module Global = struct
       | Inf g' ->
         List.map (fun (l, g'') -> l, Seq [g'' ; Inf g']) (get_lts_head g')
 
+      | Par gs ->
+        let rec build_par gs gs' =
+          match gs' with
+          | [] -> []
+          | g'::gs' ->
+            let head = List.map (fun (l, g') -> l, Par (gs @ g':: gs')) (get_lts_head g') in
+            let tail =  build_par (gs @ [g']) gs'  in
+            head @ tail
+        in
+        build_par [] gs
+
+
       | _ -> failwith "unimplemented"
 
     in
