@@ -6,7 +6,7 @@ all:
 deploy: all
 	mkdir -p $(WHERE)
 	cp -v ../_build/default/web/*js index.html style.css $(WHERE)
-	cp -v ../doc/logo/braidMPST.png $(WHERE)
+	cp -v ../doc/logo/ovenMPST.png $(WHERE)
 	chmod +w $(WHERE)/*.js
 
 minify: deploy
