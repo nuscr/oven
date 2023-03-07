@@ -12,4 +12,4 @@
  (modes js)
  (preprocess
   (pps js_of_ocaml-ppx))
- (libraries braidMPST.lib js_of_ocaml-tyxml js_of_ocaml str))
+ (libraries ovenMPST.lib js_of_ocaml-tyxml js_of_ocaml str))

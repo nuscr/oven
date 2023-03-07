@@ -1,4 +1,4 @@
-(* BraidMPST live *)
+(* OvenMPST live *)
 open Js_of_ocaml
 
 module Html = Dom_html
@@ -6,7 +6,7 @@ module T = Js_of_ocaml_tyxml.Tyxml_js.Html
 open Js_of_ocaml_tyxml.Tyxml_js
 module W = Webutils
 
-open BraidMPSTlib
+open OvenMPSTlib
 
 (* let show_protocol_role protocol role = *)
 (*   let protocol = ProtocolName.user protocol in *)
@@ -83,7 +83,7 @@ let display_label (protocol, label) =
   (* let lk_f = *)
   (*   Of_dom.of_anchor (W.make_link (fun () -> fsm scr (protocol, role)) "FSM") *)
   (* in *)
-  let l : string = BraidMPST.string_of_transition_label label in
+  let l : string = OvenMPST.string_of_transition_label label in
   T.(li [ txt protocol
         ; txt " : "
         ; txt l])
@@ -110,7 +110,7 @@ let set_local fsms =
   Interface.GraphLocal.set_div "local" divs ;
 
   let set_graph (r, fsm) =
-    Interface.GraphLocal.set_dot ("local_" ^ r) (BraidMPST.dot_of_local_machine fsm)
+    Interface.GraphLocal.set_dot ("local_" ^ r) (OvenMPST.dot_of_local_machine fsm)
   in
 
   List.iter set_graph fsms
@@ -119,25 +119,25 @@ let analyse' () =
   try
     let () = Interface.Error.reset () in
     let protocol = Interface.Code.get () in
-    let cu  = BraidMPST.parse_string protocol in
-    let cu' = BraidMPST.translate_and_validate_roles cu in
+    let cu  = OvenMPST.parse_string protocol in
+    let cu' = OvenMPST.translate_and_validate_roles cu in
 
     let name =
       let n = Interface.Code.get_name () in
       if n = "" then None else Some n
     in
 
-    match BraidMPST.find_protocol name cu' with
+    match OvenMPST.find_protocol name cu' with
     | None -> Interface.Error.display_exn "No protocols found!"
     | Some prot ->
-      let _, fsm = BraidMPST.generate_global_state_machine prot.interactions in
-      BraidMPST.dot_of_global_machine fsm |> Interface.GraphEFSM.set_dot ;
+      let _, fsm = OvenMPST.generate_global_state_machine prot.interactions in
+      OvenMPST.dot_of_global_machine fsm |> Interface.GraphEFSM.set_dot ;
 
-      let rs_lfsms = BraidMPST.generate_local_machines_for_roles prot.roles fsm in
-      (* BraidMPST.dot_of_local_machine fsm |> Interface.GraphLocal.set_dot "local" ; *)
+      let rs_lfsms = OvenMPST.generate_local_machines_for_roles prot.roles fsm in
+      (* OvenMPST.dot_of_local_machine fsm |> Interface.GraphLocal.set_dot "local" ; *)
       set_local rs_lfsms ;
 
-      BraidMPST.well_behaved_local_machines prot.protocol_name rs_lfsms
+      OvenMPST.well_behaved_local_machines prot.protocol_name rs_lfsms
   with
   | Invalid_argument _ -> () (* TODO this is a HACK to avoid errors on protocols without interactions *)
   | Error.UserError msg -> Interface.Error.display_exn (msg)
@@ -146,7 +146,7 @@ let analyse' () =
 
 let analyse () =
   analyse' () ;
-  Js_of_ocaml.Firebug.console##log (Js_of_ocaml.Js.string @@ BraidMPST.get_log())
+  Js_of_ocaml.Firebug.console##log (Js_of_ocaml.Js.string @@ OvenMPST.get_log())
 
 (* let analyse () = *)
 (*   let () = Interface.Error.reset () in *)
@@ -174,14 +174,14 @@ let quick_parse () =
       |> String.concat "\n" in
     Interface.GraphLocal.set_div "output" @@ "<fieldset><legend>Protocol:</legend>" ^ l ^ "</fieldset>\n"
   in
-  match BraidMPST.quick_parse_string src with
+  match OvenMPST.quick_parse_string src with
   | Result.Ok prots -> names prots
   | Result.Error err -> Interface.GraphLocal.set_div "output" err
 
 
 let quick_render () =
   let code = Interface.Code.get() in
-  match BraidMPST.quick_parse_string code with
+  match OvenMPST.quick_parse_string code with
   | Result.Ok _ -> analyse ()
   | Result.Error _ -> ()
 
@@ -193,7 +193,7 @@ let quick_clear() =
 
 let _ =
   let open Js_of_ocaml in
-  Js.export "braidInterface"
+  Js.export "ovenInterface"
     (object%js
        method parse () =
          quick_parse ()

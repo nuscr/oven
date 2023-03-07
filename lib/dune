@@ -14,8 +14,8 @@
   ("--explain" "-la" "2")))
 
 (library
- (name braidMPSTlib)
- (public_name braidMPST.lib)
+ (name ovenMPSTlib)
+ (public_name ovenMPST.lib)
  (libraries ocamlgraph)
  ; (libraries base stdio ocamlgraph ppxlib unix process)
  ; (library_flags (-linkall))

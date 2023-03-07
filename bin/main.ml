@@ -1,4 +1,4 @@
-open BraidMPSTlib
+open OvenMPSTlib
 
 let read_file fn =
 
@@ -7,7 +7,7 @@ let read_file fn =
   close_in ch;
   s
 
-let usage_msg = "braidMPST - command line tool\n Usage: syn <file1>"
+let usage_msg = "ovenMPST - command line tool\n Usage: syn <file1>"
 
 let input_files = ref []
 
@@ -18,10 +18,10 @@ let speclist = []
 
 
 let process_file input_file =
-    "// braidMPST - Local state machines for: " ^ input_file |> print_endline ;
+    "// ovenMPST - Local state machines for: " ^ input_file |> print_endline ;
     Printexc.record_backtrace true ;
   try
-    let str = input_file |> read_file |> BraidMPST.local_dots_of_scribble_file in
+    let str = input_file |> read_file |> OvenMPST.local_dots_of_scribble_file in
     str |> print_endline
   with
   | exp ->  print_endline
@@ -34,6 +34,6 @@ let process_file input_file =
 )
 
 let () =
-  BraidMPSTlib.Utils.set_immediate_log true ;
+  OvenMPSTlib.Utils.set_immediate_log true ;
   Arg.parse speclist anon_fun usage_msg;
   List.iter process_file !input_files

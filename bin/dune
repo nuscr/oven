@@ -1,9 +1,9 @@
 (executables
  (names main)
- (libraries braidMPSTlib))
+ (libraries ovenMPSTlib))
 
 (install
  (section bin)
  (files
-  (main.exe as braid))
- (package braidMPST))
+  (main.exe as oven))
+ (package ovenMPST))

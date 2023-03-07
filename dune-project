@@ -1,6 +1,6 @@
 (lang dune 2.8)
 
-(name braid)
+(name ovenMPST)
 
 ; (cram enable)
 
@@ -9,11 +9,11 @@
 (generate_opam_files true)
 
 (source
- (github fferreira/nu2scr))
+ (github nuscr/oven))
 
 (license GPL-3.0-or-later)
 
-(authors "Francisco Ferreira")
+(authors "Francisco Ferreira, Sung-Shik Jongmans")
 
 (maintainers "Francisco Ferreira")
 
@@ -22,7 +22,7 @@
 ; (documentation "https://...")
 
 (package
- (name braidMPST)
+ (name ovenMPST)
  (synopsis
    "A tool to manipulate and validate MPST protocols with flexible interleavings.")
  (description
@@ -56,7 +56,7 @@
  ))
 
 (package
- (name braidIDE)
+ (name ovenIDE)
  (synopsis
    "A web tool to manipulate and validate Synthetic MPST protocols.")
  (description
