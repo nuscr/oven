@@ -42,6 +42,8 @@ type compilation_unit = global protocol list
 
 val validate_roles_in_compilation_unit : compilation_unit -> bool
 
+val string_of_global : global -> string
+
 (* local "types" *)
 
 type local = global * role

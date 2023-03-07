@@ -45,6 +45,17 @@ type global
 
 type compilation_unit = global protocol list
 
+let rec string_of_global = function
+  | MessageTransfer lbl -> string_of_transition_label lbl
+  | Choice gs ->
+    "(" ^ (List.map string_of_global gs |> String.concat " (+) ") ^ ")"
+  | Seq [] -> "Done"
+  | Seq gs ->
+    List.map string_of_global gs |> String.concat " ; "
+  | Fin g -> "(" ^ string_of_global g ^ ")*"
+  | Inf g -> "(" ^ string_of_global g ^ ")w"
+  | _ -> "(NOT YET)"
+
 
 let rec validate_roles roles = function
   | MessageTransfer {sender ; receiver ; label = _} ->
