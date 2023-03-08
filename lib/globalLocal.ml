@@ -166,8 +166,7 @@ module Global = struct
 
         -> failwith "unimplemented"
 
-    in
-    let rec get_lts (g : global) (visited : global list) : lts =
+    and get_lts (g : global) (visited : global list) : lts =
       if List.mem g visited then []
       else(
         let lts_hd = get_lts_head g in
