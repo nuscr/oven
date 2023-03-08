@@ -2,6 +2,7 @@ examples/first.oven
 examples/second.oven
 examples/par.oven
 examples/ParLoop.oven
+examples/rec.oven
 examples/fin.oven
 examples/finfin.oven
 examples/finfinchoice.oven

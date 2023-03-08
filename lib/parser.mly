@@ -38,6 +38,9 @@ let rec build f = function
 %token AND_KW
 %token CHOICE_KW
 
+%token REC_KW
+%token CONTINUE_KW
+
 %token FIN_KW
 %token INF_KW
 %token PAR_KW
@@ -111,6 +114,8 @@ let global_interaction ==
   | global_choice
   | inf_composition
   | fin_composition
+  | rec_composition
+  | var_composition
   | parallel_composition
   | join_composition
   | intersection
@@ -126,6 +131,12 @@ let inf_composition ==
 
 let fin_composition ==
   FIN_KW ; ~ = global_protocol_block ; < Fin >
+
+let rec_composition ==
+  REC_KW ; ~ = name ;  ~ = global_protocol_block ; < Rec >
+
+let var_composition ==
+  CONTINUE_KW ; ~ = name ; SEMICOLON? ; < Var >
 
 let parallel_composition ==
   PAR_KW ;

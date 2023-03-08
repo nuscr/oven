@@ -37,6 +37,8 @@ type global
   | Join of global * global
   | Intersection of global * global
   | Prioritise of global * global * global
+  | Rec of rec_var * global
+  | Var of rec_var
 
 type compilation_unit = global protocol list
 

@@ -1,0 +1,8 @@
+global Loop(role C, S)
+{
+  rec X {
+    L from C to S;
+    continue X
+  }
+  E from S to C;
+}

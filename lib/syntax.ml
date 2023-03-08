@@ -42,6 +42,8 @@ type global
   | Join of global * global
   | Intersection of global * global
   | Prioritise of global * global * global
+  | Rec of rec_var * global
+  | Var of rec_var
 
 type compilation_unit = global protocol list
 
@@ -65,6 +67,7 @@ let rec validate_roles roles = function
   | Par branches
   | Seq branches ->
     List.for_all (validate_roles roles) branches
+  | Rec (_, g)
   | Fin g
   | Inf g ->
     validate_roles roles g
@@ -76,12 +79,63 @@ let rec validate_roles roles = function
   | Intersection (g1, g2) ->
     validate_roles roles g1 &&
     validate_roles roles g2
+  | Var _ -> true
+
+let syntactic_well_formedness nm =
+  let rec f = function
+    | MessageTransfer _ -> ()
+    | Choice branches
+    | Par branches
+    | Seq branches ->
+      List.iter f branches
+    | Rec (x, g) -> in_rec [x] g
+    | Fin g
+    | Inf g -> f g
+
+    | Prioritise (g1, g2, g3) -> f g1 ; f g2 ; f g3
+    | Join (g1, g2)
+    | Intersection (g1, g2) ->
+      f g1 ; f g2
+    | Var x -> Error.UserError ("Unknown variable: " ^ x ^ " in protocol " ^ nm ^ ".") |> raise
+
+  and in_rec c = function
+    | MessageTransfer _ -> ()
+    | Choice branches ->
+      List.iter (in_rec c) branches
+    | Seq branches ->
+      List.iter (in_rec c) branches ; var_tail branches
+    | Rec (x, g) -> in_rec (x::c) g
+    | Par _
+    | Fin _
+    | Inf _
+    | Prioritise _
+    | Join _
+    | Intersection _
+      -> Error.UserError ("Only messages and choice may appear in a rec block.") |> raise
+    | Var x when List.mem x c -> ()
+    | Var x -> Error.UserError ("Unknown variable: " ^ x ^ " in protocol " ^ nm ^ ".") |> raise
+
+  and var_tail = function
+    | []
+    | [Var _] -> () (* tail position: ok *)
+    | Var x ::_ -> Error.UserError ("Variable: " ^ x ^ " appears in non-tail position in protocol " ^ nm ^ ".") |> raise
+    | _::gs -> var_tail gs
+
+  in
+  f
+
+let syntactic_well_formedness_protocol protocol =
+  syntactic_well_formedness protocol.protocol_name protocol.interactions
+
+let syntactic_well_formedness_in_compilation_unit cu =
+  List.iter syntactic_well_formedness_protocol cu
 
 
 let validate_roles_in_global_protocol protocol =
   validate_roles protocol.roles protocol.interactions
 
 let validate_roles_in_compilation_unit cu =
+  syntactic_well_formedness_in_compilation_unit cu ;
   List.for_all validate_roles_in_global_protocol cu
 
 (* local "types" *)

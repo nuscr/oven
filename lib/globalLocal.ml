@@ -103,6 +103,7 @@ module Global = struct
       | Inf _ -> false
       | Intersection _
       | Join _
+      | Rec _ | Var _
       | Prioritise _ -> failwith "unimplemented"
     in
 
@@ -163,6 +164,8 @@ module Global = struct
       | Join _
 
       | Prioritise _
+
+      | Rec _ | Var _
 
         -> failwith "unimplemented"
 
