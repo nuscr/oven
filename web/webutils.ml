@@ -46,3 +46,7 @@ let set_children (elem : #Dom.node Js.t) (children : #Dom.node Js.t list) =
     | None -> ()
   done ;
   List.iter (fun kid -> ignore @@ elem##appendChild kid) children
+
+let set_dot_text id text =
+  let e = get id in
+  set_inner_html e "%s" text

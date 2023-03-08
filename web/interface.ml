@@ -22,6 +22,11 @@ module Code = struct
     let res = Js.Unsafe.eval_string get_protocol in
     Js.to_string res
 
+  let get_format () =
+    let get_format = "getOutputFormat();" in
+    let res = Js.Unsafe.eval_string get_format in
+    Js.to_string res
+
 end
 
 module Error = struct
@@ -60,7 +65,11 @@ module GraphEFSM = struct
   let set (svg : Dom.node Js.t) =
     Webutils.set_children (Webutils.get id) [svg]
 
-  let set_dot (dot : string) =
+  let set_dot_text (dot :string) =
+    Webutils.set_dot_text id dot
+
+  let set_dot_graph (dot : string) =
+    let _ = set_dot_text "" in
     let dot = Js.string dot in
     let viz = Js.Unsafe.global##._Viz in
     let viz = Js.Unsafe.new_obj viz [||] in
@@ -71,6 +80,17 @@ module GraphEFSM = struct
       Js.Unsafe.meth_call promise "then" [|Js.Unsafe.inject set|]
     in
     ()
+
+
+
+
+  let set_dot (dot : string) =
+    (match Code.get_format () with
+    | "graph" -> set_dot_graph
+    | "dot" -> set_dot_text
+    | _ -> set_dot_graph) dot
+
+
 end
 
 module GraphLocal = struct
@@ -85,8 +105,11 @@ module GraphLocal = struct
         set_inner_html e "%s" string ;
         set_display e "block")
 
+  let set_dot_text id (dot :string) =
+    Webutils.set_dot_text id dot
 
-  let set_dot id (dot : string) =
+
+  let set_dot_graph id (dot : string) =
     let dot = Js.string dot in
     let viz = Js.Unsafe.global##._Viz in
     let viz = Js.Unsafe.new_obj viz [||] in
@@ -97,4 +120,10 @@ module GraphLocal = struct
       Js.Unsafe.meth_call promise "then" [|Js.Unsafe.inject (set id) |]
     in
     ()
+
+  let set_dot id (dot : string) =
+    (match Code.get_format () with
+    | "graph" -> set_dot_graph
+    | "dot" -> set_dot_text
+    | _ -> set_dot_graph) id dot
 end

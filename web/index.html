@@ -22,6 +22,12 @@
             }
         return "";
       }
+
+      function getOutputFormat() {
+        var ele = document.getElementById('output_format');
+          var ret = ele.value;
+          return ret;
+      }
     </script>
 
     <div class="ui fixed menu">
@@ -71,6 +77,10 @@
           <br />
           <select required class="ui dropdown" id="examples">
             <option value="" disabled selected hidden>Load an example</option>
+          </select>
+          <select required class="ui dropdown" id="output_format">
+            <option value="graph" selected>Show graph</option>
+            <option value="dot">Show graphviz dot file</option>
           </select>
           <button class="ui button" id="button">Analyse</button>
         </div>
