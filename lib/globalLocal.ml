@@ -146,8 +146,25 @@ module Global = struct
         in
         build_par [] gs
 
+      (* | Intersection gs -> *)
 
-      | _ -> failwith "unimplemented"
+      (*   let hds = List.map get_lts_head gs in *)
+
+      (*   let rec is_in l hds = *)
+      (*     List.mem l (hds |> List.split |> fst) *)
+      (*   in *)
+      (*   (\* keep only the heads that are equal *\) *)
+      (*   let hds' = List.filter (fun (l, _) -> List.for_all (fun conts -> is_in l conts) hds) (hds |> List.concat) in *)
+
+      (*   hds' *)
+
+      | Intersection _
+
+      | Join _
+
+      | Prioritise _
+
+        -> failwith "unimplemented"
 
     in
     let rec get_lts (g : global) (visited : global list) : lts =
