@@ -39,8 +39,8 @@ type global
   | Inf of global
   | Par of global list
   | Seq of global list
-  | Join of global list
-  | Intersection of global list
+  | Join of global * global
+  | Intersection of global * global
   | Prioritise of global * global * global
 
 type compilation_unit = global protocol list
@@ -62,8 +62,6 @@ let rec validate_roles roles = function
     if List.mem sender roles && List.mem receiver roles then true
     else Error.UserError "Unknown role used in protocol." |> raise
   | Choice branches
-  | Join branches
-  | Intersection branches
   | Par branches
   | Seq branches ->
     List.for_all (validate_roles roles) branches
@@ -74,6 +72,11 @@ let rec validate_roles roles = function
     validate_roles roles g1 &&
     validate_roles roles g2 &&
     validate_roles roles g3
+  | Join (g1, g2)
+  | Intersection (g1, g2) ->
+    validate_roles roles g1 &&
+    validate_roles roles g2
+
 
 let validate_roles_in_global_protocol protocol =
   validate_roles protocol.roles protocol.interactions

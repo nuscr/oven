@@ -96,12 +96,12 @@ module Global = struct
   let generate_state_machine' (g : global) : FSM.vertex * FSM.t =
     let rec may_terminate = function
       | MessageTransfer _ -> false
-      | Intersection gs
       | Seq gs -> List.for_all may_terminate gs (* done is Sec [], for which it's trivially true *)
       | Par gs
       | Choice gs -> List.exists may_terminate gs
       | Fin _ -> true
       | Inf _ -> false
+      | Intersection _
       | Join _
       | Prioritise _ -> failwith "unimplemented"
     in

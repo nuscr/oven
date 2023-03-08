@@ -6,6 +6,11 @@ let block_to_global = function
   | [g] -> g (* if it is one then no sequence *)
   | gs -> Seq gs (* if it is zero or more than one then it is a sequence *)
 
+let rec build f = function
+  | [] -> Seq []
+  | [g] -> g
+  | g::gs -> f g @@ build f gs
+
 %}
 
 (* ---------------------------------------- *)
@@ -129,13 +134,13 @@ let parallel_composition ==
 
 let join_composition ==
   JOIN_KW ;
-  ~ = separated_nonempty_list(AND_KW, global_protocol_block) ;
-  < Join >
+  gs = separated_nonempty_list(AND_KW, global_protocol_block) ;
+  { build (fun g1 g2 -> Join (g1, g2)) gs }
 
 let intersection ==
   INTERSECTION_KW ;
-  ~ = separated_nonempty_list(AND_KW, global_protocol_block) ;
-  < Intersection >
+  gs = separated_nonempty_list(AND_KW, global_protocol_block) ;
+  { build (fun g1 g2 -> Intersection (g1, g2)) gs }
 
 let priority ==
   PRIORITISE_KW ; p1 = global_protocol_block ;

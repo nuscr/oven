@@ -27,15 +27,15 @@ sig
   val string_of_local_transition_label : local_transition_label -> string
 end
 
-type global  (* consider renaming just global *)
+type global
   = MessageTransfer of transition_label
   | Choice of global list
   | Fin of global
   | Inf of global
   | Par of global list
   | Seq of global list
-  | Join of global list
-  | Intersection of global list
+  | Join of global * global
+  | Intersection of global * global
   | Prioritise of global * global * global
 
 type compilation_unit = global protocol list
