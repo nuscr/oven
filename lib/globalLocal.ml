@@ -96,8 +96,8 @@ module Global = struct
   let generate_state_machine' (g : global) : FSM.vertex * FSM.t =
     let rec may_terminate = function
       | MessageTransfer _ -> false
-      | Seq gs -> List.for_all may_terminate gs (* done is Sec [], for which it's trivially true *)
       | Par gs
+      | Seq gs -> List.for_all may_terminate gs (* done is Sec [], for which it's trivially true *)
       | Choice gs -> List.exists may_terminate gs
       | Fin _ -> true
       | Inf _ -> false
