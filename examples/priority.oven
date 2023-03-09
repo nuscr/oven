@@ -1,7 +1,7 @@
 global Priority (role A, role B, role S1, role S2)
 {
   prioritise {
-    loose {
+    join {
       M from A to B ;
       M from B to S1;
     } and {

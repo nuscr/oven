@@ -107,8 +107,14 @@ module Global = struct
       | Join (g1, g2) ->
         get_lts_head (Join (g1, g2)) |> Utils.is_empty
 
-      | Rec _ | Var _
-      | Prioritise _ -> failwith "unimplemented"
+
+      | Prioritise (g, MessageTransfer lbl1, MessageTransfer lbl2) ->
+        get_lts_head (Prioritise (g, MessageTransfer lbl1, MessageTransfer lbl2)) |> Utils.is_empty
+
+      | Prioritise _ -> failwith "unsupported"
+
+      | Rec _ | Var _ ->
+          assert false
 
     and get_lts_head
         (g : global)
@@ -178,7 +184,19 @@ module Global = struct
 
         l1 @ l2 @ l3
 
+      | Prioritise (g, MessageTransfer lbl1, MessageTransfer lbl2) ->
+        let ltshd = get_lts_head g in
+
+        let ltshd_filtered =
+          if List.mem lbl1 (List.map fst ltshd)
+          then List.filter (fun (l, _) -> l = lbl2 |> not) ltshd
+          else ltshd
+        in
+
+        ltshd_filtered |> List.map (fun (l, g') -> (l, Prioritise (g', MessageTransfer lbl1, MessageTransfer lbl2)))
+
       | Prioritise _
+        -> failwith "unsupported."
 
       | Rec _ | Var _
 
