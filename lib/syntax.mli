@@ -37,7 +37,7 @@ type global
   | OutOfOrder of global * global
   | Join of global * global
   | Intersection of global * global
-  | Prioritise of global * global * global
+  | Prioritise of global * transition_label * transition_label
   | Rec of rec_var * global
   | Var of rec_var
 

@@ -8,13 +8,9 @@ global Priority (role A, role B, role S1, role S2)
       M from A to B ;
       M from B to S2 ;
     }
-  } with high {
-    M from B to S1;
-  } with low {
-    M from B to S2;
-  }
+  } with high M from B to S1;
+  with low M from B to S2;
 }
-
 
 global Priority2 (role A, role B, role S1, role S2)
 {
@@ -25,9 +21,7 @@ global Priority2 (role A, role B, role S1, role S2)
     } and {
       M from B to S2 ;
     }
-  } with high {
-    M from B to S1;
-  } with low {
-    M from B to S2;
-  }
+  } with high M from B to S1;
+  with low M from B to S2;
+
 }

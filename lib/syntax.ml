@@ -42,7 +42,7 @@ type global
   | OutOfOrder of global * global
   | Join of global * global
   | Intersection of global * global
-  | Prioritise of global * global * global
+  | Prioritise of global * transition_label * transition_label
   | Rec of rec_var * global
   | Var of rec_var
 
@@ -60,10 +60,12 @@ let rec string_of_global = function
   | _ -> "(NOT YET)"
 
 
-let rec validate_roles roles = function
-  | MessageTransfer {sender ; receiver ; label = _} ->
+let validate_roles_label roles {sender ; receiver ; label = _} =
     if List.mem sender roles && List.mem receiver roles then true
     else Error.UserError "Unknown role used in protocol." |> raise
+
+let rec validate_roles roles = function
+  | MessageTransfer lbl -> validate_roles_label roles lbl
   | Choice branches
   | Par branches
   | Seq branches ->
@@ -72,10 +74,11 @@ let rec validate_roles roles = function
   | Fin g
   | Inf g ->
     validate_roles roles g
-  | Prioritise (g1, g2, g3) ->
+  | Prioritise (g1, lbl1, lbl2) ->
     validate_roles roles g1 &&
-    validate_roles roles g2 &&
-    validate_roles roles g3
+    validate_roles_label roles lbl1 &&
+    validate_roles_label roles lbl2
+
   | Join (g1, g2)
   | Intersection (g1, g2) ->
     validate_roles roles g1 &&
@@ -100,9 +103,8 @@ let unfold (g: global) (x : rec_var) : global -> global =
     | Inf g' ->  Fin (f g')
     | Intersection (g1', g2') -> Intersection (f g1', f g2')
     | Join (g1', g2') -> Join (f g1', f g2')
-    | Prioritise (g', MessageTransfer lbl1, MessageTransfer lbl2) ->
-      Prioritise (f g', MessageTransfer lbl1, MessageTransfer lbl2)
-    | Prioritise _ -> failwith "unsupported"
+    | Prioritise (g', lbl1, lbl2) ->
+      Prioritise (f g', lbl1, lbl2)
     | Rec (y, g') when x = y -> Rec (y, g')
     | Rec (y, g') -> Rec (y, f g')
     | Var y when x = y -> g
@@ -126,7 +128,7 @@ let well_guarded : global -> bool =
       else false
     | Fin g
     | Inf g -> f dict g
-    | Prioritise (g1, g2, g3) -> f dict g1 && f dict g2 && f dict g3
+    | Prioritise (g, _, _) -> f dict g
     | Join (g1, g2)
     | OutOfOrder (g1, g2)
     | Intersection (g1, g2) ->
@@ -153,7 +155,7 @@ let syntactic_well_formedness nm =
     | Fin g
     | Inf g -> f g
 
-    | Prioritise (g1, g2, g3) -> f g1 ; f g2 ; f g3
+    | Prioritise (g1, _, _) -> f g1
     | Join (g1, g2)
     | OutOfOrder (g1, g2)
     | Intersection (g1, g2) ->

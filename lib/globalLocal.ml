@@ -92,30 +92,6 @@ module Global = struct
   let _filter_degenerate_branches branches =
     List.filter (function Seq [] -> false | _ -> true) branches
 
-  (* substitute g for x in the type *)
-  let unfold (g: global) (x : rec_var) : global -> global =
-    let rec f =
-    function
-      | MessageTransfer lbl -> MessageTransfer lbl
-      | Par gs' -> Par (List.map f gs')
-      | Seq gs' -> Seq (List.map f gs')
-      | OutOfOrder (g1', g2') -> OutOfOrder (f g1', f g2')
-      | Choice gs' -> Choice (List.map f gs')
-      | Fin g' -> Fin (f g')
-      | Inf g' ->  Fin (f g')
-      | Intersection (g1', g2') -> Intersection (f g1', f g2')
-      | Join (g1', g2') -> Join (f g1', f g2')
-      | Prioritise (g', MessageTransfer lbl1, MessageTransfer lbl2) ->
-        Prioritise (f g', MessageTransfer lbl1, MessageTransfer lbl2)
-      | Prioritise _ -> failwith "unsupported"
-      | Rec (y, g') when x = y -> Rec (y, g')
-      | Rec (y, g') -> Rec (y, f g')
-      | Var y when x = y -> g
-      | Var y -> Var y
-    in
-    f
-
-
   (* returns the start state and and fsm that results from translating g *)
   let generate_state_machine' (g : global) : FSM.vertex * FSM.t =
     let rec may_terminate = function
@@ -133,10 +109,8 @@ module Global = struct
         get_lts_head (Join (g1, g2)) |> Utils.is_empty
 
 
-      | Prioritise (g, MessageTransfer lbl1, MessageTransfer lbl2) ->
-        get_lts_head (Prioritise (g, MessageTransfer lbl1, MessageTransfer lbl2)) |> Utils.is_empty
-
-      | Prioritise _ -> failwith "unsupported"
+      | Prioritise (g, lbl1, lbl2) ->
+        get_lts_head (Prioritise (g, lbl1, lbl2)) |> Utils.is_empty
 
       | Rec (x, g) ->
         may_terminate (unfold (Rec (x, g)) x g)
@@ -223,7 +197,7 @@ module Global = struct
 
         l1 @ l2 @ l3
 
-      | Prioritise (g, MessageTransfer lbl1, MessageTransfer lbl2) ->
+      | Prioritise (g, lbl1, lbl2) ->
         let ltshd = get_lts_head g in
 
         let ltshd_filtered =
@@ -232,10 +206,7 @@ module Global = struct
           else ltshd
         in
 
-        ltshd_filtered |> List.map (fun (l, g') -> (l, Prioritise (g', MessageTransfer lbl1, MessageTransfer lbl2)))
-
-      | Prioritise _
-        -> failwith "unsupported."
+        ltshd_filtered |> List.map (fun (l, g') -> (l, Prioritise (g', lbl1, lbl2)))
 
       | Rec (x, g') ->
         get_lts_head (unfold (Rec (x, g')) x  g')

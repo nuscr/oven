@@ -11,6 +11,10 @@ let rec build f = function
   | [g] -> g
   | g::gs -> f g @@ build f gs
 
+let unpack_message_transfer = function
+  | MessageTransfer lbl -> lbl
+  | _ -> Error.Violation "Expected a MessageTransfer." |> raise
+
 %}
 
 (* ---------------------------------------- *)
@@ -155,9 +159,9 @@ let intersection ==
 
 let priority ==
   PRIORITISE_KW ; p1 = global_protocol_block ;
-  WITH_KW ; HIGH_KW ; p2 = global_protocol_block ;
-  WITH_KW ; LOW_KW ; p3 = global_protocol_block ;
-  { Prioritise (p1, p2, p3) }
+  WITH_KW ; HIGH_KW ; p2 = global_message_transfer ;
+  WITH_KW ; LOW_KW ; p3 = global_message_transfer ;
+  { Prioritise (p1, unpack_message_transfer p2, unpack_message_transfer p3) }
 
 let global_choice ==
   CHOICE_KW ;
