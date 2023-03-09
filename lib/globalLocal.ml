@@ -350,16 +350,8 @@ module Local = struct
     | x::xs ->
       pipe_fold f (let* _ = res in f x) xs
 
-  let rec wb r (st, fsm : FSM.vertex * FSM.t) : wb_res =
-    let (let*) = special_bind in
-    let blocks = WB.compute_bisimulation_quotient fsm in
-    let* _ = c1 r blocks (st, fsm) in
-    let* _ = c2 r blocks (st, fsm) in
-    let* _ = c3 r blocks (st, fsm) in
-    let* res = c4 r (st, fsm) in
-    res |> Result.ok
 
-  and c1 r blocks (st, fsm) : wb_res =
+  let c1 r blocks (st, fsm) : wb_res =
     let by_tau = FSM.tau_reachable fsm st in
     if List.for_all (fun st' -> WB.are_states_bisimilar blocks st st') by_tau
     then Result.ok ()
@@ -416,7 +408,7 @@ module Local = struct
 
     List.fold_left (fun r (l, st') -> Result.bind r (fun _ -> check st l st')) (Result.ok ()) _sends
 
-  and c3 r blocks (st, fsm) : wb_res =
+  let c3 r blocks (st, fsm) : wb_res =
     let is_receive = function
       | Some l -> l.Syntax.Local.direction = Syntax.Local.Receiving
       | None -> false
@@ -464,7 +456,7 @@ module Local = struct
     in
     f (weak_reductions |> List.filter (fun e -> FSM.E.label e |> is_receive))
 
-  and c4 r (st, fsm) : wb_res =
+  let c4 r (st, fsm) : wb_res =
     if FSM.has_strong_outgoing_transitions fsm st then
       if State.is_end st then
         "For role: " ^ r ^ " state: " ^ State.as_string st ^ " may terminate or continue (C4 violation)." |> Result.error
@@ -472,7 +464,17 @@ module Local = struct
         Result.ok ()
     else Result.ok ()
 
-  and c5 r fsm visited to_visit : wb_res =
+  let wb r (st, fsm : FSM.vertex * FSM.t) : wb_res =
+    let (let*) = special_bind in
+    let blocks = WB.compute_bisimulation_quotient fsm in
+    let* _ = c1 r blocks (st, fsm) in
+    let* _ = c2 r blocks (st, fsm) in
+    let* _ = c3 r blocks (st, fsm) in
+    let* res = c4 r (st, fsm) in
+    res |> Result.ok
+
+
+  let rec c5 r fsm visited to_visit : wb_res =
     match to_visit with
     | [] -> Result.ok ()
     | st::_ when List.mem st visited -> Result.ok ()
