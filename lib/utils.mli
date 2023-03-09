@@ -1,6 +1,7 @@
 
 (* functions on lists *)
 val uniq : 'a list -> 'a list
+val cartesian : 'a list -> 'b list -> ('a * 'b) list
 val is_empty : 'a list -> bool
 val is_non_empty : 'a list -> bool
 val rem : 'a -> 'a list -> 'a list

@@ -16,6 +16,11 @@ let rec uniq x =
   | [] -> []
   | h::t -> h::(helper (uniq t) h)
 
+
+let cartesian (l1 : 'a list) (l2 : 'b list) : ('a * 'b) list =
+  List.fold_left (fun acc1 ele1 ->
+    List.fold_left (fun acc2 ele2 -> (ele1,ele2)::acc2) acc1 l2) [] l1
+
 let is_empty = function
   | [] -> true
   | _ -> false

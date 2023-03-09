@@ -101,16 +101,16 @@ module Global = struct
       | Choice gs -> List.exists may_terminate gs
       | Fin _ -> true
       | Inf _ -> false
-      | Intersection _
+      | Intersection (g1, g2) ->
+        get_lts_head (Intersection (g1, g2)) |> Utils.is_empty
+
       | Join _
       | Rec _ | Var _
       | Prioritise _ -> failwith "unimplemented"
-    in
 
-    let rec get_lts_head
+    and get_lts_head
         (g : global)
       : (transition_label * global) list =
-      (* ">>>> " ^ (string_of_global g) |> Utils.log; *)
       let done_g = Seq [] in (* a terminated global type *)
 
       match g with
@@ -147,19 +147,14 @@ module Global = struct
         in
         build_par [] gs
 
-      (* | Intersection gs -> *)
+      | Intersection (g1, g2) ->
 
-      (*   let hds = List.map get_lts_head gs in *)
+       let ltshd1 = get_lts_head g1 in
+       let ltshd2 = get_lts_head g2 in
 
-      (*   let rec is_in l hds = *)
-      (*     List.mem l (hds |> List.split |> fst) *)
-      (*   in *)
-      (*   (\* keep only the heads that are equal *\) *)
-      (*   let hds' = List.filter (fun (l, _) -> List.for_all (fun conts -> is_in l conts) hds) (hds |> List.concat) in *)
-
-      (*   hds' *)
-
-      | Intersection _
+       Utils.cartesian ltshd1 ltshd2
+       |> List.filter (fun ((l, _), (l', _)) -> l = l')
+       |> List.map (fun ((l, g1'), (_, g2')) ->  (l, Intersection (g1', g2')))
 
       | Join _
 
