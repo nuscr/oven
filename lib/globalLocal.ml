@@ -158,14 +158,8 @@ module Global = struct
         in
         build_par [] gs
 
-      | Intersection (g1, g2) -> intersection_like (fun x y -> Intersection (x, y)) g1 g2
-
-       (* let ltshd1 = get_lts_head g1 in *)
-       (* let ltshd2 = get_lts_head g2 in *)
-
-       (* Utils.cartesian ltshd1 ltshd2 *)
-       (* |> List.filter (fun ((l, _), (l', _)) -> l = l') *)
-       (* |> List.map (fun ((l, g1'), (_, g2')) ->  (l, Intersection (g1', g2'))) *)
+      | Intersection (g1, g2) ->
+        intersection_like (fun x y -> Intersection (x, y)) g1 g2
 
       | Join (g1, g2) ->
 
