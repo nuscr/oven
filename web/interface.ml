@@ -1,6 +1,12 @@
 open Js_of_ocaml
 (* open Nuscrlib *)
 
+let sanitise string =
+  let string = Str.global_substitute (Str.regexp "<") (fun _ -> "&lt") string in
+  let string = Str.global_substitute (Str.regexp ">") (fun _ -> "&gt") string in
+  let string = Str.global_substitute (Str.regexp "$") (fun _ -> "</br>") string in
+  string
+
 module Code = struct
   let id = "protocol-textarea"
 
@@ -34,9 +40,7 @@ module Error = struct
 
   let display fmt =
     let display string =
-      let string = Str.global_substitute (Str.regexp "<") (fun _ -> "&lt") string in
-      let string = Str.global_substitute (Str.regexp ">") (fun _ -> "&gt") string in
-      let string = Str.global_substitute (Str.regexp "$") (fun _ -> "</br>") string in
+      let string = sanitise string in
       let e = Webutils.get errorbox in
       Webutils.(
         set_inner_html e "%s" string ;
@@ -66,7 +70,7 @@ module GraphEFSM = struct
     Webutils.set_children (Webutils.get id) [svg]
 
   let set_dot_text (dot :string) =
-    Webutils.set_dot_text id dot
+    Webutils.set_dot_text id (sanitise dot)
 
   let set_dot_graph (dot : string) =
     let _ = set_dot_text "" in
@@ -106,7 +110,7 @@ module GraphLocal = struct
         set_display e "block")
 
   let set_dot_text id (dot :string) =
-    Webutils.set_dot_text id dot
+    Webutils.set_dot_text id (sanitise dot)
 
 
   let set_dot_graph id (dot : string) =
