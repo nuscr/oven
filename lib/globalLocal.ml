@@ -98,6 +98,7 @@ module Global = struct
       | MessageTransfer _ -> false
       | Par gs
       | Seq gs -> List.for_all may_terminate gs (* done is Sec [], for which it's trivially true *)
+      | OutOfOrder (g1, g2) -> may_terminate g1 && may_terminate g2
       | Choice gs -> List.exists may_terminate gs
       | Fin _ -> true
       | Inf _ -> false
@@ -142,6 +143,18 @@ module Global = struct
           else
             [] in
         head @ tail
+
+      | OutOfOrder (g1, g2) ->
+
+        let g1_roles = get_lts g1 [] |> List.map (fun (_, lbl, _) -> [lbl.sender ; lbl.receiver]) |> List.concat |> Utils.uniq in
+
+
+        let l1 = get_lts_head g1 |> List.map (fun (l, g') -> (l, OutOfOrder(g', g2))) in
+        let l2 = get_lts_head g1
+                 |> List.filter (fun (l, _) -> (List.mem l.sender g1_roles |> not) && (List.mem l.receiver g1_roles |> not))
+                 |> List.map (fun (l, g') -> (l, OutOfOrder(g1, g'))) in
+
+        l1 @ l2
 
       | Choice gs ->
         List.map get_lts_head gs |> List.concat

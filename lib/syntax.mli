@@ -34,6 +34,7 @@ type global
   | Inf of global
   | Par of global list
   | Seq of global list
+  | OutOfOrder of global * global
   | Join of global * global
   | Intersection of global * global
   | Prioritise of global * global * global

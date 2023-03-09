@@ -39,6 +39,7 @@ type global
   | Inf of global
   | Par of global list
   | Seq of global list
+  | OutOfOrder of global * global
   | Join of global * global
   | Intersection of global * global
   | Prioritise of global * global * global
@@ -79,6 +80,9 @@ let rec validate_roles roles = function
   | Intersection (g1, g2) ->
     validate_roles roles g1 &&
     validate_roles roles g2
+  | OutOfOrder (g1, g2) ->
+    validate_roles roles g1 &&
+    validate_roles roles g2
   | Var _ -> true
 
 let syntactic_well_formedness nm =
@@ -94,6 +98,7 @@ let syntactic_well_formedness nm =
 
     | Prioritise (g1, g2, g3) -> f g1 ; f g2 ; f g3
     | Join (g1, g2)
+    | OutOfOrder (g1, g2)
     | Intersection (g1, g2) ->
       f g1 ; f g2
     | Var x -> Error.UserError ("Unknown variable: " ^ x ^ " in protocol " ^ nm ^ ".") |> raise
@@ -108,6 +113,7 @@ let syntactic_well_formedness nm =
     | Par _
     | Fin _
     | Inf _
+    | OutOfOrder _
     | Prioritise _
     | Join _
     | Intersection _
