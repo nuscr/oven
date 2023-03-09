@@ -144,12 +144,10 @@ module Global = struct
         head @ tail
 
       | OutOfOrder (g1, g2) ->
-
         let g1_roles = get_lts g1 [] |> List.map (fun (_, lbl, _) -> [lbl.sender ; lbl.receiver]) |> List.concat |> Utils.uniq in
 
-
         let l1 = get_lts_head g1 |> List.map (fun (l, g') -> (l, OutOfOrder(g', g2))) in
-        let l2 = get_lts_head g1
+        let l2 = get_lts_head g2
                  |> List.filter (fun (l, _) -> (List.mem l.sender g1_roles |> not) && (List.mem l.receiver g1_roles |> not))
                  |> List.map (fun (l, g') -> (l, OutOfOrder(g1, g'))) in
 

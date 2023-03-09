@@ -1,10 +1,10 @@
-global WeakGreetings(role C, S)
+global WeakGreetings(role C, S, D, E)
 {
   weak {
     HELLO(int) from C to S;
     BYE() from S to C;
   } and {
-    HOLA(int) from C to S;
+    HOLA(int) from D to E;
     CHAU() from S to C;
   }
 }
