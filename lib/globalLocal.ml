@@ -267,7 +267,7 @@ module Global = struct
     let st, fsm = generate_state_machine' g in
     let st, fsm = if Debug.simplify_machine_off None
       then st, fsm
-      else (* st, fsm |> minimise *) (* TODO: WEIRD!!!! if we do only minimise it breaks machies appart *)
+      else
         let module SEC = Bisimulation.StateEquivalenceClasses (FSM) in
         let fsm, dict = SEC.make_tau_ends_equivalent_with_dict fsm in
         (* NOTE: check if remove reflexive taus is still necessary, and minimise_state_numbers changes the state names, st, or its *)
