@@ -92,8 +92,7 @@ module Global = struct
   let _filter_degenerate_branches branches =
     List.filter (function Seq [] -> false | _ -> true) branches
 
-  (* returns the start state and and fsm that results from translating g *)
-  let generate_state_machine' (g : global) : FSM.vertex * FSM.t =
+  let generate_state_machine' (g : global) :  FSM.t =
     let rec may_terminate = function
       | MessageTransfer _ -> false
       | Par gs
@@ -222,7 +221,7 @@ module Global = struct
     in
 
 
-    let fsm_of_lts (lts : lts) : FSM.vertex * FSM.t =
+    let fsm_of_lts (lts : lts) : FSM.t =
       let rec collect_gs lts acc =
         let add g acc = if List.mem g acc then acc else g::acc in
         match lts with
@@ -238,45 +237,39 @@ module Global = struct
       match lts with
       | [] ->
         let st = FSM.State.fresh () |> FSM.State.mark_as_start |> FSM.State.mark_as_end in
-        st, FSM.add_vertex FSM.empty st
+        FSM.add_vertex FSM.empty st
       | (g0, _label, _g1)::_ ->
-        let start = lu g0 |> FSM.State.mark_as_start in
+        let _start = lu g0 |> FSM.State.mark_as_start in
 
         let add_transition fsm (g, lbl, g') =
           let s_st, e_st = lu g, lu g' in
           let _ = if may_terminate g' then let _ = FSM.State.mark_as_end e_st in () in
           FSM.add_edge_e fsm (FSM.E.create s_st (Some lbl) e_st)
         in
-
-        let fsm = List.fold_left add_transition  fsm lts in
-        start, fsm
+        List.fold_left add_transition  fsm lts
     in
 
-
-    let tr (g : global) : FSM.vertex * FSM.t =
+    let tr (g : global) : FSM.t =
       get_lts g [] |> fsm_of_lts
     in
-    let s_st, fsm_final = tr g in
-    s_st, fsm_final |> FSMComp.only_reachable_from s_st
+
+    let final_fsm = tr g in
+    final_fsm |> FSMComp.only_reachable_from (FSM.get_start_state final_fsm)
 
   module B = Bisimulation.Bisimulation (FSM) (Bisimulation.Strong)
   let minimise fsm = B.minimise fsm
 
-  let generate_state_machine (g : global) : FSM.vertex * FSM.t =
+  let generate_state_machine (g : global) : State.t * FSM.t =
 
-    let st, fsm = generate_state_machine' g in
-    let st, fsm = if Debug.simplify_machine_off None
-      then st, fsm
+    let fsm = generate_state_machine' g in
+    let fsm = if Debug.simplify_machine_off None
+      then fsm
       else
         let module SEC = Bisimulation.StateEquivalenceClasses (FSM) in
-        let fsm, dict = SEC.make_tau_ends_equivalent_with_dict fsm in
-        (* NOTE: check if remove reflexive taus is still necessary, and minimise_state_numbers changes the state names, st, or its *)
-        (*    lookup in the dict are invalid *)
-        match B.minimise_and_translate fsm [List.assoc st dict] with
-        | fsm, [st] -> st, fsm (* |> FSM.remove_reflexive_taus |> FSM.minimise_state_numbers *)
-        | _ -> raise @@ Error.Violation "translation of start state did not yield a unique state"
+        let fsm, _ = SEC.make_tau_ends_equivalent_with_dict fsm in
+        B.minimise fsm |> FSM.remove_reflexive_taus |> FSM.minimise_state_numbers
     in
-    st, fsm
+    FSM.get_start_state fsm, fsm
 
   let generate_minimal_dot fsm =
     let module WB =  Bisimulation.Bisimulation (FSM) (Bisimulation.Weak) in
