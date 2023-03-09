@@ -352,33 +352,25 @@ module Local = struct
 
   let rec wb r (st, fsm : FSM.vertex * FSM.t) : wb_res =
     let (let*) = special_bind in
-    let _blocks = WB.compute_bisimulation_quotient fsm in
-    let* _res = _c1 r (st, fsm) in
-    let* _res = _c2 r _blocks (st, fsm) in
-    let* _res = _c3 r _blocks (st, fsm) in
-    let* _res = _c4 r _blocks (st, fsm) in
-    _res |> Result.ok
+    let blocks = WB.compute_bisimulation_quotient fsm in
+    let* _ = c1 r blocks (st, fsm) in
+    let* _ = c2 r blocks (st, fsm) in
+    let* _ = c3 r blocks (st, fsm) in
+    let* res = c4 r (st, fsm) in
+    res |> Result.ok
 
-  and _c1 r (st, fsm) : wb_res =
-    if FSM.has_strong_outgoing_transitions fsm st then
-      if State.is_end st then
-        "For role: " ^ r ^ " state: " ^ State.as_string st ^ " may terminate or continue (C1 violation)." |> Result.error
-      else
-        Result.ok ()
-    else Result.ok ()
-
-  and _c2 r blocks (st, fsm) : wb_res =
+  and c1 r blocks (st, fsm) : wb_res =
     let by_tau = FSM.tau_reachable fsm st in
     if List.for_all (fun st' -> WB.are_states_bisimilar blocks st st') by_tau
     then Result.ok ()
     else
       try
         let st' = List.find (fun st' -> WB.are_states_bisimilar blocks st st' |> not) by_tau in
-        "For role: " ^ r ^ " states: " ^ State.as_string st ^ " and " ^ State.as_string st' ^ " are not bisimilar (C2 violation)." |> Result.error
+        "For role: " ^ r ^ " states: " ^ State.as_string st ^ " and " ^ State.as_string st' ^ " are not bisimilar (C1 violation)." |> Result.error
       with
         _ -> Error.Violation "This is a bug. There must be a non bisimilar state."  |> raise
 
-  and _c3 r blocks (st, fsm) : wb_res =
+  and c2 r blocks (st, fsm) : wb_res =
     let is_send = function
       | Some l -> l.Syntax.Local.direction = Syntax.Local.Sending
       | None -> false
@@ -404,7 +396,7 @@ module Local = struct
         " state: " ^ State.as_string st
         ^ " cannot take label: " ^ Label.as_string l
         ^ " that reaches with tau state: " ^ State.as_string st_error
-        ^ " (C3 Violation)."
+        ^ " (C2 Violation)."
         |> Result.error
     in
 
@@ -418,13 +410,13 @@ module Local = struct
         "States: " ^ State.as_string st
         ^ " is not bisimilar to state: " ^ State.as_string st'
         ^ " after taking label: " ^ Label.as_string l
-        ^ " (C3 violation)."
+        ^ " (C2 violation)."
         |> Result.error
     in
 
     List.fold_left (fun r (l, st') -> Result.bind r (fun _ -> check st l st')) (Result.ok ()) _sends
 
-  and _c4 r blocks (st, fsm) : wb_res =
+  and c3 r blocks (st, fsm) : wb_res =
     let is_receive = function
       | Some l -> l.Syntax.Local.direction = Syntax.Local.Receiving
       | None -> false
@@ -463,7 +455,7 @@ module Local = struct
                 ^ " states: " ^ State.as_string s
                 ^ " is not bisimilar to state: " ^ State.as_string s'
                 ^ " after taking label: " ^ Label.as_string (FSM.E.label e)
-                ^ " (C4 violation)."
+                ^ " (C3 violation)."
                 |> Result.error
             in
             List.fold_left (fun r s' -> Result.bind r (fun _ -> check s s')) (Result.ok ()) ss
@@ -471,6 +463,14 @@ module Local = struct
         Result.bind are_bisim (fun _ -> f es_diff)
     in
     f (weak_reductions |> List.filter (fun e -> FSM.E.label e |> is_receive))
+
+  and c4 r (st, fsm) : wb_res =
+    if FSM.has_strong_outgoing_transitions fsm st then
+      if State.is_end st then
+        "For role: " ^ r ^ " state: " ^ State.as_string st ^ " may terminate or continue (C4 violation)." |> Result.error
+      else
+        Result.ok ()
+    else Result.ok ()
 
   and c5 r fsm visited to_visit : wb_res =
     match to_visit with
