@@ -171,10 +171,9 @@ module Global = struct
 
     and get_lts (g : global) (visited : global list) : lts =
       if List.mem g visited then []
-      else(
+      else
         let lts_hd = get_lts_head g in
         List.map (fun (l, g') -> (g, l, g')::get_lts g' (g::visited)) lts_hd |> List.concat
-      )
     in
 
 
