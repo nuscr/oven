@@ -104,7 +104,9 @@ module Global = struct
       | Intersection (g1, g2) ->
         get_lts_head (Intersection (g1, g2)) |> Utils.is_empty
 
-      | Join _
+      | Join (g1, g2) ->
+        get_lts_head (Join (g1, g2)) |> Utils.is_empty
+
       | Rec _ | Var _
       | Prioritise _ -> failwith "unimplemented"
 
@@ -113,6 +115,15 @@ module Global = struct
       : (transition_label * global) list =
       let done_g = Seq [] in (* a terminated global type *)
 
+      let intersection_like f g1 g2 =
+        let ltshd1 = get_lts_head g1 in
+        let ltshd2 = get_lts_head g2 in
+
+        Utils.cartesian ltshd1 ltshd2
+        |> List.filter (fun ((l, _), (l', _)) -> l = l')
+        |> List.map (fun ((l, g1'), (_, g2')) ->  (l, f g1' g2'))
+
+      in
       match g with
       | MessageTransfer lbl -> [(lbl, done_g)]
 
@@ -147,16 +158,31 @@ module Global = struct
         in
         build_par [] gs
 
-      | Intersection (g1, g2) ->
+      | Intersection (g1, g2) -> intersection_like (fun x y -> Intersection (x, y)) g1 g2
 
-       let ltshd1 = get_lts_head g1 in
-       let ltshd2 = get_lts_head g2 in
+       (* let ltshd1 = get_lts_head g1 in *)
+       (* let ltshd2 = get_lts_head g2 in *)
 
-       Utils.cartesian ltshd1 ltshd2
-       |> List.filter (fun ((l, _), (l', _)) -> l = l')
-       |> List.map (fun ((l, g1'), (_, g2')) ->  (l, Intersection (g1', g2')))
+       (* Utils.cartesian ltshd1 ltshd2 *)
+       (* |> List.filter (fun ((l, _), (l', _)) -> l = l') *)
+       (* |> List.map (fun ((l, g1'), (_, g2')) ->  (l, Intersection (g1', g2'))) *)
 
-      | Join _
+      | Join (g1, g2) ->
+
+        let lbls_in_g1 = get_lts g1 [] |> List.map (fun (_, l, _) -> l) |> Utils.uniq in
+        let lbls_in_g2 = get_lts g2 [] |> List.map (fun (_, l, _) -> l) |> Utils.uniq in
+
+
+        let l1 = get_lts_head g1 |> List.filter (fun (l, _) -> List.mem l lbls_in_g2 |> not)
+                 |>List.map (fun (l', g1') -> (l', Join (g1', g2)))
+        in
+
+        let l2 = get_lts_head g2 |> List.filter (fun (l, _) -> List.mem l lbls_in_g1 |> not)
+                 |>List.map (fun (l', g2') -> (l', Join (g1, g2')))
+        in
+        let l3 = intersection_like (fun x y -> Join (x,y)) g1 g2 in
+
+        l1 @ l2 @ l3
 
       | Prioritise _
 
