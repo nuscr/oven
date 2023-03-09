@@ -1,4 +1,4 @@
-(*) This is a C1 violation example
+(*) This is a C4 violation example
 
 global Borked(role C, role S)
 {

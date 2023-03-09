@@ -1,4 +1,4 @@
-(*) This is a C3 violation example
+(*) This is a C2 violation example
 
 global Borked(role A, role B, role C, role D) {
   A() from A to B;

@@ -1,4 +1,4 @@
-(*) This is a C4 violation example
+(*) This is a C3 violation example
 
 global Borked(role A, role B) {
   choice {
