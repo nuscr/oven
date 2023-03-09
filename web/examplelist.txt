@@ -11,6 +11,7 @@ examples/nestedfin.oven
 examples/choice.oven
 examples/choicefin.oven
 examples/intersection.oven
+examples/weak.oven
 examples/loose.oven
 examples/priority.oven
 examples/convoluted.oven

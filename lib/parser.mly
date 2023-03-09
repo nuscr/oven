@@ -48,6 +48,7 @@ let unpack_message_transfer = function
 %token FIN_KW
 %token INF_KW
 %token PAR_KW
+%token WEAK_KW
 
 %token INTERSECTION_KW
 %token JOIN_KW
@@ -121,6 +122,7 @@ let global_interaction ==
   | rec_composition
   | var_composition
   | parallel_composition
+  | weak_composition
   | join_composition
   | intersection
   | priority
@@ -146,6 +148,11 @@ let parallel_composition ==
   PAR_KW ;
   ~ = separated_nonempty_list(AND_KW, global_protocol_block) ;
   < Par >
+
+let weak_composition ==
+  WEAK_KW ;
+  gs = separated_nonempty_list(AND_KW, global_protocol_block) ;
+  { build (fun g1 g2 -> OutOfOrder (g1, g2)) gs }
 
 let join_composition ==
   JOIN_KW ;

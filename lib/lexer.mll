@@ -70,6 +70,7 @@ and token = parse
 | "rec" { REC_KW }
 | "continue" { CONTINUE_KW }
 | "fin" { FIN_KW }
+| "weak" { WEAK_KW }
 | "inf" { INF_KW }
 | "par" { PAR_KW }
 | "intersection" { INTERSECTION_KW }
