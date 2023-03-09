@@ -85,6 +85,63 @@ let rec validate_roles roles = function
     validate_roles roles g2
   | Var _ -> true
 
+
+
+(* substitute g for x in the type *)
+let unfold (g: global) (x : rec_var) : global -> global =
+  let rec f =
+    function
+    | MessageTransfer lbl -> MessageTransfer lbl
+    | Par gs' -> Par (List.map f gs')
+    | Seq gs' -> Seq (List.map f gs')
+    | OutOfOrder (g1', g2') -> OutOfOrder (f g1', f g2')
+    | Choice gs' -> Choice (List.map f gs')
+    | Fin g' -> Fin (f g')
+    | Inf g' ->  Fin (f g')
+    | Intersection (g1', g2') -> Intersection (f g1', f g2')
+    | Join (g1', g2') -> Join (f g1', f g2')
+    | Prioritise (g', MessageTransfer lbl1, MessageTransfer lbl2) ->
+      Prioritise (f g', MessageTransfer lbl1, MessageTransfer lbl2)
+    | Prioritise _ -> failwith "unsupported"
+    | Rec (y, g') when x = y -> Rec (y, g')
+    | Rec (y, g') -> Rec (y, f g')
+    | Var y when x = y -> g
+    | Var y -> Var y
+  in
+  f
+
+
+let well_guarded : global -> bool =
+  let guard dict = List.map (fun (x, _) -> (x, true)) dict in
+  let rec f dict = function
+    | Rec (x, g) -> f ((x, false)::dict) g
+    | MessageTransfer _ -> true
+    | Choice branches
+    | Par branches ->
+      List.for_all (f dict) branches
+    | Seq [] -> true
+    | Seq (g::gs) ->
+      if f dict g then
+        f (guard dict) (Seq gs)
+      else false
+    | Fin g
+    | Inf g -> f dict g
+    | Prioritise (g1, g2, g3) -> f dict g1 && f dict g2 && f dict g3
+    | Join (g1, g2)
+    | OutOfOrder (g1, g2)
+    | Intersection (g1, g2) ->
+      f dict g1 && f dict g2
+    | Var x -> List.assoc x dict
+  in
+  f []
+
+let well_guarded_protocol prot = well_guarded prot.interactions
+
+let well_guarded_cu cu =
+  if List.for_all well_guarded_protocol cu
+  then ()
+  else Error.UserError "Protocol not well guarded" |> raise
+
 let syntactic_well_formedness nm =
   let rec f = function
     | MessageTransfer _ -> ()
@@ -142,7 +199,9 @@ let validate_roles_in_global_protocol protocol =
 
 let validate_roles_in_compilation_unit cu =
   syntactic_well_formedness_in_compilation_unit cu ;
+  well_guarded_cu cu;
   List.for_all validate_roles_in_global_protocol cu
+
 
 (* local "types" *)
 

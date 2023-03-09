@@ -41,6 +41,9 @@ type global
   | Rec of rec_var * global
   | Var of rec_var
 
+
+val unfold : global -> rec_var -> global -> global
+
 type compilation_unit = global protocol list
 
 val validate_roles_in_compilation_unit : compilation_unit -> bool

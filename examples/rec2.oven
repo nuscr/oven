@@ -1,0 +1,12 @@
+global Loop(role C, S)
+{
+  rec X {
+    S() from C to S;
+    choice {
+      A() from C to S;
+    } or {
+      continue X
+    }
+  }
+  E from S to C;
+}

@@ -92,6 +92,30 @@ module Global = struct
   let _filter_degenerate_branches branches =
     List.filter (function Seq [] -> false | _ -> true) branches
 
+  (* substitute g for x in the type *)
+  let unfold (g: global) (x : rec_var) : global -> global =
+    let rec f =
+    function
+      | MessageTransfer lbl -> MessageTransfer lbl
+      | Par gs' -> Par (List.map f gs')
+      | Seq gs' -> Seq (List.map f gs')
+      | OutOfOrder (g1', g2') -> OutOfOrder (f g1', f g2')
+      | Choice gs' -> Choice (List.map f gs')
+      | Fin g' -> Fin (f g')
+      | Inf g' ->  Fin (f g')
+      | Intersection (g1', g2') -> Intersection (f g1', f g2')
+      | Join (g1', g2') -> Join (f g1', f g2')
+      | Prioritise (g', MessageTransfer lbl1, MessageTransfer lbl2) ->
+        Prioritise (f g', MessageTransfer lbl1, MessageTransfer lbl2)
+      | Prioritise _ -> failwith "unsupported"
+      | Rec (y, g') when x = y -> Rec (y, g')
+      | Rec (y, g') -> Rec (y, f g')
+      | Var y when x = y -> g
+      | Var y -> Var y
+    in
+    f
+
+
   (* returns the start state and and fsm that results from translating g *)
   let generate_state_machine' (g : global) : FSM.vertex * FSM.t =
     let rec may_terminate = function
@@ -114,8 +138,10 @@ module Global = struct
 
       | Prioritise _ -> failwith "unsupported"
 
-      | Rec _ | Var _ ->
-          assert false
+      | Rec (x, g) ->
+        may_terminate (unfold (Rec (x, g)) x g)
+
+      | Var _ -> false
 
     and get_lts_head
         (g : global)
@@ -211,9 +237,11 @@ module Global = struct
       | Prioritise _
         -> failwith "unsupported."
 
-      | Rec _ | Var _
+      | Rec (x, g') ->
+        get_lts_head (unfold (Rec (x, g')) x  g')
 
-        -> failwith "unimplemented"
+      | Var _
+        -> failwith "unexpected!!! VIOLATION"
 
     and get_lts (g : global) (visited : global list) : lts =
       if List.mem g visited then []
