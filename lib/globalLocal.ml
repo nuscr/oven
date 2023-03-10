@@ -258,7 +258,7 @@ module Global = struct
   let minimise fsm = B.minimise fsm
 
   let generate_state_machine (g : global) : State.t * FSM.t =
-
+    "generate_state_machine enter" |> Utils.log ;
     let fsm = generate_state_machine' g in
     let fsm = if Debug.simplify_machine_off None
       then fsm
@@ -267,6 +267,7 @@ module Global = struct
         let fsm, _ = SEC.make_tau_ends_equivalent_with_dict fsm in
         B.minimise fsm |> FSM.remove_reflexive_taus |> FSM.minimise_state_numbers
     in
+    "generate_state_machine exit" |> Utils.log ;
     FSM.get_start_state fsm, fsm
 
   let generate_minimal_dot fsm =
@@ -490,16 +491,70 @@ module Local = struct
     c5 r fsm [] [st]
 
   let well_behaved_local_machines roles_and_lfsms : wb_res =
+    Utils.log "well_behaved_local_machines start" ;
     let lfsms = List.map (fun (r, l) -> r, FSM.get_start_state l, l) roles_and_lfsms in
-    pipe_fold well_behaved_role (Result.ok ()) lfsms
+    let res = pipe_fold well_behaved_role (Result.ok ()) lfsms in
+    Utils.log "well_behaved_local_machines end" ;
+    res
 
   let generate_minimal_dot fsm =
     let module WB = Bisimulation.Bisimulation (FSM) (Bisimulation.Weak) in
     WB.generate_minimal_dot fsm
 
+  (* if an two state have only outgoing taus to eachother, merge them!
+     faster for mostly inactive roles *)
+  let remove_mutally_taud_states (fsm : FSM.t) : FSM.t =
+    "remove_mutally_taud_states start" |> Utils.log ;
+
+    let vs = FSM.get_vertices fsm in
+    let only_outgoing_taus st =
+      FSM.succ_e fsm st |> List.for_all (fun e -> FSM.Label.is_default (FSM.E.label e))
+      && (FSM.State.is_end st |> not)
+    in
+    let vs_out_taus_only = List.filter only_outgoing_taus vs in
+
+    let rec points_to_merge visited st =
+      if List.mem st visited then []
+      else
+        let vs = FSM.succ_e fsm st
+                 |> List.map FSM.E.dst
+                 |> List.filter (fun st -> List.mem st vs_out_taus_only)
+        in
+        st::(List.map (fun st' -> points_to_merge (st::visited) st') vs |> List.concat)
+    in
+
+    let rec build_ec vs acc =
+      match vs with
+      | [] -> acc
+
+      | v'::vs' ->
+        let eql = points_to_merge [] v' in
+        let vs' = List.filter (fun v -> List.mem v eql |> not) vs' in
+        build_ec vs' (eql::acc)
+    in
+
+    (* TODO make this a partial equivalence class (EC). It is partial
+       because states that are not there should be considered
+       singletons *)
+    let ec = build_ec vs_out_taus_only [] in
+
+    let get_canonical v = (* TODO: from this is just EC translate but better. *)
+      match List.find_opt (fun l -> List.mem v l) ec with
+      | None -> v
+      | Some [] -> failwith "This cannot happen"
+      | Some (v'::vs') ->
+        if List.exists FSM.State.is_start vs' then FSM.State.mark_as_start v' else v'
+    in
+    let get_canonical_edge e =
+      FSM.E.create (FSM.E.src e |> get_canonical) (FSM.E.label e) (FSM.E.dst e |> get_canonical)
+    in
+    let res = FSM.fold_edges_e (fun e fsm -> FSM.add_edge_e fsm (get_canonical_edge e)) fsm FSM.empty in
+    "remove_mutally_taud_states start" |> Utils.log ;
+    res
+
   let generate_local_for_roles roles gfsm =
     let local_machine r =
-      r, project r gfsm |> FSM.minimise_state_numbers
+      r, project r gfsm |> remove_mutally_taud_states |> FSM.minimise_state_numbers
     in
 
     List.map local_machine roles
