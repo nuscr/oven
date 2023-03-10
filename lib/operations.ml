@@ -129,7 +129,7 @@ module Local = struct
          else
            None
 
-  let rec get_enabled_transitions (roles : role list ) (g, r : local) : SL.local_transition_label list =
+  let get_enabled_transitions (roles : role list ) (g, r : local) : SL.local_transition_label list =
     let global_tr = Global.get_enabled_transitions roles [] g in
 
     List.filter_map (project_transition r)
