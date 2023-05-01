@@ -16,6 +16,22 @@ let rec uniq x =
   | [] -> []
   | h::t -> h::(helper (uniq t) h)
 
+let rev (l : 'a list) : 'a list =
+  let rec f acc = function
+    | [] -> acc
+    | x::xs -> f (x::acc) xs
+  in
+  f [] l
+
+(* Do a proper one with CPS if this works *)
+let append (l1 : 'a list) (l2 : 'a list) : 'a list =
+  let rec f l acc =
+    match l with
+      [] -> acc
+    | x::xs -> f xs (x::acc)
+  in
+  f (rev l1) l2
+
 
 let cartesian (l1 : 'a list) (l2 : 'b list) : ('a * 'b) list =
   List.fold_left (fun acc1 ele1 ->

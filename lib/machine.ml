@@ -1,5 +1,7 @@
 open Graph
 
+let (@) = Utils.append
+
 module type STATE =
 sig
   type t
