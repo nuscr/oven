@@ -1,3 +1,5 @@
+let (@) = Utils.append
+
 module Composition (FSM : Machine.FSM) =
 struct
   (* Monadic interface commented out for now *)

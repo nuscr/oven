@@ -1,5 +1,6 @@
 (executables
  (names main)
+ (modes byte)
  (libraries ovenMPSTlib))
 
 (install

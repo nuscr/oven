@@ -1,5 +1,7 @@
 open Syntax
 
+let (@) = Utils.append
+
 open Machine
 
 let _debug =

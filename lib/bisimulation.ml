@@ -1,3 +1,5 @@
+let (@) = Utils.append
+
 module StateEquivalenceClasses (FSM: Machine.FSM) =
 struct
 
