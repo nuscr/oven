@@ -1,6 +1,6 @@
 open Syntax
 
-let (@) = Utils.append
+open Utils.List
 
 open Machine
 

@@ -1,4 +1,4 @@
-let (@) = Utils.append
+open Utils.List
 
 module Composition (FSM : Machine.FSM) =
 struct

@@ -1,3 +1,9 @@
+module List : sig
+  val fold_left : ('a -> 'b -> 'a) -> 'a -> 'b list -> 'a
+  val (@) : 'a list -> 'a list -> 'a list
+end
+
+
 
 (* functions on lists *)
 val uniq : 'a list -> 'a list
@@ -7,9 +13,6 @@ val is_non_empty : 'a list -> bool
 val rem : 'a -> 'a list -> 'a list
 val minus : 'a list -> 'a list -> 'a list
 val  split_3 : ('a * 'b * 'c) list -> 'a list * 'b list * 'c list
-
-val append : 'a list -> 'a list -> 'a list
-val rev : 'a list -> 'a list
 
 (* debugging functions *)
 val log : string -> unit

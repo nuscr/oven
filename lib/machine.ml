@@ -1,6 +1,6 @@
 open Graph
 
-let (@) = Utils.append
+open Utils.List
 
 module type STATE =
 sig
