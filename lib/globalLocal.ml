@@ -146,7 +146,7 @@ module Global = struct
         head @ tail
 
       | OutOfOrder (g1, g2) ->
-        let g1_roles = get_lts g1 [] |> List.map (fun (_, lbl, _) -> [lbl.sender ; lbl.receiver]) |> List.concat |> Utils.uniq in
+        let g1_roles = get_lts g1 [] |> List.map (fun (_, lbl, _) -> [lbl.sender ; lbl.receiver]) |> Utils.List.concat |> Utils.uniq in
 
         let l1 = get_lts_head g1 |> List.map (fun (l, g') -> (l, OutOfOrder(g', g2))) in
         let l2 = get_lts_head g2
@@ -156,7 +156,7 @@ module Global = struct
         l1 @ l2
 
       | Choice gs ->
-        List.map get_lts_head gs |> List.concat
+        List.map get_lts_head gs |> Utils.List.concat
 
       | Fin g' ->
         List.map (fun (l, g'') -> l, Seq [g'' ; Fin g']) (get_lts_head g')
@@ -217,7 +217,7 @@ module Global = struct
       if List.mem g visited then []
       else
         let lts_hd = get_lts_head g in
-        List.map (fun (l, g') -> (g, l, g')::get_lts g' (g::visited)) lts_hd |> List.concat
+        List.map (fun (l, g') -> (g, l, g')::get_lts g' (g::visited)) lts_hd |> Utils.List.concat
     in
 
 

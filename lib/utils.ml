@@ -21,6 +21,13 @@ struct
     f (rev l1) l2
 
   let (@) = append
+  
+  let concat (xss : 'a list list) : 'a list =
+    let rec tail xss acc =
+      match xss with
+      | [] -> acc
+      | xs::xss -> tail xss (acc @ xs)
+    in tail xss []
 end
 
 let  split_3 l =

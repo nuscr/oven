@@ -1,6 +1,7 @@
 module List : sig
   val fold_left : ('a -> 'b -> 'a) -> 'a -> 'b list -> 'a
   val (@) : 'a list -> 'a list -> 'a list
+  val concat : 'a list list -> 'a list
 end
 
 
