@@ -24,10 +24,11 @@ struct
   
   let concat (xss : 'a list list) : 'a list =
     let rec tail xss acc =
+      let (@) = List.rev_append in 
       match xss with
-      | [] -> acc
-      | xs::xss -> tail xss (acc @ xs)
-    in tail xss []
+      | [] -> List.rev acc
+      | xs::xss -> tail xss ( xs @ acc)
+      in tail xss []
 end
 
 let  split_3 l =
