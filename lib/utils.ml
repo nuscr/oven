@@ -28,7 +28,7 @@ struct
       match xss with
       | [] -> List.rev acc
       | xs::xss -> tail xss (xs @ acc)
-      in tail xss []
+    in tail xss []
 end
 
 let  split_3 l =
