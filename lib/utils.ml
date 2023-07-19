@@ -27,7 +27,7 @@ struct
       let (@) = List.rev_append in 
       match xss with
       | [] -> List.rev acc
-      | xs::xss -> tail xss ( xs @ acc)
+      | xs::xss -> tail xss (xs @ acc)
       in tail xss []
 end
 
