@@ -212,12 +212,25 @@ module Global = struct
 
       | Var _
         -> failwith "unexpected!!! VIOLATION"
-
+    
+    and kget_lts (g : global) (visited : global list) k =
+      let module Cps =  Utils.Cps in
+      let f (l, g') k =
+        kget_lts g' (g :: visited) (fun tail -> k ((g, l, g') :: tail))
+      in
+      if List.mem g visited then k []
+      else
+        let open Cps.LetSyntax in
+        let lts_head = get_lts_head g in
+        let* xss = Cps.kfkmap f lts_head in
+        let* xs = Cps.kconcat xss in
+        k xs
     and get_lts (g : global) (visited : global list) : lts =
-      if List.mem g visited then []
+      (* if List.mem g visited then []
       else
         let lts_hd = get_lts_head g in
-        List.map (fun (l, g') -> (g, l, g')::get_lts g' (g::visited)) lts_hd |> Utils.List.concat
+        List.map (fun (l, g') -> (g, l, g')::get_lts g' (g::visited)) lts_hd |> Utils.List.concat *)
+      kget_lts g visited (fun x -> x)
     in
 
 
