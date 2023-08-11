@@ -1,0 +1,8 @@
+global Borked(role C, role S) {
+  choice {
+    fin{A() from C to S;}
+  } or {
+    B() from C to S;
+  }
+  DONE() from C to S;
+}
