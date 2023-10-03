@@ -2,7 +2,7 @@
 
 (name ovenMPST)
 
-; (cram enable)
+(cram enable)
 
 (using menhir 2.0)
 

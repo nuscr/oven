@@ -19,6 +19,7 @@ run choice.oven
     3 -> 3 [label="C!S<A>", ];
     
     }
+  
   // Role: S
   digraph G {
     rankdir=LR;
@@ -36,3 +37,4 @@ run choice.oven
     3 -> 3 [label="C?S<A>", ];
     
     }
+  
