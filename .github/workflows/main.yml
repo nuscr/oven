@@ -1,0 +1,41 @@
+name: Build and deploy
+
+on:
+  push:
+    branches:
+      - 'master'
+      - 'develop'
+
+jobs:
+  build:
+    strategy:
+      matrix:
+        ocaml-version:
+          - 4.14.x
+
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+        with:
+          path: SynMPST
+
+      - name: Use OCaml ${{ matrix.ocaml-version }}
+        uses: ocaml/setup-ocaml@v2
+        with:
+          ocaml-compiler: ${{ matrix.ocaml-version }}
+          opam-local-packages: nuscr/*.opam
+
+      - name: Cache opam
+        uses: actions/cache@v2
+        with:
+          path: _opam
+          key: ${{ runner.os }}-${{ matrix.ocaml-version }}-${{ hashFiles('dune-project') }}
+
+      - run: cd SynMPST && opam install . --deps-only --with-doc --with-test
+
+      - run: cd SynMPST && opam exec -- dune build
+
+      # - name: Deploy live version
+      #   run: cd SynMPST && WHERE=../site opam exec -- make -C web deploy

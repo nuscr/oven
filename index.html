@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <script charset="utf-8" type="text/javascript" src="live.bc.js" ></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/semantic-ui/2.4.1/semantic.min.css" integrity="sha256-9mbkOfVho3ZPXfM7W8sV2SndrGDuh7wuyLjtsWeTI1Q=" crossorigin="anonymous" />
+    <script src="https://code.jquery.com/jquery-3.1.1.min.js" integrity="sha256-hVVnYaiADRTO2PzUGmuLJr8BLUSjGIZsDYGmIJLv2b8=" crossorigin="anonymous"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/semantic-ui/2.4.1/semantic.js" integrity="sha256-qs5p0BFSqSvrstBxPvex+zdyrzcyGdHNeNmAirO2zc0=" crossorigin="anonymous"></script>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/tonsky/FiraCode@1.207/distr/fira_code.css">
+    <link rel="stylesheet" href="style.css" />
+    <title>ovenMPST IDE</title>
+    <script src="https://cdn.jsdelivr.net/npm/iblize/dist/iblize.min.js"></script>
+  </head>
+  <body>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/viz.js/2.1.2/viz.js" integrity="sha256-8RHyK+AFzq9iXwbFo2unqidwPbwHU5FFWe3RwkcVtuU=" crossorigin="anonymous"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/viz.js/2.1.2/full.render.js" integrity="sha256-Ogqs510LFnekr9o7OLdpelaaAmNss9egQRTyzCqV2NQ=" crossorigin="anonymous"></script>
+    <script>
+      function getProtocolName() {
+        var ele = document.getElementsByName('protocol_choice');
+        for(i = 0; i < ele.length; i++) {
+                if(ele[i].checked) return ele[i].value.trim();
+            }
+        return "";
+      }
+
+      function getOutputFormat() {
+        var ele = document.getElementById('output_format');
+          var ret = ele.value;
+          return ret;
+      }
+    </script>
+
+    <div class="ui fixed menu">
+      <div class="ui container">
+        <a href="https://nuscr.dev/oven/" class="header item">
+          <img class="logo" src="ovenMPST.png">
+          OvenMPST
+        </a>
+        <!-- <a href="docs" class="item">Documentation</a> -->
+        <a href="https://github.com/nuscr/oven" target="_blank" rel="noopener noreferrer" class="item">GitHub</a>
+      </div>
+    </div>
+
+    <div class="ui main container">
+      <h1 class="ui header">
+        <img src="ovenMPST.png" alt="Logo" />
+        OvenMPST IDE
+      </h1>
+
+      <div class="ui grid">
+        <div class="eight wide column">
+          <h2>Global protocol</h2>
+          <div rows="30" id="protocol-textarea" default="Enter text..."></div>
+          <script>
+            // use selector
+            const iblize = new Iblize("#protocol-textarea", {
+                language: "html",
+                lineNumber: true,
+                theme: "iblize-light",
+                // etc
+            });
+            to1 = window.setTimeout(() => console.log("empty timer."), 1);
+            to2 = window.setTimeout(() => console.log("empty timer."), 1);
+
+            function clear_and_parse () {
+                ovenInterface.clear(1); ovenInterface.parse(1);
+            }
+
+            iblize.onUpdate((value) => {
+                window.clearTimeout(to1);
+                to1 = window.setTimeout(clear_and_parse, 100);
+                window.clearTimeout(to2);
+                to2 = window.setTimeout(()=> ovenInterface.render(1), 1000);
+
+            });
+          </script>
+          <br />
+          <select required class="ui dropdown" id="examples">
+            <option value="" disabled selected hidden>Load an example</option>
+          </select>
+          <select required class="ui dropdown" id="output_format">
+            <option value="graph" selected>Show graph</option>
+            <option value="dot">Show graphviz dot file</option>
+          </select>
+          <button class="ui button" id="button">Analyse</button>
+        </div>
+        <div class="eight wide column" id="output">
+        </div>
+        <div class="ui negative message" id="errorbox" hidden></div>
+        <div class="sixteen wide column">
+          <h2> Global Machine </h2>
+          <!-- remove the unused ones -->
+          <div id="result"></div>
+          <pre id="projected"/></pre>
+          <div id="efsm" style="overflow: scroll;"></div>
+        </div>
+        <div class = "sixteen wide column">
+          <h2>Local Projections </h2>
+          <div id="local">
+          </div>
+        </div>
+      </div>
+    </div>
+  </body>
+</html>
