@@ -146,7 +146,7 @@ let analyse' () =
 
 let analyse () =
   analyse' () ;
-  Js_of_ocaml.Firebug.console##log (Js_of_ocaml.Js.string @@ OvenMPST.get_log())
+  Js_of_ocaml.Console.console##log (Js_of_ocaml.Js.string @@ OvenMPST.get_log())
 
 (* let analyse () = *)
 (*   let () = Interface.Error.reset () in *)
