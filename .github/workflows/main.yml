@@ -11,6 +11,7 @@ jobs:
       matrix:
         ocaml-version:
           - 4.14.x
+          - 5
 
     runs-on: ubuntu-latest
 
