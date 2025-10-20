@@ -1,6 +1,9 @@
 {
   "devDependencies": {
-    "esbuild": "^0.14.49",
+    "esbuild": "^0.25.0",
     "serve": "^14.0.1"
+  },
+  "resolutions": {
+    "on-headers": "^1.1.0"
   }
 }
