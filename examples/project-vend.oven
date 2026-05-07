@@ -1,0 +1,30 @@
+(*) An AI vending machine
+
+(*) Example from Antrhopic's Project Vend
+(*) https://www.anthropic.com/research/project-vend-1
+
+// E is an Anthropic Employee
+// C is Claudius the AI agent managing the shop
+// V is the vendor of the items sold in the shop
+// M is the vending machine controlled by Claudius
+// A is the Andon Labs who manage the physical item movement
+
+global Parallel(role E, role C, role V, role M, role A)
+{
+  inf {
+    QUERY(item) from E to C; AVAIL(int) from C to E;
+	choice {
+      BUY(item) from E to C;
+      par {
+        ORDER(item) from C to V;
+      } and {
+        NOTIFY(item) from C to A;
+      }
+      RESTOCK(item) from A to M;
+      SUPPLY(item) from M to E;
+    } or {
+      END from E to M;
+    }
+  }
+}
+ 

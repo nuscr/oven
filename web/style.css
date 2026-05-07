@@ -1,5 +1,7 @@
 .main.container {
     margin-top: 7em;
+    width: 80% !important;
+    max-width: none !important;
 }
 
 .ui.menu .item img.logo {

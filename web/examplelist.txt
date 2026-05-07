@@ -1,3 +1,4 @@
+examples/project-vend.oven
 examples/first.oven
 examples/second.oven
 examples/par.oven
