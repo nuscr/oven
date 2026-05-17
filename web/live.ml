@@ -109,8 +109,13 @@ let set_local fsms =
 
   Interface.GraphLocal.set_div "local" divs ;
 
+  let dot_fn =
+    if Interface.Code.get_minimise ()
+    then OvenMPST.minimal_dot_of_local_machine
+    else OvenMPST.dot_of_local_machine
+  in
   let set_graph (r, fsm) =
-    Interface.GraphLocal.set_dot ("local_" ^ r) (OvenMPST.dot_of_local_machine fsm)
+    Interface.GraphLocal.set_dot ("local_" ^ r) (dot_fn fsm)
   in
 
   List.iter set_graph fsms

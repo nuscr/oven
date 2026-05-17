@@ -33,6 +33,10 @@ module Code = struct
     let res = Js.Unsafe.eval_string get_format in
     Js.to_string res
 
+  let get_minimise () =
+    let res = Js.Unsafe.eval_string "getMinimise();" in
+    Js.to_string res = "true"
+
 end
 
 module Error = struct
