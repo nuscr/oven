@@ -28,6 +28,10 @@ Protocol examples are in the `examples/` directory.
 cd web && yarn && make
 ```
 
+## API Generation
+
+- [baguette](https://github.com/nuscr/baguette): API generation for Rust using 0MQ as transport.
+
 ## License
 
 GPL-3.0-or-later. Authors: Francisco Ferreira, Sung-Shik Jongmans.
